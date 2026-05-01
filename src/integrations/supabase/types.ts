@@ -14,10 +14,156 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      projects: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          status: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          status?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          actual_minutes: number | null
+          area: string
+          completed_at: string | null
+          created_at: string
+          due_date: string | null
+          estimated_minutes: number | null
+          id: string
+          name: string
+          notes: string | null
+          priority: string
+          project_id: string | null
+          recurrence: string
+          status: string
+        }
+        Insert: {
+          actual_minutes?: number | null
+          area?: string
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          name: string
+          notes?: string | null
+          priority?: string
+          project_id?: string | null
+          recurrence?: string
+          status?: string
+        }
+        Update: {
+          actual_minutes?: number | null
+          area?: string
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          name?: string
+          notes?: string | null
+          priority?: string
+          project_id?: string | null
+          recurrence?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timer_sessions: {
+        Row: {
+          duration_minutes: number | null
+          ended_at: string | null
+          id: string
+          started_at: string
+          task_id: string
+        }
+        Insert: {
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          task_id: string
+        }
+        Update: {
+          duration_minutes?: number | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timer_sessions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timer_sessions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks_with_time"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      tasks_with_time: {
+        Row: {
+          actual_minutes: number | null
+          area: string | null
+          completed_at: string | null
+          created_at: string | null
+          due_date: string | null
+          estimated_minutes: number | null
+          id: string | null
+          name: string | null
+          notes: string | null
+          priority: string | null
+          project_color: string | null
+          project_id: string | null
+          project_name: string | null
+          recurrence: string | null
+          status: string | null
+          total_tracked_minutes: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never
