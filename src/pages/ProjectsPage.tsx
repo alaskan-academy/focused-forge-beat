@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useProjects, useCreateProject, useUpdateProject } from '@/hooks/useProjects';
 import { useTasks } from '@/hooks/useTasks';
 import { Plus, Pencil } from 'lucide-react';
+import TaskModal from '@/components/TaskModal';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
