@@ -28,6 +28,9 @@ export default function ProjectsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectFormState | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskModalKey, setTaskModalKey] = useState(0);
+  const [editTaskData, setEditTaskData] = useState<any>(null);
 
   const isEdit = !!editProject?.id;
 
