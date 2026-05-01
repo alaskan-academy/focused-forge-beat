@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { addDays, addWeeks, addMonths, format } from 'date-fns';
+import { addDays, addWeeks, addMonths, format, getDay, getDate } from 'date-fns';
+import { RecurrenceConfig, parseRecurrence } from '@/lib/recurrence';
 
 export function useTasks() {
   return useQuery({
@@ -16,6 +17,50 @@ export function useTasks() {
   });
 }
 
+function generateRecurringDates(startDate: string, config: RecurrenceConfig, maxDays = 30): string[] {
+  const dates: string[] = [];
+  const start = new Date(startDate);
+  const limit = addDays(new Date(), maxDays);
+  
+  if (config.type === 'daily') {
+    let current = start;
+    for (let i = 0; i < 100; i++) {
+      current = addDays(current, config.interval);
+      if (current > limit) break;
+      dates.push(format(current, 'yyyy-MM-dd'));
+    }
+  } else if (config.type === 'weekly') {
+    const targetDays = config.days_of_week?.length ? config.days_of_week : [getDay(start)];
+    let weekStart = start;
+    for (let w = 0; w < 20; w++) {
+      weekStart = addWeeks(start, (w + 1) * config.interval);
+      if (weekStart > limit) break;
+      for (const dayOfWeek of targetDays) {
+        const diff = dayOfWeek - getDay(weekStart);
+        const d = addDays(weekStart, diff);
+        if (d > start && d <= limit) {
+          dates.push(format(d, 'yyyy-MM-dd'));
+        }
+      }
+    }
+  } else if (config.type === 'monthly') {
+    const targetDays = config.days_of_month?.length ? config.days_of_month : [getDate(start)];
+    let current = start;
+    for (let m = 0; m < 12; m++) {
+      current = addMonths(start, (m + 1) * config.interval);
+      if (current > limit) break;
+      for (const dayOfMonth of targetDays) {
+        const d = new Date(current.getFullYear(), current.getMonth(), Math.min(dayOfMonth, new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate()));
+        if (d > start && d <= limit) {
+          dates.push(format(d, 'yyyy-MM-dd'));
+        }
+      }
+    }
+  }
+  
+  return [...new Set(dates)].sort();
+}
+
 export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
@@ -27,31 +72,28 @@ export function useCreateTask() {
       priority?: string;
       due_date?: string | null;
       estimated_minutes?: number;
-      recurrence?: string;
+      recurrence_config?: RecurrenceConfig;
       notes?: string;
     }) => {
-      const { data, error } = await supabase.from('tasks').insert(task).select().single();
+      const { recurrence_config, ...rest } = task;
+      const insertData = {
+        ...rest,
+        recurrence_config: recurrence_config ? JSON.parse(JSON.stringify(recurrence_config)) : { type: 'none' },
+      };
+      
+      const { data, error } = await supabase.from('tasks').insert(insertData as any).select().single();
       if (error) throw error;
 
       // Create recurring tasks
-      if (task.recurrence && task.recurrence !== 'none' && task.due_date) {
-        const recurring: typeof task[] = [];
-        let currentDate = new Date(task.due_date);
-        for (let i = 0; i < 30; i++) {
-          if (task.recurrence === 'daily') currentDate = addDays(currentDate, 1);
-          else if (task.recurrence === 'weekly') currentDate = addWeeks(currentDate, 1);
-          else if (task.recurrence === 'monthly') currentDate = addMonths(currentDate, 1);
-          
-          const diff = currentDate.getTime() - new Date().getTime();
-          if (diff > 30 * 24 * 60 * 60 * 1000) break;
-
-          recurring.push({
-            ...task,
-            due_date: format(currentDate, 'yyyy-MM-dd'),
-          });
-        }
-        if (recurring.length > 0) {
-          await supabase.from('tasks').insert(recurring);
+      if (recurrence_config && recurrence_config.type !== 'none' && task.due_date) {
+        const recurringDates = generateRecurringDates(task.due_date, recurrence_config);
+        if (recurringDates.length > 0) {
+          const recurring = recurringDates.map((date) => ({
+            ...rest,
+            due_date: date,
+            recurrence_config: JSON.parse(JSON.stringify(recurrence_config)),
+          }));
+          await supabase.from('tasks').insert(recurring as any);
         }
       }
       return data;
@@ -66,11 +108,14 @@ export function useUpdateTask() {
     mutationFn: async (params: { id: string } & Partial<{
       name: string; area: string; project_id: string | null; status: string;
       priority: string; due_date: string | null; estimated_minutes: number;
-      actual_minutes: number; recurrence: string; notes: string | null;
-      completed_at: string | null;
+      actual_minutes: number; notes: string | null;
+      completed_at: string | null; recurrence_config: RecurrenceConfig;
     }>) => {
-      const { id, ...updates } = params;
-      const { error } = await supabase.from('tasks').update(updates).eq('id', id);
+      const { id, recurrence_config, ...updates } = params;
+      const payload = recurrence_config 
+        ? { ...updates, recurrence_config: JSON.parse(JSON.stringify(recurrence_config)) }
+        : updates;
+      const { error } = await supabase.from('tasks').update(payload as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks_with_time'] }),

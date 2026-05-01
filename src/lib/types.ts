@@ -8,7 +8,7 @@ export interface TaskWithTime {
   due_date: string | null;
   estimated_minutes: number | null;
   actual_minutes: number | null;
-  recurrence: string;
+  recurrence_config: unknown;
   notes: string | null;
   created_at: string;
   completed_at: string | null;
