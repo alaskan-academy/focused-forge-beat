@@ -63,7 +63,13 @@ export function useCreateTask() {
 export function useUpdateTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; [key: string]: unknown }) => {
+    mutationFn: async (params: { id: string } & Partial<{
+      name: string; area: string; project_id: string | null; status: string;
+      priority: string; due_date: string | null; estimated_minutes: number;
+      actual_minutes: number; recurrence: string; notes: string | null;
+      completed_at: string | null;
+    }>) => {
+      const { id, ...updates } = params;
       const { error } = await supabase.from('tasks').update(updates).eq('id', id);
       if (error) throw error;
     },
