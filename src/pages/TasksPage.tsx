@@ -88,9 +88,11 @@ export default function TasksPage() {
       if (statusFilter !== 'all' && t.status !== statusFilter) return false;
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
       if (projectFilter !== 'all' && t.project_id !== projectFilter) return false;
+      if (recurrenceFilter === 'recurring' && !isRecurring) return false;
+      if (recurrenceFilter === 'single' && isRecurring) return false;
       return true;
     });
-  }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter]);
+  }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
