@@ -160,9 +160,20 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
             </div>
           </div>
 
-          <div>
-            <Label>Tempo Estimado (min)</Label>
-            <Input type="number" value={estimated} onChange={(e) => setEstimated(e.target.value)} className="bg-secondary border-border" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Tempo Estimado (min)</Label>
+              <Input type="number" value={estimated} onChange={(e) => setEstimated(e.target.value)} className="bg-secondary border-border" />
+            </div>
+            {isEdit && (
+              <div>
+                <Label>Tempo Real</Label>
+                <div className="h-10 px-3 flex items-center rounded-md bg-secondary/50 border border-border text-sm text-foreground">
+                  {formatMinutes(task?.total_tracked_minutes ?? task?.actual_minutes ?? 0)}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Atualizado automaticamente pelo timer</p>
+              </div>
+            )}
           </div>
 
           <div className="border border-border rounded-lg p-4 bg-secondary/30">
