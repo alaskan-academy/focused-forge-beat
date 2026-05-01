@@ -1,11 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, FolderKanban, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, FolderKanban, BarChart3, ChevronLeft, ChevronRight, Repeat, CalendarDays } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
   { title: 'Tarefas', path: '/tasks', icon: CheckSquare },
+  { title: 'Calendário', path: '/calendar', icon: CalendarDays },
+  { title: 'Recorrências', path: '/recurrences', icon: Repeat },
   { title: 'Projetos', path: '/projects', icon: FolderKanban },
   { title: 'Produtividade', path: '/productivity', icon: BarChart3 },
 ];
