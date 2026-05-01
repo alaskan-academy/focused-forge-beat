@@ -23,6 +23,8 @@ interface TaskModalProps {
     priority: string;
     due_date: string | null;
     estimated_minutes: number | null;
+    actual_minutes: number | null;
+    total_tracked_minutes?: number | null;
     recurrence_config?: unknown;
     notes: string | null;
   } | null;
