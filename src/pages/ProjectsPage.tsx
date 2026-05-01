@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useProjects, useCreateProject, useUpdateProject } from '@/hooks/useProjects';
 import { useTasks } from '@/hooks/useTasks';
 import { Plus, Pencil } from 'lucide-react';
+import TaskModal from '@/components/TaskModal';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,9 @@ export default function ProjectsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectFormState | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskModalKey, setTaskModalKey] = useState(0);
+  const [editTaskData, setEditTaskData] = useState<any>(null);
 
   const isEdit = !!editProject?.id;
 
@@ -139,7 +143,11 @@ export default function ProjectsPage() {
           ) : (
             <div className="space-y-2">
               {selectedTasks.map((t) => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <div
+                  key={t.id}
+                  onClick={() => { setEditTaskData(t); setTaskModalKey(k => k + 1); setTaskModalOpen(true); }}
+                  className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary transition-colors"
+                >
                   <span className="text-sm text-foreground">{t.name}</span>
                   <StatusBadge status={t.status || 'todo'} />
                 </div>
@@ -197,6 +205,13 @@ export default function ProjectsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <TaskModal
+        key={taskModalKey}
+        open={taskModalOpen}
+        onClose={() => { setTaskModalOpen(false); setEditTaskData(null); }}
+        task={editTaskData}
+      />
     </div>
   );
 }
