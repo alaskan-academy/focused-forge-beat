@@ -150,6 +150,14 @@ export default function TasksPage() {
             </SelectContent>
           </Select>
         )}
+        <Select value={recurrenceFilter} onValueChange={(v) => setRecurrenceFilter(v as 'all' | 'recurring' | 'single')}>
+          <SelectTrigger className="w-36 bg-secondary border-border"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas Tarefas</SelectItem>
+            <SelectItem value="recurring">Recorrentes</SelectItem>
+            <SelectItem value="single">Únicas</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
