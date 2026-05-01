@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { toast } from 'sonner';
+import RecurrenceEditor from '@/components/RecurrenceEditor';
+import { RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, recurrenceLabel } from '@/lib/recurrence';
 
 interface TaskModalProps {
   open: boolean;
@@ -21,7 +23,7 @@ interface TaskModalProps {
     priority: string;
     due_date: string | null;
     estimated_minutes: number | null;
-    recurrence: string;
+    recurrence_config?: unknown;
     notes: string | null;
   } | null;
 }
@@ -35,7 +37,9 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const [priority, setPriority] = useState(task?.priority || 'medium');
   const [dueDate, setDueDate] = useState(task?.due_date || '');
   const [estimated, setEstimated] = useState(String(task?.estimated_minutes || ''));
-  const [recurrence, setRecurrence] = useState(task?.recurrence || 'none');
+  const [recurrence, setRecurrence] = useState<RecurrenceConfig>(
+    task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
+  );
   const [notes, setNotes] = useState(task?.notes || '');
 
   const { data: projects } = useProjects();
@@ -55,7 +59,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
       priority,
       due_date: dueDate || null,
       estimated_minutes: Number(estimated) || 0,
-      recurrence,
+      recurrence_config: recurrence,
       notes: notes || null,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }),
     };
@@ -87,7 +91,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
-      <DialogContent className="sm:max-w-lg bg-card border-border">
+      <DialogContent className="sm:max-w-lg bg-card border-border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-foreground">{isEdit ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
         </DialogHeader>
@@ -153,23 +157,14 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Tempo Estimado (min)</Label>
-              <Input type="number" value={estimated} onChange={(e) => setEstimated(e.target.value)} className="bg-secondary border-border" />
-            </div>
-            <div>
-              <Label>Recorrência</Label>
-              <Select value={recurrence} onValueChange={setRecurrence}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  <SelectItem value="daily">Diária</SelectItem>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="monthly">Mensal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label>Tempo Estimado (min)</Label>
+            <Input type="number" value={estimated} onChange={(e) => setEstimated(e.target.value)} className="bg-secondary border-border" />
+          </div>
+
+          <div className="border border-border rounded-lg p-4 bg-secondary/30">
+            <Label className="text-sm font-semibold mb-3 block">Recorrência</Label>
+            <RecurrenceEditor value={recurrence} onChange={setRecurrence} />
           </div>
 
           <div>
