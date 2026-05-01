@@ -205,6 +205,13 @@ export default function ProjectsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <TaskModal
+        key={taskModalKey}
+        open={taskModalOpen}
+        onClose={() => { setTaskModalOpen(false); setEditTaskData(null); }}
+        task={editTaskData}
+      />
     </div>
   );
 }
