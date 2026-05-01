@@ -27,6 +27,7 @@ export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [projectFilter, setProjectFilter] = useState('all');
+  const [recurrenceFilter, setRecurrenceFilter] = useState<'all' | 'recurring' | 'single'>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [editTask, setEditTask] = useState<typeof tasks extends (infer T)[] ? T : never | null>(null);
@@ -87,9 +88,11 @@ export default function TasksPage() {
       if (statusFilter !== 'all' && t.status !== statusFilter) return false;
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
       if (projectFilter !== 'all' && t.project_id !== projectFilter) return false;
+      if (recurrenceFilter === 'recurring' && !isRecurring) return false;
+      if (recurrenceFilter === 'single' && isRecurring) return false;
       return true;
     });
-  }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter]);
+  }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
@@ -147,6 +150,14 @@ export default function TasksPage() {
             </SelectContent>
           </Select>
         )}
+        <Select value={recurrenceFilter} onValueChange={(v) => setRecurrenceFilter(v as 'all' | 'recurring' | 'single')}>
+          <SelectTrigger className="w-36 bg-secondary border-border"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas Tarefas</SelectItem>
+            <SelectItem value="recurring">Recorrentes</SelectItem>
+            <SelectItem value="single">Únicas</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (

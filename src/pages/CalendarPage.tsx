@@ -1,0 +1,204 @@
+import { useState, useMemo } from 'react';
+import { useTasks, useUpdateTask } from '@/hooks/useTasks';
+import { useProjects } from '@/hooks/useProjects';
+import { parseRecurrence } from '@/lib/recurrence';
+import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import TaskModal from '@/components/TaskModal';
+import StatusBadge from '@/components/StatusBadge';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+
+export default function CalendarPage() {
+  const { data: tasks } = useTasks();
+  const updateTask = useUpdateTask();
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalKey, setModalKey] = useState(0);
+  const [editTask, setEditTask] = useState<any>(null);
+
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const calStart = startOfWeek(monthStart);
+    const calEnd = endOfWeek(monthEnd);
+    return eachDayOfInterval({ start: calStart, end: calEnd });
+  }, [currentMonth]);
+
+  const getTasksForDate = (date: Date) => {
+    if (!tasks) return [];
+    return tasks.filter((t) => {
+      // Check direct due_date match
+      if (t.due_date) {
+        const [year, month, day] = t.due_date.split('-').map(Number);
+        const d = new Date(year, month - 1, day);
+        if (isSameDay(d, date)) return true;
+      }
+      // Check recurrence match
+      const recConfig = parseRecurrence((t as any).recurrence_config);
+      if (recConfig.type !== 'none') {
+        const createdAt = t.due_date || t.created_at;
+        return doesRecurrenceMatchDate(recConfig, createdAt, date);
+      }
+      return false;
+    });
+  };
+
+  const selectedTasks = selectedDate ? getTasksForDate(selectedDate) : [];
+
+  const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-foreground">Calendário</h1>
+        <Button onClick={() => { setEditTask(null); setModalKey(k => k + 1); setModalOpen(true); }} className="gap-2">
+          <Plus className="h-4 w-4" /> Nova Tarefa
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Calendar Grid */}
+        <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-lg font-semibold text-foreground capitalize">
+              {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+            </h2>
+            <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-px">
+            {weekDays.map((d) => (
+              <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2">
+                {d}
+              </div>
+            ))}
+            {calendarDays.map((day) => {
+              const dayTasks = getTasksForDate(day);
+              const isSelected = selectedDate && isSameDay(day, selectedDate);
+              const isCurrentMonth = isSameMonth(day, currentMonth);
+              const today = isToday(day);
+              return (
+                <div
+                  key={day.toISOString()}
+                  onClick={() => setSelectedDate(day)}
+                  className={cn(
+                    "min-h-[80px] p-1.5 border border-border/50 rounded-md cursor-pointer transition-all",
+                    !isCurrentMonth && "opacity-30",
+                    isSelected && "ring-2 ring-primary border-primary",
+                    today && !isSelected && "border-primary/50",
+                    "hover:bg-secondary/50"
+                  )}
+                >
+                  <div className={cn(
+                    "text-xs font-medium mb-1",
+                    today ? "text-primary font-bold" : "text-foreground"
+                  )}>
+                    {format(day, 'd')}
+                  </div>
+                  <div className="space-y-0.5">
+                    {dayTasks.slice(0, 3).map((t) => {
+                      const recConfig = parseRecurrence((t as any).recurrence_config);
+                      const isRecurring = recConfig.type !== 'none';
+                      return (
+                        <div
+                          key={t.id}
+                          className={cn(
+                            "text-[10px] px-1 py-0.5 rounded truncate",
+                            t.status === 'done'
+                              ? "bg-status-done/15 text-status-done line-through"
+                              : isRecurring
+                                ? "bg-primary/15 text-primary"
+                                : "bg-secondary text-foreground"
+                          )}
+                          title={t.name}
+                        >
+                          {t.name}
+                        </div>
+                      );
+                    })}
+                    {dayTasks.length > 3 && (
+                      <div className="text-[10px] text-muted-foreground px-1">
+                        +{dayTasks.length - 3} mais
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Selected Day Detail */}
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-foreground">
+              {selectedDate ? format(selectedDate, "dd 'de' MMMM", { locale: ptBR }) : 'Selecione um dia'}
+            </h2>
+            {selectedDate && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setEditTask(null);
+                  setModalKey(k => k + 1);
+                  setModalOpen(true);
+                }}
+              >
+                <Plus className="h-3 w-3 mr-1" /> Adicionar
+              </Button>
+            )}
+          </div>
+
+          {selectedTasks.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Nenhuma tarefa neste dia
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {selectedTasks.map((t) => (
+                <div
+                  key={t.id}
+                  onClick={() => { setEditTask(t); setModalKey(k => k + 1); setModalOpen(true); }}
+                  className="p-3 rounded-lg bg-secondary/50 hover:bg-secondary cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={cn(
+                      "text-sm font-medium truncate",
+                      t.status === 'done' && "line-through text-muted-foreground"
+                    )}>
+                      {t.name}
+                    </span>
+                    <StatusBadge status={t.status || 'todo'} />
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {t.area === 'personal' && <span className="text-personal">Pessoal</span>}
+                    {t.project_name && <span className="text-work">{t.project_name}</span>}
+                    {parseRecurrence((t as any).recurrence_config).type !== 'none' && (
+                      <span className="text-primary">🔄 Recorrente</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <TaskModal
+        key={modalKey}
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditTask(null); }}
+        task={editTask}
+      />
+    </div>
+  );
+}

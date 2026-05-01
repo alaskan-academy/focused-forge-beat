@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import AppSidebar from "@/components/AppSidebar";
 import DashboardPage from "@/pages/DashboardPage";
 import TasksPage from "@/pages/TasksPage";
+import CalendarPage from "@/pages/CalendarPage";
+import RecurrencesPage from "@/pages/RecurrencesPage";
 import ProjectsPage from "@/pages/ProjectsPage";
 import ProductivityPage from "@/pages/ProductivityPage";
 import NotFound from "./pages/NotFound.tsx";
@@ -24,6 +26,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/recurrences" element={<RecurrencesPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/productivity" element={<ProductivityPage />} />
               <Route path="*" element={<NotFound />} />
