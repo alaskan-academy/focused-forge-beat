@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Clock, Repeat } from 'lucide-react';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
+import { Checkbox } from '@/components/ui/checkbox';
 import { formatMinutes, formatDate } from '@/lib/formatters';
 import StatusBadge from '@/components/StatusBadge';
 import PriorityBadge from '@/components/PriorityBadge';
