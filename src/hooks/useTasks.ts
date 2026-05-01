@@ -83,19 +83,6 @@ export function useCreateTask() {
       
       const { data, error } = await supabase.from('tasks').insert(insertData as any).select().single();
       if (error) throw error;
-
-      // Create recurring tasks
-      if (recurrence_config && recurrence_config.type !== 'none' && task.due_date) {
-        const recurringDates = generateRecurringDates(task.due_date, recurrence_config);
-        if (recurringDates.length > 0) {
-          const recurring = recurringDates.map((date) => ({
-            ...rest,
-            due_date: date,
-            recurrence_config: JSON.parse(JSON.stringify(recurrence_config)),
-          }));
-          await supabase.from('tasks').insert(recurring as any);
-        }
-      }
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks_with_time'] }),
