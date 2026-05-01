@@ -26,6 +26,7 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalKey, setModalKey] = useState(0);
   const [editTask, setEditTask] = useState<typeof tasks extends (infer T)[] ? T : never | null>(null);
 
   const filtered = useMemo(() => {
