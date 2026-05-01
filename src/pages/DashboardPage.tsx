@@ -5,6 +5,8 @@ import { formatMinutes } from '@/lib/formatters';
 import DateFilterBar from '@/components/DateFilterBar';
 import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp } from 'lucide-react';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
+import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
+import { parseRecurrence } from '@/lib/recurrence';
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
@@ -28,14 +30,49 @@ export default function DashboardPage() {
     if (!tasks) return [];
     return tasks.filter((t) => {
       if (dateFilter === 'custom') return true;
-      if (!t.due_date) return dateFilter === 'today';
-      const [year, month, day] = t.due_date.split('-').map(Number);
-      const d = new Date(year, month - 1, day);
-      if (dateFilter === 'today') return isToday(d);
-      if (dateFilter === 'yesterday') return isYesterday(d);
-      if (dateFilter === 'tomorrow') return isTomorrow(d);
-      if (dateFilter === 'week') return isThisWeek(d);
-      return true;
+
+      const recConfig = parseRecurrence((t as any).recurrence_config);
+      const isRecurring = recConfig.type !== 'none';
+
+      let dateMatches = false;
+
+      if (t.due_date) {
+        const [year, month, day] = t.due_date.split('-').map(Number);
+        const d = new Date(year, month - 1, day);
+        if (dateFilter === 'today') dateMatches = isToday(d);
+        else if (dateFilter === 'yesterday') dateMatches = isYesterday(d);
+        else if (dateFilter === 'tomorrow') dateMatches = isTomorrow(d);
+        else if (dateFilter === 'week') dateMatches = isThisWeek(d);
+      } else if (!t.due_date && !isRecurring) {
+        dateMatches = dateFilter === 'today';
+      }
+
+      if (!dateMatches && isRecurring) {
+        const createdAt = t.due_date || t.created_at;
+        if (dateFilter === 'today') {
+          dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, new Date());
+        } else if (dateFilter === 'yesterday') {
+          const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+          dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, yesterday);
+        } else if (dateFilter === 'tomorrow') {
+          const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+          dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, tomorrow);
+        } else if (dateFilter === 'week') {
+          const now = new Date();
+          const startOfWeek = new Date(now);
+          startOfWeek.setDate(now.getDate() - now.getDay());
+          for (let i = 0; i < 7; i++) {
+            const day = new Date(startOfWeek);
+            day.setDate(startOfWeek.getDate() + i);
+            if (doesRecurrenceMatchDate(recConfig, createdAt, day)) {
+              dateMatches = true;
+              break;
+            }
+          }
+        }
+      }
+
+      return dateMatches;
     });
   }, [tasks, dateFilter]);
 
