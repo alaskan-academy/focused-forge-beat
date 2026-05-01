@@ -128,7 +128,7 @@ export default function DashboardPage() {
             {overloadLevel === 'critical' ? 'Sobrecarga Crítica!' : 'Atenção: Sobrecarga'}
           </AlertTitle>
           <AlertDescription>
-            Você tem <strong>{todayTaskCount} tarefas</strong> para hoje.{' '}
+            Você tem <strong>{todayEstimatedHours.toFixed(1)}h estimadas</strong> para hoje.{' '}
             {overloadLevel === 'critical'
               ? 'Considere redistribuir ou adiar algumas tarefas para manter a produtividade.'
               : 'O dia está ficando cheio. Priorize o que é mais importante.'}
