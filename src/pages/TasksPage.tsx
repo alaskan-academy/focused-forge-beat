@@ -123,8 +123,16 @@ export default function TasksPage() {
             <div
               key={t.id}
               onClick={() => { setEditTask(t as any); setModalOpen(true); }}
-              className="flex items-center gap-4 p-4 rounded-lg bg-card border border-border hover:border-primary/30 cursor-pointer transition-all group"
+              className="flex items-center gap-3 p-4 rounded-lg bg-card border border-border hover:border-primary/30 cursor-pointer transition-all group"
             >
+              <Checkbox
+                checked={t.status === 'done'}
+                onCheckedChange={(checked) => {
+                  handleStatusChange(t.id!, checked ? 'done' : 'todo');
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="h-5 w-5 rounded-full border-2 data-[state=checked]:bg-status-done data-[state=checked]:border-status-done"
+              />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-medium text-foreground truncate">{t.name}</span>
