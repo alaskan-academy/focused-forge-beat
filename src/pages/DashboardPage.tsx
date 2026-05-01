@@ -29,7 +29,8 @@ export default function DashboardPage() {
     return tasks.filter((t) => {
       if (dateFilter === 'custom') return true;
       if (!t.due_date) return dateFilter === 'today';
-      const d = new Date(t.due_date);
+      const [year, month, day] = t.due_date.split('-').map(Number);
+      const d = new Date(year, month - 1, day);
       if (dateFilter === 'today') return isToday(d);
       if (dateFilter === 'yesterday') return isYesterday(d);
       if (dateFilter === 'tomorrow') return isTomorrow(d);
