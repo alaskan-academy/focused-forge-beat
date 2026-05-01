@@ -52,7 +52,7 @@ export default function CalendarPage() {
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Calendário</h1>
         <Button onClick={() => { setEditTask(null); setModalKey(k => k + 1); setModalOpen(true); }} className="gap-2">

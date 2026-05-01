@@ -79,7 +79,7 @@ export default function ProjectsPage() {
   const selectedTasks = selectedProject ? tasks?.filter((t) => t.project_id === selectedProject) : null;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-foreground">Projetos</h1>
         <div className="flex items-center gap-3">
