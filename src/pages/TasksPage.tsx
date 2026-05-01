@@ -52,11 +52,7 @@ export default function TasksPage() {
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
-      await updateTask.mutateAsync({
-        id,
-        status,
-        ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }),
-      });
+      await updateTask.mutateAsync({ id, status });
     } catch {
       toast.error('Erro ao atualizar status');
     }
