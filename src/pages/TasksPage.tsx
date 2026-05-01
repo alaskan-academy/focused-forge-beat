@@ -121,7 +121,7 @@ export default function TasksPage() {
           {filtered.map((t) => (
             <div
               key={t.id}
-              onClick={() => { setEditTask(t as any); setModalOpen(true); }}
+              onClick={() => { setEditTask(t as any); setModalKey(k => k + 1); setModalOpen(true); }}
               className="flex items-center gap-3 p-4 rounded-lg bg-card border border-border hover:border-primary/30 cursor-pointer transition-all group"
             >
               <Checkbox
