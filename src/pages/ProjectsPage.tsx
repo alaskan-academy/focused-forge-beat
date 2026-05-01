@@ -143,7 +143,11 @@ export default function ProjectsPage() {
           ) : (
             <div className="space-y-2">
               {selectedTasks.map((t) => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <div
+                  key={t.id}
+                  onClick={() => { setEditTaskData(t); setTaskModalKey(k => k + 1); setTaskModalOpen(true); }}
+                  className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary transition-colors"
+                >
                   <span className="text-sm text-foreground">{t.name}</span>
                   <StatusBadge status={t.status || 'todo'} />
                 </div>
