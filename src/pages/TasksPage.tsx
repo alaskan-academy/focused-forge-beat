@@ -14,6 +14,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { DateFilter, AreaFilter, StatusFilter, PriorityFilter } from '@/lib/types';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function TasksPage() {
   const { data: tasks, isLoading } = useTasks();
