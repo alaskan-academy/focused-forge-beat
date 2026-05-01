@@ -135,7 +135,7 @@ export default function TasksPage() {
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium text-foreground truncate">{t.name}</span>
+                  <span className={cn("font-medium truncate", t.status === 'done' ? "line-through text-muted-foreground" : "text-foreground")}>{t.name}</span>
                   {t.area === 'work' && t.project_name && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-work/15 text-work">
                       {t.project_name}
