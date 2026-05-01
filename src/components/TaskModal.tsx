@@ -177,7 +177,28 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
           </div>
 
           <div className="border border-border rounded-lg p-4 bg-secondary/30">
-            <Label className="text-sm font-semibold mb-3 block">Recorrência</Label>
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-sm font-semibold">Recorrência</Label>
+              {isEdit && recurrence.type !== 'none' && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={async () => {
+                    try {
+                      await updateTask.mutateAsync({ id: task.id, recurrence_config: { type: 'none' } as RecurrenceConfig });
+                      setRecurrence(DEFAULT_RECURRENCE);
+                      toast.success('Recorrência interrompida!');
+                    } catch {
+                      toast.error('Erro ao interromper recorrência');
+                    }
+                  }}
+                >
+                  Interromper Recorrência
+                </Button>
+              )}
+            </div>
             <RecurrenceEditor value={recurrence} onChange={setRecurrence} />
           </div>
 
