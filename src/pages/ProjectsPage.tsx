@@ -31,6 +31,9 @@ export default function ProjectsPage() {
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [taskModalKey, setTaskModalKey] = useState(0);
   const [editTaskData, setEditTaskData] = useState<any>(null);
+  const [statusFilter, setStatusFilter] = useState<'active' | 'paused' | 'done' | 'all'>('active');
+
+  const filteredProjects = projects?.filter((p) => statusFilter === 'all' ? true : p.status === statusFilter);
 
   const isEdit = !!editProject?.id;
 
