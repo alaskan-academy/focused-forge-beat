@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { externalSupabase as supabase } from '@/integrations/supabase/externalClient';
 import { addDays, addWeeks, addMonths, format, getDay, getDate } from 'date-fns';
 import { RecurrenceConfig, parseRecurrence } from '@/lib/recurrence';
 
