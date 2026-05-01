@@ -26,6 +26,7 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalKey, setModalKey] = useState(0);
   const [editTask, setEditTask] = useState<typeof tasks extends (infer T)[] ? T : never | null>(null);
 
   const filtered = useMemo(() => {
@@ -63,7 +64,7 @@ export default function TasksPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Tarefas</h1>
-        <Button onClick={() => { setEditTask(null); setModalOpen(true); }} className="gap-2">
+        <Button onClick={() => { setEditTask(null); setModalKey(k => k + 1); setModalOpen(true); }} className="gap-2">
           <Plus className="h-4 w-4" /> Nova Tarefa
         </Button>
       </div>
@@ -120,7 +121,7 @@ export default function TasksPage() {
           {filtered.map((t) => (
             <div
               key={t.id}
-              onClick={() => { setEditTask(t as any); setModalOpen(true); }}
+              onClick={() => { setEditTask(t as any); setModalKey(k => k + 1); setModalOpen(true); }}
               className="flex items-center gap-3 p-4 rounded-lg bg-card border border-border hover:border-primary/30 cursor-pointer transition-all group"
             >
               <Checkbox
@@ -169,7 +170,7 @@ export default function TasksPage() {
       )}
 
       <TaskModal
-        key={editTask?.id || 'new'}
+        key={modalKey}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditTask(null); }}
         task={editTask as any}
