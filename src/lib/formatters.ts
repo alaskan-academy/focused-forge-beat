@@ -32,5 +32,6 @@ export function areaLabel(a: string) {
 
 export function formatDate(d: string | null) {
   if (!d) return '—';
-  return format(new Date(d), 'dd/MM/yyyy', { locale: ptBR });
+  const [year, month, day] = d.split('-').map(Number);
+  return format(new Date(year, month - 1, day), 'dd/MM/yyyy', { locale: ptBR });
 }
