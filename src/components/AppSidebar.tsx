@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, FolderKanban, BarChart3, ChevronLeft, ChevronRight, Repeat, CalendarDays } from 'lucide-react';
-import { useState } from 'react';
+import { LayoutDashboard, CheckSquare, FolderKanban, BarChart3, Repeat, CalendarDays, Menu, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -13,43 +13,76 @@ const navItems = [
 ];
 
 export default function AppSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
 
-  return (
-    <aside className={cn(
-      "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 h-screen sticky top-0",
-      collapsed ? "w-16" : "w-60"
-    )}>
-      <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-        {!collapsed && (
-          <h1 className="text-lg font-bold text-foreground tracking-tight">TaskFlow</h1>
-        )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors"
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </button>
-      </div>
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
-      <nav className="flex-1 p-2 space-y-1">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-              pathname === item.path
-                ? "bg-primary/10 text-primary"
-                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            )}
+  // Close on escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  return (
+    <>
+      {/* Hamburger button - always visible */}
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed top-3 left-3 z-50 p-2 rounded-lg bg-card border border-border shadow-md hover:bg-accent transition-colors"
+        aria-label="Abrir menu"
+      >
+        <Menu className="h-5 w-5 text-foreground" />
+      </button>
+
+      {/* Overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      {/* Sidebar drawer */}
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar border-r border-sidebar-border w-64 transition-transform duration-300",
+        open ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
+          <h1 className="text-lg font-bold text-foreground tracking-tight">TaskFlow</h1>
+          <button
+            onClick={() => setOpen(false)}
+            className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground transition-colors"
+            aria-label="Fechar menu"
           >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            {!collapsed && <span>{item.title}</span>}
-          </NavLink>
-        ))}
-      </nav>
-    </aside>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <nav className="flex-1 p-2 space-y-1">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                pathname === item.path
+                  ? "bg-primary/10 text-primary"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              <span>{item.title}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </aside>
+    </>
   );
 }
