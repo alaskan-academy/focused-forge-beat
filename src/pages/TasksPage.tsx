@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Clock, Repeat } from 'lucide-react';
+import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
+import { parseRecurrence } from '@/lib/recurrence';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatMinutes, formatDate } from '@/lib/formatters';
