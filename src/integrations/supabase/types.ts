@@ -51,7 +51,6 @@ export type Database = {
           notes: string | null
           priority: string
           project_id: string | null
-          recurrence: string
           status: string
         }
         Insert: {
@@ -66,7 +65,6 @@ export type Database = {
           notes?: string | null
           priority?: string
           project_id?: string | null
-          recurrence?: string
           status?: string
         }
         Update: {
@@ -81,7 +79,6 @@ export type Database = {
           notes?: string | null
           priority?: string
           project_id?: string | null
-          recurrence?: string
           status?: string
         }
         Relationships: [
@@ -150,7 +147,6 @@ export type Database = {
           project_color: string | null
           project_id: string | null
           project_name: string | null
-          recurrence: string | null
           status: string | null
           total_tracked_minutes: number | null
         }
