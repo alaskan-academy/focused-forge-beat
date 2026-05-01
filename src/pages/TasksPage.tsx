@@ -162,6 +162,7 @@ export default function TasksPage() {
       )}
 
       <TaskModal
+        key={editTask?.id || 'new'}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditTask(null); }}
         task={editTask as any}
