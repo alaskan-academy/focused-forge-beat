@@ -33,7 +33,8 @@ export default function TasksPage() {
     return tasks.filter((t) => {
       // Date filter
       if (dateFilter !== 'custom' && t.due_date) {
-        const d = new Date(t.due_date);
+        const [year, month, day] = t.due_date.split('-').map(Number);
+        const d = new Date(year, month - 1, day);
         if (dateFilter === 'today' && !isToday(d)) return false;
         if (dateFilter === 'yesterday' && !isYesterday(d)) return false;
         if (dateFilter === 'tomorrow' && !isTomorrow(d)) return false;
