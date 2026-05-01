@@ -89,18 +89,28 @@ export default function DashboardPage() {
 
   const todayTaskCount = useMemo(() => {
     if (!tasks) return 0;
+    const today = new Date();
     return tasks.filter((t) => {
+      // Skip done tasks
+      if (t.status === 'done') return false;
+      
       const recConfig = parseRecurrence((t as any).recurrence_config);
       const isRecurring = recConfig.type !== 'none';
+      
       if (t.due_date) {
         const [year, month, day] = t.due_date.split('-').map(Number);
         if (isToday(new Date(year, month - 1, day))) return true;
       }
+      
       if (isRecurring) {
         const createdAt = t.due_date || t.created_at;
-        return doesRecurrenceMatchDate(recConfig, createdAt, new Date());
+        return doesRecurrenceMatchDate(recConfig, createdAt, today);
       }
-      return !t.due_date;
+      
+      // Tasks without due_date count as today
+      if (!t.due_date && !isRecurring) return true;
+      
+      return false;
     }).length;
   }, [tasks]);
 
