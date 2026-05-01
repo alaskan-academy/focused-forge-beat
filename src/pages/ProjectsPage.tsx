@@ -104,7 +104,7 @@ export default function ProjectsPage() {
         <div className="text-muted-foreground text-center py-12">Carregando...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects?.map((p) => {
+          {filteredProjects?.map((p) => {
             const progress = getProjectProgress(p.id);
             const taskCount = getProjectTaskCount(p.id);
             return (
