@@ -34,18 +34,55 @@ export default function TasksPage() {
   const filtered = useMemo(() => {
     if (!tasks) return [];
     return tasks.filter((t) => {
+      const recConfig = parseRecurrence((t as any).recurrence_config);
+      const isRecurring = recConfig.type !== 'none';
+
       // Date filter
-      if (dateFilter !== 'custom' && t.due_date) {
-        const [year, month, day] = t.due_date.split('-').map(Number);
-        const d = new Date(year, month - 1, day);
-        if (dateFilter === 'today' && !isToday(d)) return false;
-        if (dateFilter === 'yesterday' && !isYesterday(d)) return false;
-        if (dateFilter === 'tomorrow' && !isTomorrow(d)) return false;
-        if (dateFilter === 'week' && !isThisWeek(d)) return false;
-      } else if (dateFilter !== 'custom' && !t.due_date) {
-        if (dateFilter === 'today') return true; // show undated tasks on today
-        return false;
+      if (dateFilter !== 'custom') {
+        let dateMatches = false;
+
+        if (t.due_date) {
+          const [year, month, day] = t.due_date.split('-').map(Number);
+          const d = new Date(year, month - 1, day);
+          if (dateFilter === 'today') dateMatches = isToday(d);
+          else if (dateFilter === 'yesterday') dateMatches = isYesterday(d);
+          else if (dateFilter === 'tomorrow') dateMatches = isTomorrow(d);
+          else if (dateFilter === 'week') dateMatches = isThisWeek(d);
+        } else if (!t.due_date) {
+          // Undated non-recurring tasks show on "today"
+          if (dateFilter === 'today' && !isRecurring) dateMatches = true;
+        }
+
+        // For recurring tasks, also check if recurrence matches the filter date(s)
+        if (!dateMatches && isRecurring) {
+          const createdAt = t.due_date || t.created_at;
+          if (dateFilter === 'today') {
+            dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, new Date());
+          } else if (dateFilter === 'yesterday') {
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+            dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, yesterday);
+          } else if (dateFilter === 'tomorrow') {
+            const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+            dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, tomorrow);
+          } else if (dateFilter === 'week') {
+            // Check each day of the current week
+            const now = new Date();
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - now.getDay());
+            for (let i = 0; i < 7; i++) {
+              const day = new Date(startOfWeek);
+              day.setDate(startOfWeek.getDate() + i);
+              if (doesRecurrenceMatchDate(recConfig, createdAt, day)) {
+                dateMatches = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (!dateMatches) return false;
       }
+
       if (areaFilter !== 'all' && t.area !== areaFilter) return false;
       if (statusFilter !== 'all' && t.status !== statusFilter) return false;
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
