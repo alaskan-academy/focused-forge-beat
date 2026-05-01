@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Clock } from 'lucide-react';
+import { Plus, Clock, Repeat } from 'lucide-react';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { formatMinutes, formatDate } from '@/lib/formatters';
 import StatusBadge from '@/components/StatusBadge';
@@ -144,6 +144,11 @@ export default function TasksPage() {
                     {formatMinutes(t.estimated_minutes)} est. / {formatMinutes(t.total_tracked_minutes)} real
                   </span>
                   {t.due_date && <span>Prazo: {formatDate(t.due_date)}</span>}
+                  {(t as any).recurrence_config && (t as any).recurrence_config?.type !== 'none' && (
+                    <span className="flex items-center gap-1 text-primary/70">
+                      <Repeat className="h-3 w-3" /> Recorrente
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
