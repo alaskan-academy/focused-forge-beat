@@ -87,34 +87,28 @@ export default function DashboardPage() {
     return { total, done, inProgress, pending, estTotal, realTotal };
   }, [filtered]);
 
-  const todayTaskCount = useMemo(() => {
+  const todayEstimatedMinutes = useMemo(() => {
     if (!tasks) return 0;
     const today = new Date();
     return tasks.filter((t) => {
-      // Skip done tasks
       if (t.status === 'done') return false;
-      
       const recConfig = parseRecurrence((t as any).recurrence_config);
       const isRecurring = recConfig.type !== 'none';
-      
       if (t.due_date) {
         const [year, month, day] = t.due_date.split('-').map(Number);
         if (isToday(new Date(year, month - 1, day))) return true;
       }
-      
       if (isRecurring) {
         const createdAt = t.due_date || t.created_at;
         return doesRecurrenceMatchDate(recConfig, createdAt, today);
       }
-      
-      // Tasks without due_date count as today
       if (!t.due_date && !isRecurring) return true;
-      
       return false;
-    }).length;
+    }).reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
   }, [tasks]);
 
-  const overloadLevel = todayTaskCount > 8 ? 'critical' : todayTaskCount > 6 ? 'warning' : null;
+  const todayEstimatedHours = todayEstimatedMinutes / 60;
+  const overloadLevel = todayEstimatedHours >= 8 ? 'critical' : todayEstimatedHours >= 6 ? 'warning' : null;
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
@@ -134,7 +128,7 @@ export default function DashboardPage() {
             {overloadLevel === 'critical' ? 'Sobrecarga Crítica!' : 'Atenção: Sobrecarga'}
           </AlertTitle>
           <AlertDescription>
-            Você tem <strong>{todayTaskCount} tarefas</strong> para hoje.{' '}
+            Você tem <strong>{todayEstimatedHours.toFixed(1)}h estimadas</strong> para hoje.{' '}
             {overloadLevel === 'critical'
               ? 'Considere redistribuir ou adiar algumas tarefas para manter a produtividade.'
               : 'O dia está ficando cheio. Priorize o que é mais importante.'}
