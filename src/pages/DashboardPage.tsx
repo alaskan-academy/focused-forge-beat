@@ -3,7 +3,8 @@ import { useTasks } from '@/hooks/useTasks';
 import { DateFilter } from '@/lib/types';
 import { formatMinutes } from '@/lib/formatters';
 import DateFilterBar from '@/components/DateFilterBar';
-import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
@@ -86,12 +87,50 @@ export default function DashboardPage() {
     return { total, done, inProgress, pending, estTotal, realTotal };
   }, [filtered]);
 
+  const todayTaskCount = useMemo(() => {
+    if (!tasks) return 0;
+    return tasks.filter((t) => {
+      const recConfig = parseRecurrence((t as any).recurrence_config);
+      const isRecurring = recConfig.type !== 'none';
+      if (t.due_date) {
+        const [year, month, day] = t.due_date.split('-').map(Number);
+        if (isToday(new Date(year, month - 1, day))) return true;
+      }
+      if (isRecurring) {
+        const createdAt = t.due_date || t.created_at;
+        return doesRecurrenceMatchDate(recConfig, createdAt, new Date());
+      }
+      return !t.due_date;
+    }).length;
+  }, [tasks]);
+
+  const overloadLevel = todayTaskCount > 8 ? 'critical' : todayTaskCount > 6 ? 'warning' : null;
+
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
         <DateFilterBar value={dateFilter} onChange={setDateFilter} />
       </div>
+
+      {overloadLevel && (
+        <Alert variant={overloadLevel === 'critical' ? 'destructive' : 'default'} className={
+          overloadLevel === 'warning'
+            ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-400'
+            : ''
+        }>
+          {overloadLevel === 'critical' ? <AlertOctagon className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+          <AlertTitle>
+            {overloadLevel === 'critical' ? 'Sobrecarga Crítica!' : 'Atenção: Sobrecarga'}
+          </AlertTitle>
+          <AlertDescription>
+            Você tem <strong>{todayTaskCount} tarefas</strong> para hoje.{' '}
+            {overloadLevel === 'critical'
+              ? 'Considere redistribuir ou adiar algumas tarefas para manter a produtividade.'
+              : 'O dia está ficando cheio. Priorize o que é mais importante.'}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={ListTodo} label="Total" value={stats.total} color="bg-primary/15 text-primary" />
