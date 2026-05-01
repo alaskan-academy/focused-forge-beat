@@ -63,12 +63,28 @@ export function useSaveTimer() {
         .single();
 
       if (!session) return;
-      const duration = (pausedAt - new Date(session.started_at).getTime()) / 60000;
+      const duration = Math.round(((pausedAt - new Date(session.started_at).getTime()) / 60000) * 100) / 100;
       const { error } = await supabase
         .from('timer_sessions')
-        .update({ ended_at: new Date(pausedAt).toISOString(), duration_minutes: Math.round(duration * 100) / 100 })
+        .update({ ended_at: new Date(pausedAt).toISOString(), duration_minutes: duration })
         .eq('id', sessionId);
       if (error) throw error;
+
+      // Update actual_minutes on the task with total tracked time
+      const { data: allSessions } = await supabase
+        .from('timer_sessions')
+        .select('duration_minutes')
+        .eq('task_id', session.task_id)
+        .not('ended_at', 'is', null);
+
+      const totalMinutes = Math.round(
+        (allSessions || []).reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0) + duration
+      );
+
+      await supabase
+        .from('tasks')
+        .update({ actual_minutes: totalMinutes })
+        .eq('id', session.task_id);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['active_timer'] });
