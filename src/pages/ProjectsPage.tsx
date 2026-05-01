@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useProjects, useCreateProject, useUpdateProject } from '@/hooks/useProjects';
 import { useTasks } from '@/hooks/useTasks';
-import { Plus, FolderKanban } from 'lucide-react';
+import { Plus, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -12,27 +12,49 @@ import StatusBadge from '@/components/StatusBadge';
 
 const projectColors = ['#6366f1', '#8b5cf6', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
 
+interface ProjectFormState {
+  id?: string;
+  name: string;
+  color: string;
+  status: string;
+}
+
 export default function ProjectsPage() {
   const { data: projects, isLoading } = useProjects();
   const { data: tasks } = useTasks();
   const createProject = useCreateProject();
   const updateProject = useUpdateProject();
   const [modalOpen, setModalOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [color, setColor] = useState('#6366f1');
-  const [status, setStatus] = useState('active');
+  const [editProject, setEditProject] = useState<ProjectFormState | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const isEdit = !!editProject?.id;
+
+  const openCreate = () => {
+    setEditProject({ name: '', color: '#6366f1', status: 'active' });
+    setModalOpen(true);
+  };
+
+  const openEdit = (p: { id: string; name: string; color: string; status: string }) => {
+    setEditProject({ id: p.id, name: p.name, color: p.color, status: p.status });
+    setModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!editProject || !editProject.name.trim()) return;
     try {
-      await createProject.mutateAsync({ name: name.trim(), color, status });
+      if (isEdit) {
+        await updateProject.mutateAsync({ id: editProject.id!, name: editProject.name.trim(), color: editProject.color, status: editProject.status });
+        toast.success('Projeto atualizado!');
+      } else {
+        await createProject.mutateAsync({ name: editProject.name.trim(), color: editProject.color, status: editProject.status });
+        toast.success('Projeto criado!');
+      }
       setModalOpen(false);
-      setName('');
-      toast.success('Projeto criado!');
+      setEditProject(null);
     } catch {
-      toast.error('Erro ao criar projeto');
+      toast.error('Erro ao salvar projeto');
     }
   };
 
@@ -53,7 +75,7 @@ export default function ProjectsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Projetos</h1>
-        <Button onClick={() => setModalOpen(true)} className="gap-2">
+        <Button onClick={openCreate} className="gap-2">
           <Plus className="h-4 w-4" /> Novo Projeto
         </Button>
       </div>
@@ -69,16 +91,20 @@ export default function ProjectsPage() {
               <div
                 key={p.id}
                 onClick={() => setSelectedProject(selectedProject === p.id ? null : p.id)}
-                className="bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-primary/30 transition-all"
+                className="bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-primary/30 transition-all group"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }} />
                   <h3 className="font-semibold text-foreground flex-1">{p.name}</h3>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openEdit(p); }}
+                    className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity bg-secondary text-muted-foreground hover:text-foreground"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
                   <Select
                     value={p.status}
-                    onValueChange={(v) => {
-                      updateProject.mutate({ id: p.id, status: v });
-                    }}
+                    onValueChange={(v) => { updateProject.mutate({ id: p.id, status: v }); }}
                   >
                     <SelectTrigger className="w-24 h-7 text-xs bg-secondary border-border" onClick={(e) => e.stopPropagation()}>
                       <SelectValue />
@@ -95,10 +121,7 @@ export default function ProjectsPage() {
                   <span>{progress}% concluído</span>
                 </div>
                 <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${progress}%`, backgroundColor: p.color }}
-                  />
+                  <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: p.color }} />
                 </div>
               </div>
             );
@@ -126,32 +149,52 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog open={modalOpen} onOpenChange={(open) => { if (!open) { setModalOpen(false); setEditProject(null); } }}>
         <DialogContent className="sm:max-w-md bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-foreground">Novo Projeto</DialogTitle>
+            <DialogTitle className="text-foreground">{isEdit ? 'Editar Projeto' : 'Novo Projeto'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div>
-              <Label>Nome</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do projeto" className="bg-secondary border-border" />
-            </div>
-            <div>
-              <Label>Cor</Label>
-              <div className="flex gap-2 mt-1">
-                {projectColors.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c)}
-                    className="w-8 h-8 rounded-full border-2 transition-all"
-                    style={{ backgroundColor: c, borderColor: color === c ? 'white' : 'transparent' }}
-                  />
-                ))}
+          {editProject && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label>Nome</Label>
+                <Input
+                  value={editProject.name}
+                  onChange={(e) => setEditProject({ ...editProject, name: e.target.value })}
+                  placeholder="Nome do projeto"
+                  className="bg-secondary border-border"
+                />
               </div>
-            </div>
-            <Button type="submit" className="w-full">Criar Projeto</Button>
-          </form>
+              <div>
+                <Label>Status</Label>
+                <Select value={editProject.status} onValueChange={(v) => setEditProject({ ...editProject, status: v })}>
+                  <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Ativo</SelectItem>
+                    <SelectItem value="paused">Pausado</SelectItem>
+                    <SelectItem value="done">Concluído</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Cor</Label>
+                <div className="flex gap-2 mt-1">
+                  {projectColors.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setEditProject({ ...editProject, color: c })}
+                      className="w-8 h-8 rounded-full border-2 transition-all"
+                      style={{ backgroundColor: c, borderColor: editProject.color === c ? 'white' : 'transparent' }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <Button type="submit" className="w-full">
+                {isEdit ? 'Salvar' : 'Criar Projeto'}
+              </Button>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
