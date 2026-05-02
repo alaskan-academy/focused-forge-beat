@@ -107,7 +107,10 @@ export default function DashboardPage() {
 
     let days = 1;
     if (dateFilter === 'week') days = 7;
-    else if (dateFilter === 'custom') days = 1;
+    else if (dateFilter === 'custom' && customRange) {
+      const diffTime = customRange.to.getTime() - customRange.from.getTime();
+      days = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    }
 
     const avg = totalMinutes / 60 / days;
     return { avgEstimatedHours: avg, periodDays: days };
