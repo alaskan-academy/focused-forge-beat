@@ -10,6 +10,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { parseLocalDate } from '@/lib/dateUtils';
 
 export default function CalendarPage() {
   const { data: tasks } = useTasks();
@@ -32,9 +33,9 @@ export default function CalendarPage() {
     if (!tasks) return [];
     return tasks.filter((t) => {
       // Check direct due_date match
-      if (t.due_date) {
-        const [year, month, day] = t.due_date.split('-').map(Number);
-        const d = new Date(year, month - 1, day);
+      const dueDate = parseLocalDate(t.due_date);
+      if (dueDate) {
+        const d = dueDate;
         if (isSameDay(d, date)) return true;
       }
       // Check recurrence match

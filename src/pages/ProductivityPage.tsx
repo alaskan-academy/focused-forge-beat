@@ -6,6 +6,7 @@ import { ptBR } from 'date-fns/locale';
 import DateFilterBar from '@/components/DateFilterBar';
 import { DateFilter, AreaFilter } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { parseLocalDate } from '@/lib/dateUtils';
 
 const STATUS_COLORS = ['hsl(215, 20%, 55%)', 'hsl(38, 92%, 50%)', 'hsl(142, 71%, 45%)'];
 const PRIORITY_COLORS = ['hsl(0, 72%, 51%)', 'hsl(45, 93%, 47%)', 'hsl(142, 71%, 45%)'];
@@ -29,8 +30,9 @@ export default function ProductivityPage() {
     for (let i = 6; i >= 0; i--) {
       const day = subDays(new Date(), i);
       const dayTasks = filteredTasks.filter((t) => {
-        if (!t.due_date) return false;
-        return isWithinInterval(new Date(t.due_date), { start: startOfDay(day), end: endOfDay(day) });
+        const dueDate = parseLocalDate(t.due_date);
+        if (!dueDate) return false;
+        return isWithinInterval(dueDate, { start: startOfDay(day), end: endOfDay(day) });
       });
       days.push({
         day: format(day, 'EEE', { locale: ptBR }),

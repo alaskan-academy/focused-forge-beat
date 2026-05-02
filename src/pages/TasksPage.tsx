@@ -17,6 +17,7 @@ import { DateFilter, AreaFilter, StatusFilter, PriorityFilter } from '@/lib/type
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { parseLocalDate } from '@/lib/dateUtils';
 
 export default function TasksPage() {
   const { data: tasks, isLoading } = useTasks();
@@ -42,9 +43,9 @@ export default function TasksPage() {
       if (dateFilter !== 'custom') {
         let dateMatches = false;
 
-        if (t.due_date) {
-          const [year, month, day] = t.due_date.split('-').map(Number);
-          const d = new Date(year, month - 1, day);
+        const dueDate = parseLocalDate(t.due_date);
+        if (dueDate) {
+          const d = dueDate;
           if (dateFilter === 'today') dateMatches = isToday(d);
           else if (dateFilter === 'yesterday') dateMatches = isYesterday(d);
           else if (dateFilter === 'tomorrow') dateMatches = isTomorrow(d);

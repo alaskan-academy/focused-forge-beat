@@ -8,6 +8,7 @@ import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, Aler
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
+import { parseLocalDate } from '@/lib/dateUtils';
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
@@ -37,9 +38,9 @@ export default function DashboardPage() {
 
       let dateMatches = false;
 
-      if (t.due_date) {
-        const [year, month, day] = t.due_date.split('-').map(Number);
-        const d = new Date(year, month - 1, day);
+      const dueDate = parseLocalDate(t.due_date);
+      if (dueDate) {
+        const d = dueDate;
         if (dateFilter === 'today') dateMatches = isToday(d);
         else if (dateFilter === 'yesterday') dateMatches = isYesterday(d);
         else if (dateFilter === 'tomorrow') dateMatches = isTomorrow(d);
@@ -94,9 +95,9 @@ export default function DashboardPage() {
       if (t.status === 'done') return false;
       const recConfig = parseRecurrence((t as any).recurrence_config);
       const isRecurring = recConfig.type !== 'none';
-      if (t.due_date) {
-        const [year, month, day] = t.due_date.split('-').map(Number);
-        if (isToday(new Date(year, month - 1, day))) return true;
+      const dueDate = parseLocalDate(t.due_date);
+      if (dueDate) {
+        if (isToday(dueDate)) return true;
       }
       if (isRecurring) {
         const createdAt = t.due_date || t.created_at;
