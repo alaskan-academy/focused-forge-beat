@@ -23,6 +23,7 @@ const App = () => (
       <BrowserRouter>
         <div className="min-h-screen w-full">
           <AppSidebar />
+          <FloatingAddTaskButton />
           <main className="flex-1 overflow-auto pl-0 pt-14">
             <Routes>
               <Route path="/" element={<DashboardPage />} />
