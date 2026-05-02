@@ -78,10 +78,12 @@ export function useCreateTask() {
       notes?: string;
       work_block?: string;
     }) => {
-      const { recurrence_config, ...rest } = task;
+      const { recurrence_config, work_block, ...rest } = task;
+      const recJson = recurrence_config ? JSON.parse(JSON.stringify(recurrence_config)) : { type: 'none' };
+      if (work_block) recJson.work_block = work_block;
       const insertData = {
         ...rest,
-        recurrence_config: recurrence_config ? JSON.parse(JSON.stringify(recurrence_config)) : { type: 'none' },
+        recurrence_config: recJson,
       };
       
       const { data, error } = await supabase.from('tasks').insert(insertData as any).select().single();
