@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppSidebar from "@/components/AppSidebar";
+import FloatingAddTaskButton from "@/components/FloatingAddTaskButton";
 import DashboardPage from "@/pages/DashboardPage";
 import TasksPage from "@/pages/TasksPage";
 import CalendarPage from "@/pages/CalendarPage";
@@ -22,6 +23,7 @@ const App = () => (
       <BrowserRouter>
         <div className="min-h-screen w-full">
           <AppSidebar />
+          <FloatingAddTaskButton />
           <main className="flex-1 overflow-auto pl-0 pt-14">
             <Routes>
               <Route path="/" element={<DashboardPage />} />
