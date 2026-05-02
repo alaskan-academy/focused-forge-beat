@@ -184,7 +184,15 @@ export default function DashboardPage() {
           <h2 className="font-semibold text-foreground mb-4">Tarefas Recentes</h2>
           <div className="space-y-3">
             {filtered.slice(0, 5).map((t) => (
-              <div key={t.id} className="flex items-center justify-between">
+              <div
+                key={t.id}
+                className="flex items-center justify-between cursor-pointer hover:bg-secondary/50 rounded-lg px-2 py-1 -mx-2 transition-colors"
+                onClick={() => {
+                  setEditTask(t);
+                  setModalKey((k) => k + 1);
+                  setModalOpen(true);
+                }}
+              >
                 <span className="text-sm text-foreground truncate">{t.name}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   t.status === 'done' ? 'bg-status-done/15 text-status-done' :
@@ -201,6 +209,13 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <TaskModal
+        key={modalKey}
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditTask(null); }}
+        task={editTask}
+      />
     </div>
   );
 }
