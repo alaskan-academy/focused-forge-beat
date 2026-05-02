@@ -10,6 +10,7 @@ export interface TaskWithTime {
   actual_minutes: number | null;
   recurrence_config: unknown;
   notes: string | null;
+  work_block: string;
   created_at: string;
   completed_at: string | null;
   project_name: string | null;

@@ -29,6 +29,7 @@ interface TaskModalProps {
     total_tracked_minutes?: number | null;
     recurrence_config?: unknown;
     notes: string | null;
+    work_block?: string;
   } | null;
 }
 
@@ -45,6 +46,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
   );
   const [notes, setNotes] = useState(task?.notes || '');
+  const [workBlock, setWorkBlock] = useState(task?.work_block || 'morning');
 
   const { data: projects } = useProjects();
   const createTask = useCreateTask();
