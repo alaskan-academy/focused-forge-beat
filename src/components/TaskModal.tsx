@@ -46,7 +46,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
   );
   const [notes, setNotes] = useState(task?.notes || '');
-  const [workBlock, setWorkBlock] = useState(task?.work_block || 'morning');
+  const [workBlock, setWorkBlock] = useState(task?.work_block || 'none');
 
   const { data: projects } = useProjects();
   const createTask = useCreateTask();
@@ -176,6 +176,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
                 <SelectContent>
                   <SelectItem value="morning">Manhã (9h–12h)</SelectItem>
                   <SelectItem value="afternoon">Tarde (14h–17h)</SelectItem>
+                  <SelectItem value="none">Sem bloco</SelectItem>
                 </SelectContent>
               </Select>
             </div>

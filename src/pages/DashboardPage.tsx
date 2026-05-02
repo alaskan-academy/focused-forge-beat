@@ -146,9 +146,10 @@ export default function DashboardPage() {
   }, [filtered]);
 
   const blockTasks = useMemo(() => {
-    const morning = filtered.filter((t) => (t as any).work_block !== 'afternoon');
+    const morning = filtered.filter((t) => (t as any).work_block === 'morning');
     const afternoon = filtered.filter((t) => (t as any).work_block === 'afternoon');
-    return { morning, afternoon };
+    const none = filtered.filter((t) => !(t as any).work_block || (t as any).work_block === 'none');
+    return { morning, afternoon, none };
   }, [filtered]);
 
   const blockMinutes = useMemo(() => {
@@ -285,6 +286,17 @@ export default function DashboardPage() {
           );
         })}
       </div>
+
+      {/* Tasks without block */}
+      {blockTasks.none.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            <h2 className="font-semibold text-foreground">Sem Bloco Definido</h2>
+          </div>
+          {renderTaskList(blockTasks.none)}
+        </div>
+      )}
 
       <TaskModal
         key={modalKey}
