@@ -204,6 +204,8 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
               </div>
             </div>
           )}
+
+          <div className="border border-border rounded-lg p-4 bg-secondary/30">
             <div className="flex items-center justify-between mb-3">
               <Label className="text-sm font-semibold">Recorrência</Label>
               {isEdit && recurrence.type !== 'none' && (
