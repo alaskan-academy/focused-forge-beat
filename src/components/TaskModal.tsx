@@ -30,6 +30,7 @@ interface TaskModalProps {
     recurrence_config?: unknown;
     notes: string | null;
     work_block?: string;
+    completed_at?: string | null;
   } | null;
 }
 
