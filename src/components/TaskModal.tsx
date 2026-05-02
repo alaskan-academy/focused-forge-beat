@@ -189,7 +189,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">Atualizado automaticamente pelo timer</p>
             </div>
-          )
+          )}
 
           <div className="border border-border rounded-lg p-4 bg-secondary/30">
             <div className="flex items-center justify-between mb-3">
