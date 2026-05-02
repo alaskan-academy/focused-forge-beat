@@ -5,7 +5,7 @@ import { formatMinutes } from '@/lib/formatters';
 import DateFilterBar from '@/components/DateFilterBar';
 import TaskModal from '@/components/TaskModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon } from 'lucide-react';
+import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset } from 'lucide-react';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
@@ -22,6 +22,42 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
       </div>
       <span className="text-2xl font-bold text-foreground">{value}</span>
     </div>
+  );
+}
+
+const BLOCK_CONFIG = {
+  morning: { label: 'Manhã (9h–12h)', hours: 3, icon: Sun },
+  afternoon: { label: 'Tarde (14h–17h)', hours: 3, icon: Sunset },
+} as const;
+
+type BlockKey = keyof typeof BLOCK_CONFIG;
+
+function BlockAlert({ blockKey, totalMinutes, periodDays }: { blockKey: BlockKey; totalMinutes: number; periodDays: number }) {
+  const config = BLOCK_CONFIG[blockKey];
+  const avgHours = totalMinutes / 60 / periodDays;
+  const maxHours = config.hours;
+
+  if (avgHours <= maxHours * 0.8) return null; // no alert below 80%
+
+  const level = avgHours >= maxHours ? 'critical' : 'warning';
+  const Icon = level === 'critical' ? AlertOctagon : AlertTriangle;
+
+  return (
+    <Alert
+      variant={level === 'critical' ? 'destructive' : 'default'}
+      className={level === 'warning' ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-400' : ''}
+    >
+      <Icon className="h-4 w-4" />
+      <AlertTitle>
+        {level === 'critical' ? `${config.label} — Bloco Lotado!` : `${config.label} — Quase Cheio`}
+      </AlertTitle>
+      <AlertDescription>
+        <strong>{avgHours.toFixed(1)}h estimadas{periodDays > 1 ? '/dia (média)' : ''}</strong> de {maxHours}h disponíveis.{' '}
+        {level === 'critical'
+          ? 'Redistribua tarefas para outro bloco ou dia.'
+          : 'O bloco está ficando cheio. Priorize o mais importante.'}
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -48,7 +84,6 @@ export default function DashboardPage() {
 
       const recConfig = parseRecurrence((t as any).recurrence_config);
       const isRecurring = recConfig.type !== 'none';
-
       let dateMatches = false;
 
       const dueDate = parseLocalDate(t.due_date);
@@ -91,6 +126,15 @@ export default function DashboardPage() {
     });
   }, [tasks, dateFilter, customRange]);
 
+  const periodDays = useMemo(() => {
+    if (dateFilter === 'week') return 7;
+    if (dateFilter === 'custom' && customRange) {
+      const diffTime = customRange.to.getTime() - customRange.from.getTime();
+      return Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    }
+    return 1;
+  }, [dateFilter, customRange]);
+
   const stats = useMemo(() => {
     const total = filtered.length;
     const done = filtered.filter((t) => t.status === 'done').length;
@@ -101,22 +145,55 @@ export default function DashboardPage() {
     return { total, done, inProgress, pending, estTotal, realTotal };
   }, [filtered]);
 
-  const { avgEstimatedHours, periodDays } = useMemo(() => {
-    const pendingFiltered = filtered.filter((t) => t.status !== 'done');
-    const totalMinutes = pendingFiltered.reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
+  const blockTasks = useMemo(() => {
+    const morning = filtered.filter((t) => (t as any).work_block !== 'afternoon');
+    const afternoon = filtered.filter((t) => (t as any).work_block === 'afternoon');
+    return { morning, afternoon };
+  }, [filtered]);
 
-    let days = 1;
-    if (dateFilter === 'week') days = 7;
-    else if (dateFilter === 'custom' && customRange) {
-      const diffTime = customRange.to.getTime() - customRange.from.getTime();
-      days = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
-    }
+  const blockMinutes = useMemo(() => {
+    const calc = (tasks: typeof filtered) =>
+      tasks.filter((t) => t.status !== 'done').reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+    return {
+      morning: calc(blockTasks.morning),
+      afternoon: calc(blockTasks.afternoon),
+    };
+  }, [blockTasks]);
 
-    const avg = totalMinutes / 60 / days;
-    return { avgEstimatedHours: avg, periodDays: days };
-  }, [filtered, dateFilter]);
+  const openTask = (t: any) => {
+    setEditTask(t);
+    setModalKey((k) => k + 1);
+    setModalOpen(true);
+  };
 
-  const overloadLevel = avgEstimatedHours >= 8 ? 'critical' : avgEstimatedHours >= 6 ? 'warning' : null;
+  const renderTaskList = (taskList: typeof filtered) => (
+    <div className="space-y-2">
+      {taskList.map((t) => (
+        <div
+          key={t.id}
+          className="flex items-center justify-between cursor-pointer hover:bg-secondary/50 rounded-lg px-3 py-2 transition-colors"
+          onClick={() => openTask(t)}
+        >
+          <span className="text-sm text-foreground truncate flex-1">{t.name}</span>
+          <div className="flex items-center gap-2 ml-2 shrink-0">
+            {t.estimated_minutes ? (
+              <span className="text-xs text-muted-foreground">{formatMinutes(t.estimated_minutes)}</span>
+            ) : null}
+            <span className={`text-xs px-2 py-0.5 rounded-full ${
+              t.status === 'done' ? 'bg-status-done/15 text-status-done' :
+              t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
+              'bg-status-todo/15 text-status-todo'
+            }`}>
+              {t.status === 'done' ? 'Concluída' : t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
+            </span>
+          </div>
+        </div>
+      ))}
+      {taskList.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-3">Nenhuma tarefa neste bloco</p>
+      )}
+    </div>
+  );
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
@@ -125,24 +202,11 @@ export default function DashboardPage() {
         <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
       </div>
 
-      {overloadLevel && (
-        <Alert variant={overloadLevel === 'critical' ? 'destructive' : 'default'} className={
-          overloadLevel === 'warning'
-            ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-400'
-            : ''
-        }>
-          {overloadLevel === 'critical' ? <AlertOctagon className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-          <AlertTitle>
-            {overloadLevel === 'critical' ? 'Sobrecarga Crítica!' : 'Atenção: Sobrecarga'}
-          </AlertTitle>
-          <AlertDescription>
-            Você tem <strong>{avgEstimatedHours.toFixed(1)}h estimadas{periodDays > 1 ? '/dia (média)' : ''}</strong> para {dateFilter === 'today' ? 'hoje' : dateFilter === 'yesterday' ? 'ontem' : dateFilter === 'tomorrow' ? 'amanhã' : dateFilter === 'week' ? 'esta semana' : 'o período'}.{' '}
-            {overloadLevel === 'critical'
-              ? 'Considere redistribuir ou adiar algumas tarefas para manter a produtividade.'
-              : 'O dia está ficando cheio. Priorize o que é mais importante.'}
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Per-block alerts */}
+      <div className="space-y-2">
+        <BlockAlert blockKey="morning" totalMinutes={blockMinutes.morning} periodDays={periodDays} />
+        <BlockAlert blockKey="afternoon" totalMinutes={blockMinutes.afternoon} periodDays={periodDays} />
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={ListTodo} label="Total" value={stats.total} color="bg-primary/15 text-primary" />
@@ -182,35 +246,44 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
 
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-4">Tarefas Recentes</h2>
-          <div className="space-y-3">
-            {filtered.slice(0, 5).map((t) => (
-              <div
-                key={t.id}
-                className="flex items-center justify-between cursor-pointer hover:bg-secondary/50 rounded-lg px-2 py-1 -mx-2 transition-colors"
-                onClick={() => {
-                  setEditTask(t);
-                  setModalKey((k) => k + 1);
-                  setModalOpen(true);
-                }}
-              >
-                <span className="text-sm text-foreground truncate">{t.name}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  t.status === 'done' ? 'bg-status-done/15 text-status-done' :
-                  t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
-                  'bg-status-todo/15 text-status-todo'
-                }`}>
-                  {t.status === 'done' ? 'Concluída' : t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
-                </span>
+      {/* Tasks by block */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {(['morning', 'afternoon'] as const).map((block) => {
+          const config = BLOCK_CONFIG[block];
+          const BlockIcon = config.icon;
+          const taskList = blockTasks[block];
+          const totalEst = blockTasks[block].filter(t => t.status !== 'done').reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+          const capacity = config.hours * 60;
+
+          return (
+            <div key={block} className="bg-card border border-border rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <BlockIcon className="h-5 w-5 text-primary" />
+                  <h2 className="font-semibold text-foreground">{config.label}</h2>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatMinutes(totalEst)} / {formatMinutes(capacity)}
+                </div>
               </div>
-            ))}
-            {filtered.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma tarefa no período</p>
-            )}
-          </div>
-        </div>
+              {capacity > 0 && (
+                <div className="mb-3">
+                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        totalEst > capacity ? 'bg-destructive' : totalEst > capacity * 0.8 ? 'bg-yellow-500' : 'bg-primary'
+                      }`}
+                      style={{ width: `${Math.min(100, (totalEst / capacity) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {renderTaskList(taskList)}
+            </div>
+          );
+        })}
       </div>
 
       <TaskModal
