@@ -67,6 +67,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
       estimated_minutes: Number(estimated) || 0,
       recurrence_config: recurrence,
       notes: notes || null,
+      work_block: workBlock,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }),
     };
 
