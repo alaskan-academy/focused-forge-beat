@@ -3,6 +3,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { DateFilter } from '@/lib/types';
 import { formatMinutes } from '@/lib/formatters';
 import DateFilterBar from '@/components/DateFilterBar';
+import TaskModal from '@/components/TaskModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
@@ -27,6 +28,9 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 export default function DashboardPage() {
   const { data: tasks } = useTasks();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [editTask, setEditTask] = useState<any>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalKey, setModalKey] = useState(0);
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
