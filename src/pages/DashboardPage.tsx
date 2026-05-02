@@ -92,28 +92,19 @@ export default function DashboardPage() {
     return { total, done, inProgress, pending, estTotal, realTotal };
   }, [filtered]);
 
-  const todayEstimatedMinutes = useMemo(() => {
-    if (!tasks) return 0;
-    const today = new Date();
-    return tasks.filter((t) => {
-      if (t.status === 'done') return false;
-      const recConfig = parseRecurrence((t as any).recurrence_config);
-      const isRecurring = recConfig.type !== 'none';
-      const dueDate = parseLocalDate(t.due_date);
-      if (dueDate) {
-        if (isToday(dueDate)) return true;
-      }
-      if (isRecurring) {
-        const createdAt = t.due_date || t.created_at;
-        return doesRecurrenceMatchDate(recConfig, createdAt, today);
-      }
-      if (!t.due_date && !isRecurring) return true;
-      return false;
-    }).reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
-  }, [tasks]);
+  const { avgEstimatedHours, periodDays } = useMemo(() => {
+    const pendingFiltered = filtered.filter((t) => t.status !== 'done');
+    const totalMinutes = pendingFiltered.reduce((sum, t) => sum + (t.estimated_minutes || 0), 0);
 
-  const todayEstimatedHours = todayEstimatedMinutes / 60;
-  const overloadLevel = todayEstimatedHours >= 8 ? 'critical' : todayEstimatedHours >= 6 ? 'warning' : null;
+    let days = 1;
+    if (dateFilter === 'week') days = 7;
+    else if (dateFilter === 'custom') days = 1;
+
+    const avg = totalMinutes / 60 / days;
+    return { avgEstimatedHours: avg, periodDays: days };
+  }, [filtered, dateFilter]);
+
+  const overloadLevel = avgEstimatedHours >= 8 ? 'critical' : avgEstimatedHours >= 6 ? 'warning' : null;
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
@@ -133,7 +124,7 @@ export default function DashboardPage() {
             {overloadLevel === 'critical' ? 'Sobrecarga Crítica!' : 'Atenção: Sobrecarga'}
           </AlertTitle>
           <AlertDescription>
-            Você tem <strong>{todayEstimatedHours.toFixed(1)}h estimadas</strong> para hoje.{' '}
+            Você tem <strong>{avgEstimatedHours.toFixed(1)}h estimadas{periodDays > 1 ? '/dia (média)' : ''}</strong> para {dateFilter === 'today' ? 'hoje' : dateFilter === 'yesterday' ? 'ontem' : dateFilter === 'tomorrow' ? 'amanhã' : dateFilter === 'week' ? 'esta semana' : 'o período'}.{' '}
             {overloadLevel === 'critical'
               ? 'Considere redistribuir ou adiar algumas tarefas para manter a produtividade.'
               : 'O dia está ficando cheio. Priorize o que é mais importante.'}
