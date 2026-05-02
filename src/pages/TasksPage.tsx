@@ -24,6 +24,7 @@ export default function TasksPage() {
   const { data: projects } = useProjects();
   const updateTask = useUpdateTask();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
   const [areaFilter, setAreaFilter] = useState<AreaFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
