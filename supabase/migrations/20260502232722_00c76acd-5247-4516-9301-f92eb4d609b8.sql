@@ -1,0 +1,1 @@
+ALTER TABLE public.tasks ADD COLUMN work_block text NOT NULL DEFAULT 'morning';

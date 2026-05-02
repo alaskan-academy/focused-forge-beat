@@ -76,6 +76,7 @@ export function useCreateTask() {
       estimated_minutes?: number;
       recurrence_config?: RecurrenceConfig;
       notes?: string;
+      work_block?: string;
     }) => {
       const { recurrence_config, ...rest } = task;
       const insertData = {
@@ -99,6 +100,7 @@ export function useUpdateTask() {
       priority: string; due_date: string | null; estimated_minutes: number;
       actual_minutes: number; notes: string | null;
       completed_at: string | null; recurrence_config: RecurrenceConfig;
+      work_block: string;
     }>) => {
       const { id, recurrence_config, ...updates } = params;
       const payload = recurrence_config 

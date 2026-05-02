@@ -52,6 +52,7 @@ export type Database = {
           priority: string
           project_id: string | null
           status: string
+          work_block: string
         }
         Insert: {
           actual_minutes?: number | null
@@ -66,6 +67,7 @@ export type Database = {
           priority?: string
           project_id?: string | null
           status?: string
+          work_block?: string
         }
         Update: {
           actual_minutes?: number | null
@@ -80,6 +82,7 @@ export type Database = {
           priority?: string
           project_id?: string | null
           status?: string
+          work_block?: string
         }
         Relationships: [
           {

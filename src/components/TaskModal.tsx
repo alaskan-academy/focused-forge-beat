@@ -29,6 +29,7 @@ interface TaskModalProps {
     total_tracked_minutes?: number | null;
     recurrence_config?: unknown;
     notes: string | null;
+    work_block?: string;
   } | null;
 }
 
@@ -45,6 +46,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
   );
   const [notes, setNotes] = useState(task?.notes || '');
+  const [workBlock, setWorkBlock] = useState(task?.work_block || 'morning');
 
   const { data: projects } = useProjects();
   const createTask = useCreateTask();
@@ -65,6 +67,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
       estimated_minutes: Number(estimated) || 0,
       recurrence_config: recurrence,
       notes: notes || null,
+      work_block: workBlock,
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }),
     };
 
@@ -166,16 +169,27 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
               <Label>Tempo Estimado (min)</Label>
               <Input type="number" value={estimated} onChange={(e) => setEstimated(e.target.value)} className="bg-secondary border-border" />
             </div>
-            {isEdit && (
-              <div>
-                <Label>Tempo Real</Label>
-                <div className="h-10 px-3 flex items-center rounded-md bg-secondary/50 border border-border text-sm text-foreground">
-                  {formatMinutes(task?.total_tracked_minutes ?? task?.actual_minutes ?? 0)}
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">Atualizado automaticamente pelo timer</p>
-              </div>
-            )}
+            <div>
+              <Label>Bloco de Trabalho</Label>
+              <Select value={workBlock} onValueChange={setWorkBlock}>
+                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="morning">Manhã (9h–12h)</SelectItem>
+                  <SelectItem value="afternoon">Tarde (14h–17h)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {isEdit && (
+            <div>
+              <Label>Tempo Real</Label>
+              <div className="h-10 px-3 flex items-center rounded-md bg-secondary/50 border border-border text-sm text-foreground">
+                {formatMinutes(task?.total_tracked_minutes ?? task?.actual_minutes ?? 0)}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">Atualizado automaticamente pelo timer</p>
+            </div>
+          )}
 
           <div className="border border-border rounded-lg p-4 bg-secondary/30">
             <div className="flex items-center justify-between mb-3">
