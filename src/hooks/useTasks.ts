@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { externalSupabase as supabase } from '@/integrations/supabase/externalClient';
 import { addDays, addWeeks, addMonths, format, getDay, getDate } from 'date-fns';
-import { RecurrenceConfig, parseRecurrence } from '@/lib/recurrence';
+import { RecurrenceConfig } from '@/lib/recurrence';
+import { parseLocalDate } from '@/lib/dateUtils';
 
 export function useTasks() {
   return useQuery({
@@ -19,7 +20,8 @@ export function useTasks() {
 
 function generateRecurringDates(startDate: string, config: RecurrenceConfig, maxDays = 30): string[] {
   const dates: string[] = [];
-  const start = new Date(startDate);
+  const start = parseLocalDate(startDate);
+  if (!start) return dates;
   const limit = addDays(new Date(), maxDays);
   
   if (config.type === 'daily') {
