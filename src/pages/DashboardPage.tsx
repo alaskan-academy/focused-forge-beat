@@ -27,7 +27,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 
 const BLOCK_CONFIG = {
   morning: { label: 'Manhã (9h–12h)', hours: 3, icon: Sun },
-  afternoon: { label: 'Tarde (14h–17h)', hours: 3, icon: Sunset },
+  afternoon: { label: 'Tarde (14h–18h)', hours: 4, icon: Sunset },
 } as const;
 
 type BlockKey = keyof typeof BLOCK_CONFIG;

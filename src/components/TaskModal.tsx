@@ -179,7 +179,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="morning">Manhã (9h–12h)</SelectItem>
-                  <SelectItem value="afternoon">Tarde (14h–17h)</SelectItem>
+                  <SelectItem value="afternoon">Tarde (14h–18h)</SelectItem>
                   <SelectItem value="none">Sem bloco</SelectItem>
                 </SelectContent>
               </Select>
