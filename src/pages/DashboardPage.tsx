@@ -89,7 +89,7 @@ export default function DashboardPage() {
 
       return dateMatches;
     });
-  }, [tasks, dateFilter]);
+  }, [tasks, dateFilter, customRange]);
 
   const stats = useMemo(() => {
     const total = filtered.length;
