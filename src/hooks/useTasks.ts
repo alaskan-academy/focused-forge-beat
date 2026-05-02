@@ -78,10 +78,12 @@ export function useCreateTask() {
       notes?: string;
       work_block?: string;
     }) => {
-      const { recurrence_config, ...rest } = task;
+      const { recurrence_config, work_block, ...rest } = task;
+      const recJson = recurrence_config ? JSON.parse(JSON.stringify(recurrence_config)) : { type: 'none' };
+      if (work_block) recJson.work_block = work_block;
       const insertData = {
         ...rest,
-        recurrence_config: recurrence_config ? JSON.parse(JSON.stringify(recurrence_config)) : { type: 'none' },
+        recurrence_config: recJson,
       };
       
       const { data, error } = await supabase.from('tasks').insert(insertData as any).select().single();
@@ -102,10 +104,19 @@ export function useUpdateTask() {
       completed_at: string | null; recurrence_config: RecurrenceConfig;
       work_block: string;
     }>) => {
-      const { id, recurrence_config, ...updates } = params;
-      const payload = recurrence_config 
-        ? { ...updates, recurrence_config: JSON.parse(JSON.stringify(recurrence_config)) }
-        : updates;
+      const { id, recurrence_config, work_block, ...updates } = params;
+      // Merge work_block into recurrence_config JSON (external DB has no work_block column)
+      let recJson: any = recurrence_config ? JSON.parse(JSON.stringify(recurrence_config)) : undefined;
+      if (work_block !== undefined) {
+        if (!recJson) {
+          // Need to read current recurrence_config to merge work_block into it
+          const { data: current } = await supabase.from('tasks').select('recurrence_config').eq('id', id).single();
+          recJson = current?.recurrence_config || { type: 'none' };
+        }
+        recJson.work_block = work_block;
+      }
+      const payload: Record<string, any> = { ...updates };
+      if (recJson) payload.recurrence_config = recJson;
       const { error } = await supabase.from('tasks').update(payload as any).eq('id', id);
       if (error) throw error;
     },

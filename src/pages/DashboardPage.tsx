@@ -146,9 +146,14 @@ export default function DashboardPage() {
   }, [filtered]);
 
   const blockTasks = useMemo(() => {
-    const morning = filtered.filter((t) => (t as any).work_block === 'morning');
-    const afternoon = filtered.filter((t) => (t as any).work_block === 'afternoon');
-    const none = filtered.filter((t) => !(t as any).work_block || (t as any).work_block === 'none');
+    const getBlock = (t: any) => {
+      const rc = t.recurrence_config;
+      const wb = rc?.work_block || t.work_block;
+      return wb || 'none';
+    };
+    const morning = filtered.filter((t) => getBlock(t) === 'morning');
+    const afternoon = filtered.filter((t) => getBlock(t) === 'afternoon');
+    const none = filtered.filter((t) => getBlock(t) === 'none');
     return { morning, afternoon, none };
   }, [filtered]);
 

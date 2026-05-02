@@ -46,7 +46,11 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
   );
   const [notes, setNotes] = useState(task?.notes || '');
-  const [workBlock, setWorkBlock] = useState(task?.work_block || 'none');
+  const [workBlock, setWorkBlock] = useState(() => {
+    if (task?.work_block) return task.work_block;
+    const rc = task?.recurrence_config as any;
+    return rc?.work_block || 'none';
+  });
 
   const { data: projects } = useProjects();
   const createTask = useCreateTask();
