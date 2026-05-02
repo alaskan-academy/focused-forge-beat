@@ -1,5 +1,6 @@
-import { addDays, addWeeks, addMonths, getDay, getDate, format, isSameDay } from 'date-fns';
+import { getDay, getDate, isSameDay } from 'date-fns';
 import { RecurrenceConfig, parseRecurrence } from './recurrence';
+import { parseLocalDate, startOfLocalDay } from './dateUtils';
 
 /**
  * Given a recurring task, check if it "occurs" on a specific target date.
@@ -12,10 +13,11 @@ export function doesRecurrenceMatchDate(
 ): boolean {
   if (config.type === 'none') return false;
 
-  const start = new Date(taskCreatedAt);
+  const start = parseLocalDate(taskCreatedAt);
+  if (!start) return false;
   // Normalize to date-only for comparison
-  const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const startDate = startOfLocalDay(start);
+  const target = startOfLocalDay(targetDate);
 
   // Target must be on or after the start date
   if (target < startDate) return false;
