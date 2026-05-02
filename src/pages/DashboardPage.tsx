@@ -122,7 +122,7 @@ export default function DashboardPage() {
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
-        <DateFilterBar value={dateFilter} onChange={setDateFilter} />
+        <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
       </div>
 
       {overloadLevel && (
