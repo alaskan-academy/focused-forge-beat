@@ -102,10 +102,13 @@ export function useUpdateTask() {
       completed_at: string | null; recurrence_config: RecurrenceConfig;
       work_block: string;
     }>) => {
-      const { id, recurrence_config, ...updates } = params;
-      const payload = recurrence_config 
+      const { id, recurrence_config, work_block, ...updates } = params;
+      const payload: Record<string, any> = recurrence_config 
         ? { ...updates, recurrence_config: JSON.parse(JSON.stringify(recurrence_config)) }
-        : updates;
+        : { ...updates };
+      if (work_block !== undefined) {
+        payload.work_block = work_block;
+      }
       const { error } = await supabase.from('tasks').update(payload as any).eq('id', id);
       if (error) throw error;
     },
