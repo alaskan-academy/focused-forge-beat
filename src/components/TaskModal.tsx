@@ -208,14 +208,14 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
           </div>
 
           <div className="flex gap-2 pt-2">
-            <Button type="submit" className="flex-1">
-              {isEdit ? 'Salvar' : 'Criar Tarefa'}
-            </Button>
             {isEdit && (
               <Button type="button" variant="destructive" onClick={handleDelete}>
                 Excluir
               </Button>
             )}
+            <Button type="submit" className="flex-1">
+              {isEdit ? 'Salvar' : 'Criar Tarefa'}
+            </Button>
           </div>
         </form>
       </DialogContent>
