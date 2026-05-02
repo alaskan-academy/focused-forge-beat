@@ -123,7 +123,7 @@ export default function TasksPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <DateFilterBar value={dateFilter} onChange={setDateFilter} />
+        <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
         <Select value={areaFilter} onValueChange={(v) => setAreaFilter(v as AreaFilter)}>
           <SelectTrigger className="w-32 bg-secondary border-border"><SelectValue /></SelectTrigger>
           <SelectContent>
