@@ -124,7 +124,7 @@ export default function DashboardPage() {
             {overloadLevel === 'critical' ? 'Sobrecarga Crítica!' : 'Atenção: Sobrecarga'}
           </AlertTitle>
           <AlertDescription>
-            Você tem <strong>{todayEstimatedHours.toFixed(1)}h estimadas</strong> para hoje.{' '}
+            Você tem <strong>{avgEstimatedHours.toFixed(1)}h estimadas{periodDays > 1 ? '/dia (média)' : ''}</strong> para {dateFilter === 'today' ? 'hoje' : dateFilter === 'yesterday' ? 'ontem' : dateFilter === 'tomorrow' ? 'amanhã' : dateFilter === 'week' ? 'esta semana' : 'o período'}.{' '}
             {overloadLevel === 'critical'
               ? 'Considere redistribuir ou adiar algumas tarefas para manter a produtividade.'
               : 'O dia está ficando cheio. Priorize o que é mais importante.'}
