@@ -36,7 +36,15 @@ export default function DashboardPage() {
   const filtered = useMemo(() => {
     if (!tasks) return [];
     return tasks.filter((t) => {
-      if (dateFilter === 'custom') return true;
+      if (dateFilter === 'custom') {
+        if (!customRange) return true;
+        const dueDate = parseLocalDate(t.due_date);
+        if (!dueDate) return false;
+        const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
+        const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate());
+        const d = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+        return d >= from && d <= to;
+      }
 
       const recConfig = parseRecurrence((t as any).recurrence_config);
       const isRecurring = recConfig.type !== 'none';
