@@ -107,7 +107,11 @@ export default function TasksPage() {
 
   const handleStatusChange = async (id: string, status: string) => {
     try {
-      await updateTask.mutateAsync({ id, status });
+      await updateTask.mutateAsync({
+        id,
+        status,
+        completed_at: status === 'done' ? new Date().toISOString() : null,
+      });
     } catch {
       toast.error('Erro ao atualizar status');
     }
@@ -213,6 +217,11 @@ export default function TasksPage() {
                     {formatMinutes(t.estimated_minutes)} est. / {formatMinutes(t.total_tracked_minutes)} real
                   </span>
                   {t.due_date && <span>Prazo: {formatDate(t.due_date)}</span>}
+                  {t.completed_at && (
+                    <span className="flex items-center gap-1 text-status-done">
+                      ✓ {new Date(t.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {new Date(t.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
                   {(t as any).recurrence_config && (t as any).recurrence_config?.type !== 'none' && (
                     <span className="flex items-center gap-1 text-primary/70">
                       <Repeat className="h-3 w-3" /> Recorrente

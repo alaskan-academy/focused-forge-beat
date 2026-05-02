@@ -30,6 +30,7 @@ interface TaskModalProps {
     recurrence_config?: unknown;
     notes: string | null;
     work_block?: string;
+    completed_at?: string | null;
   } | null;
 }
 
@@ -193,6 +194,15 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
                 {formatMinutes(task?.total_tracked_minutes ?? task?.actual_minutes ?? 0)}
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">Atualizado automaticamente pelo timer</p>
+            </div>
+          )}
+
+          {isEdit && task?.completed_at && (
+            <div>
+              <Label>Concluída em</Label>
+              <div className="h-10 px-3 flex items-center rounded-md bg-status-done/10 border border-status-done/30 text-sm text-foreground">
+                {new Date(task.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} às {new Date(task.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
           )}
 
