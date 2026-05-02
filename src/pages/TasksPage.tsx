@@ -24,6 +24,7 @@ export default function TasksPage() {
   const { data: projects } = useProjects();
   const updateTask = useUpdateTask();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
   const [areaFilter, setAreaFilter] = useState<AreaFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
@@ -40,7 +41,16 @@ export default function TasksPage() {
       const isRecurring = recConfig.type !== 'none';
 
       // Date filter
-      if (dateFilter !== 'custom') {
+      if (dateFilter === 'custom') {
+        if (customRange) {
+          const dueDate = parseLocalDate(t.due_date);
+          if (!dueDate) return false;
+          const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
+          const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate());
+          const d = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+          if (d < from || d > to) return false;
+        }
+      } else {
         let dateMatches = false;
 
         const dueDate = parseLocalDate(t.due_date);
@@ -113,7 +123,7 @@ export default function TasksPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <DateFilterBar value={dateFilter} onChange={setDateFilter} />
+        <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
         <Select value={areaFilter} onValueChange={(v) => setAreaFilter(v as AreaFilter)}>
           <SelectTrigger className="w-32 bg-secondary border-border"><SelectValue /></SelectTrigger>
           <SelectContent>

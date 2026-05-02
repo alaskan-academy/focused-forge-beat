@@ -28,6 +28,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 export default function DashboardPage() {
   const { data: tasks } = useTasks();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
   const [editTask, setEditTask] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
@@ -35,7 +36,15 @@ export default function DashboardPage() {
   const filtered = useMemo(() => {
     if (!tasks) return [];
     return tasks.filter((t) => {
-      if (dateFilter === 'custom') return true;
+      if (dateFilter === 'custom') {
+        if (!customRange) return true;
+        const dueDate = parseLocalDate(t.due_date);
+        if (!dueDate) return false;
+        const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
+        const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate());
+        const d = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+        return d >= from && d <= to;
+      }
 
       const recConfig = parseRecurrence((t as any).recurrence_config);
       const isRecurring = recConfig.type !== 'none';
@@ -80,7 +89,7 @@ export default function DashboardPage() {
 
       return dateMatches;
     });
-  }, [tasks, dateFilter]);
+  }, [tasks, dateFilter, customRange]);
 
   const stats = useMemo(() => {
     const total = filtered.length;
@@ -98,7 +107,10 @@ export default function DashboardPage() {
 
     let days = 1;
     if (dateFilter === 'week') days = 7;
-    else if (dateFilter === 'custom') days = 1;
+    else if (dateFilter === 'custom' && customRange) {
+      const diffTime = customRange.to.getTime() - customRange.from.getTime();
+      days = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    }
 
     const avg = totalMinutes / 60 / days;
     return { avgEstimatedHours: avg, periodDays: days };
@@ -110,7 +122,7 @@ export default function DashboardPage() {
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
-        <DateFilterBar value={dateFilter} onChange={setDateFilter} />
+        <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
       </div>
 
       {overloadLevel && (
