@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppSidebar from "@/components/AppSidebar";
+import FloatingAddTaskButton from "@/components/FloatingAddTaskButton";
 import DashboardPage from "@/pages/DashboardPage";
 import TasksPage from "@/pages/TasksPage";
 import CalendarPage from "@/pages/CalendarPage";
