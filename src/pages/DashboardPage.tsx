@@ -28,6 +28,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
 export default function DashboardPage() {
   const { data: tasks } = useTasks();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
   const [editTask, setEditTask] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
