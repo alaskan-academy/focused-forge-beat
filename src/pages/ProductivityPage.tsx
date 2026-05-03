@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { subDays, format, isWithinInterval, startOfDay, endOfDay, isBefore, startOfToday } from 'date-fns';
+import { subDays, format, isWithinInterval, startOfDay, endOfDay, isBefore, startOfToday, isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DateFilterBar from '@/components/DateFilterBar';
 import { DateFilter, AreaFilter } from '@/lib/types';
