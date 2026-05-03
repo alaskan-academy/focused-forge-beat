@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { subDays, format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { subDays, format, isWithinInterval, startOfDay, endOfDay, isBefore, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DateFilterBar from '@/components/DateFilterBar';
 import { DateFilter, AreaFilter } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parseLocalDate } from '@/lib/dateUtils';
+import { CheckCircle2, Clock, AlertTriangle, ListTodo } from 'lucide-react';
 
 const STATUS_COLORS = ['hsl(215, 20%, 55%)', 'hsl(38, 92%, 50%)', 'hsl(142, 71%, 45%)'];
 const PRIORITY_COLORS = ['hsl(0, 72%, 51%)', 'hsl(45, 93%, 47%)', 'hsl(142, 71%, 45%)'];
@@ -23,6 +24,22 @@ export default function ProductivityPage() {
       return true;
     });
   }, [tasks, areaFilter]);
+
+  // Progress stats
+  const progressStats = useMemo(() => {
+    const total = filteredTasks.length;
+    const done = filteredTasks.filter((t) => t.status === 'done').length;
+    const todo = filteredTasks.filter((t) => t.status === 'todo' || t.status === 'in_progress').length;
+    const today = startOfToday();
+    const overdue = filteredTasks.filter((t) => {
+      if (t.status === 'done') return false;
+      const dueDate = parseLocalDate(t.due_date);
+      if (!dueDate) return false;
+      return isBefore(dueDate, today);
+    }).length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { total, done, todo, overdue, pct };
+  }, [filteredTasks]);
 
   // Time chart: last 7 days
   const timeChartData = useMemo(() => {
@@ -96,6 +113,53 @@ export default function ProductivityPage() {
               <SelectItem value="personal">Pessoal</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+      </div>
+
+      {/* Progress overview */}
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <h2 className="font-semibold text-foreground">Progresso Geral</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/15 text-primary"><ListTodo className="h-5 w-5" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-lg font-bold text-foreground">{progressStats.total}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-status-done/15 text-status-done"><CheckCircle2 className="h-5 w-5" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">Concluídas</p>
+              <p className="text-lg font-bold text-foreground">{progressStats.done}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-status-todo/15 text-status-todo"><Clock className="h-5 w-5" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">A Fazer</p>
+              <p className="text-lg font-bold text-foreground">{progressStats.todo}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-destructive/15 text-destructive"><AlertTriangle className="h-5 w-5" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">Atrasadas</p>
+              <p className="text-lg font-bold text-foreground">{progressStats.overdue}</p>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+            <span>Progresso</span>
+            <span>{progressStats.pct}%</span>
+          </div>
+          <div className="h-3 bg-secondary rounded-full overflow-hidden">
+            <div
+              className="h-full bg-status-done rounded-full transition-all"
+              style={{ width: `${progressStats.pct}%` }}
+            />
+          </div>
         </div>
       </div>
 

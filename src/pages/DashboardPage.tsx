@@ -221,6 +221,23 @@ export default function DashboardPage() {
         <StatCard icon={Clock} label="Pendentes" value={stats.pending} color="bg-status-todo/15 text-status-todo" />
       </div>
 
+      {/* Progress bar */}
+      {stats.total > 0 && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-foreground">Progresso do Período</span>
+            <span className="text-sm font-bold text-foreground">{Math.round((stats.done / stats.total) * 100)}%</span>
+          </div>
+          <div className="h-3 bg-secondary rounded-full overflow-hidden">
+            <div
+              className="h-full bg-status-done rounded-full transition-all"
+              style={{ width: `${(stats.done / stats.total) * 100}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">{stats.done} de {stats.total} tarefas concluídas</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
