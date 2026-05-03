@@ -227,30 +227,26 @@ export default function DashboardPage() {
             <TrendingUp className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-foreground">Tempo do Período</h2>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-muted-foreground">Total</p>
-              <p className="text-xl font-bold text-foreground">{stats.total}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Concluídas</p>
-              <p className="text-xl font-bold text-foreground">{stats.done}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Tempo Estimado</p>
+              <p className="text-sm text-muted-foreground">Estimado</p>
               <p className="text-xl font-bold text-foreground">{formatMinutes(stats.estTotal)}</p>
             </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Real</p>
+              <p className="text-xl font-bold text-foreground">{formatMinutes(stats.realTotal)}</p>
+            </div>
           </div>
-          {stats.total > 0 && (
+          {stats.estTotal > 0 && (
             <div className="mt-4">
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
                 <span>Progresso</span>
-                <span>{Math.round((stats.done / stats.total) * 100)}%</span>
+                <span>{Math.min(100, Math.round((stats.realTotal / stats.estTotal) * 100))}%</span>
               </div>
               <div className="h-2 bg-secondary rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${(stats.done / stats.total) * 100}%` }}
+                  style={{ width: `${Math.min(100, (stats.realTotal / stats.estTotal) * 100)}%` }}
                 />
               </div>
             </div>
