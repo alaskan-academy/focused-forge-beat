@@ -15,15 +15,32 @@ const PRIORITY_COLORS = ['hsl(0, 72%, 51%)', 'hsl(45, 93%, 47%)', 'hsl(142, 71%,
 export default function ProductivityPage() {
   const { data: tasks } = useTasks();
   const [dateFilter, setDateFilter] = useState<DateFilter>('week');
+  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
   const [areaFilter, setAreaFilter] = useState<AreaFilter>('all');
 
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
     return tasks.filter((t) => {
       if (areaFilter !== 'all' && t.area !== areaFilter) return false;
+
+      const dueDate = parseLocalDate(t.due_date);
+
+      if (dateFilter === 'custom') {
+        if (!customRange) return true;
+        if (!dueDate) return false;
+        const from = startOfDay(customRange.from);
+        const to = endOfDay(customRange.to);
+        return isWithinInterval(dueDate, { start: from, end: to });
+      }
+
+      if (!dueDate) return dateFilter === 'today';
+      if (dateFilter === 'today') return isToday(dueDate);
+      if (dateFilter === 'yesterday') return isYesterday(dueDate);
+      if (dateFilter === 'tomorrow') return isTomorrow(dueDate);
+      if (dateFilter === 'week') return isThisWeek(dueDate);
       return true;
     });
-  }, [tasks, areaFilter]);
+  }, [tasks, areaFilter, dateFilter, customRange]);
 
   // Progress stats
   const progressStats = useMemo(() => {
