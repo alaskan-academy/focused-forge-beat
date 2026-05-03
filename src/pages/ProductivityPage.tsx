@@ -119,9 +119,10 @@ export default function ProductivityPage() {
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-foreground">Produtividade</h1>
         <div className="flex items-center gap-3">
+          <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
           <Select value={areaFilter} onValueChange={(v) => setAreaFilter(v as AreaFilter)}>
             <SelectTrigger className="w-32 bg-secondary border-border"><SelectValue /></SelectTrigger>
             <SelectContent>
