@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { subDays, format, isWithinInterval, startOfDay, endOfDay, isBefore, startOfToday } from 'date-fns';
+import { subDays, format, isWithinInterval, startOfDay, endOfDay, isBefore, startOfToday, isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DateFilterBar from '@/components/DateFilterBar';
 import { DateFilter, AreaFilter } from '@/lib/types';
@@ -15,15 +15,32 @@ const PRIORITY_COLORS = ['hsl(0, 72%, 51%)', 'hsl(45, 93%, 47%)', 'hsl(142, 71%,
 export default function ProductivityPage() {
   const { data: tasks } = useTasks();
   const [dateFilter, setDateFilter] = useState<DateFilter>('week');
+  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
   const [areaFilter, setAreaFilter] = useState<AreaFilter>('all');
 
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
     return tasks.filter((t) => {
       if (areaFilter !== 'all' && t.area !== areaFilter) return false;
+
+      const dueDate = parseLocalDate(t.due_date);
+
+      if (dateFilter === 'custom') {
+        if (!customRange) return true;
+        if (!dueDate) return false;
+        const from = startOfDay(customRange.from);
+        const to = endOfDay(customRange.to);
+        return isWithinInterval(dueDate, { start: from, end: to });
+      }
+
+      if (!dueDate) return dateFilter === 'today';
+      if (dateFilter === 'today') return isToday(dueDate);
+      if (dateFilter === 'yesterday') return isYesterday(dueDate);
+      if (dateFilter === 'tomorrow') return isTomorrow(dueDate);
+      if (dateFilter === 'week') return isThisWeek(dueDate);
       return true;
     });
-  }, [tasks, areaFilter]);
+  }, [tasks, areaFilter, dateFilter, customRange]);
 
   // Progress stats
   const progressStats = useMemo(() => {
@@ -102,9 +119,10 @@ export default function ProductivityPage() {
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-foreground">Produtividade</h1>
         <div className="flex items-center gap-3">
+          <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
           <Select value={areaFilter} onValueChange={(v) => setAreaFilter(v as AreaFilter)}>
             <SelectTrigger className="w-32 bg-secondary border-border"><SelectValue /></SelectTrigger>
             <SelectContent>
