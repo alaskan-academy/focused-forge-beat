@@ -168,10 +168,12 @@ export default function DashboardPage() {
   }, [dateFilter, customRange]);
 
   const effectiveFiltered = useMemo(() => {
-    return filtered.map((t) => ({
-      ...t,
-      _effectiveStatus: getEffectiveStatus(t as any, dateFilter, customRange),
-    }));
+    return filtered
+      .map((t) => ({
+        ...t,
+        _effectiveStatus: getEffectiveStatus(t as any, dateFilter, customRange),
+      }))
+      .filter((t) => t._effectiveStatus !== 'skipped');
   }, [filtered, dateFilter, customRange]);
 
   const stats = useMemo(() => {
