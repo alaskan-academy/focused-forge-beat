@@ -284,7 +284,24 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
           </div>
 
           <div className="flex gap-2 pt-2">
-            {isEdit && (
+            {isEdit && isRecurring && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="destructive">
+                    Excluir <ChevronDown className="ml-1 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={handleSkipOccurrence} className="text-destructive focus:text-destructive">
+                    Pular esta ocorrência
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
+                    Excluir tarefa permanentemente
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {isEdit && !isRecurring && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="destructive">
