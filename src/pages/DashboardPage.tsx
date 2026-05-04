@@ -8,6 +8,8 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset, AlertCircle } from 'lucide-react';
 import { isBefore, startOfToday } from 'date-fns';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
