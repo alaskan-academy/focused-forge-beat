@@ -70,6 +70,7 @@ export default function DashboardPage() {
   const [editTask, setEditTask] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
+  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
