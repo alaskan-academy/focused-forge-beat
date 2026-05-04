@@ -76,7 +76,7 @@ export default function DashboardPage() {
   const [editTask, setEditTask] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
-  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string } | null>(null);
+  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string; initialDate?: Date } | null>(null);
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
@@ -281,7 +281,10 @@ export default function DashboardPage() {
                   <Checkbox
                     checked={false}
                     onCheckedChange={(checked) => {
-                      if (checked) setCompletionDialog({ id: t.id!, name: t.name });
+                      if (checked) {
+                        const dueDate = parseLocalDate(t.due_date);
+                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: dueDate || new Date() });
+                      }
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="h-5 w-5 rounded-full border-2 border-destructive"
@@ -410,6 +413,7 @@ export default function DashboardPage() {
       <CompletionDateDialog
         open={!!completionDialog}
         taskName={completionDialog?.name || ''}
+        initialDate={completionDialog?.initialDate}
         onConfirm={async (completedAt) => {
           if (completionDialog) {
             try {
