@@ -9,9 +9,8 @@ import { Button } from '@/components/ui/button';
 import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { toast } from 'sonner';
-import { formatMinutes } from '@/lib/formatters';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
-import { RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, recurrenceLabel } from '@/lib/recurrence';
+import { RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence } from '@/lib/recurrence';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 interface TaskModalProps {
