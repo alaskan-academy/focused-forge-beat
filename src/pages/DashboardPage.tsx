@@ -172,8 +172,8 @@ export default function DashboardPage() {
   }, [effectiveFiltered]);
 
   const blockMinutes = useMemo(() => {
-    const calc = (tasks: typeof filtered) =>
-      tasks.filter((t) => t.status !== 'done').reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+    const calc = (tasks: typeof effectiveFiltered) =>
+      tasks.filter((t) => t._effectiveStatus !== 'done').reduce((s, t) => s + (t.estimated_minutes || 0), 0);
     return {
       morning: calc(blockTasks.morning),
       afternoon: calc(blockTasks.afternoon),
@@ -186,9 +186,11 @@ export default function DashboardPage() {
     setModalOpen(true);
   };
 
-  const renderTaskList = (taskList: typeof filtered) => (
+  const renderTaskList = (taskList: typeof effectiveFiltered) => (
     <div className="space-y-2">
-      {taskList.map((t) => (
+      {taskList.map((t) => {
+        const es = t._effectiveStatus;
+        return (
         <div
           key={t.id}
           className="flex items-center justify-between cursor-pointer hover:bg-secondary/50 rounded-lg px-3 py-2 transition-colors"
@@ -200,15 +202,16 @@ export default function DashboardPage() {
               <span className="text-xs text-muted-foreground">{formatMinutes(t.estimated_minutes)}</span>
             ) : null}
             <span className={`text-xs px-2 py-0.5 rounded-full ${
-              t.status === 'done' ? 'bg-status-done/15 text-status-done' :
-              t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
+              es === 'done' ? 'bg-status-done/15 text-status-done' :
+              es === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
               'bg-status-todo/15 text-status-todo'
             }`}>
-              {t.status === 'done' ? 'Concluída' : t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
+              {es === 'done' ? 'Concluída' : es === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
             </span>
           </div>
         </div>
-      ))}
+        );
+      })}
       {taskList.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-3">Nenhuma tarefa neste bloco</p>
       )}
