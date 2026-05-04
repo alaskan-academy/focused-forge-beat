@@ -125,6 +125,7 @@ export default function TasksPage() {
 
       if (areaFilter !== 'all' && t.area !== areaFilter) return false;
       const effectiveStatus = getEffectiveStatus(t as any, dateFilter, customRange);
+      if (effectiveStatus === 'skipped') return false;
       if (statusFilter !== 'all' && effectiveStatus !== statusFilter) return false;
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
       if (projectFilter !== 'all' && t.project_id !== projectFilter) return false;
