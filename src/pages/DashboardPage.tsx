@@ -460,15 +460,8 @@ export default function DashboardPage() {
         initialDate={completionDialog?.initialDate}
         onConfirm={async (completedAt) => {
           if (completionDialog) {
-            try {
-              await updateTask.mutateAsync({
-                id: completionDialog.id,
-                status: 'done',
-                completed_at: completedAt,
-              });
-            } catch {
-              toast.error('Erro ao atualizar status');
-            }
+            const task = (tasks || []).find((t) => t.id === completionDialog.id);
+            if (task) await handleStatusChange(task, 'done', completedAt);
           }
           setCompletionDialog(null);
         }}
