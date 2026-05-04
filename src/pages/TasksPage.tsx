@@ -72,6 +72,9 @@ export default function TasksPage() {
           if (!dateMatches) {
             dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
           }
+          if (!dateMatches) {
+            dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
+          }
           if (!dateMatches) return false;
         }
       } else {
