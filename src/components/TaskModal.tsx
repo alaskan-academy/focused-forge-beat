@@ -77,6 +77,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     priority,
     due_date: dueDate || null,
     estimated_minutes: Number(estimated) || 0,
+    actual_minutes: Number(actualMinutes) || 0,
     recurrence_config: recurrence,
     notes: notes || null,
     work_block: workBlock,
