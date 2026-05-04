@@ -1,5 +1,6 @@
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { DateFilter } from '@/lib/types';
+import { parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 
 export function parseLocalDate(dateValue: string | null | undefined): Date | null {
   if (!dateValue) return null;
