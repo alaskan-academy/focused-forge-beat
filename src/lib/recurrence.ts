@@ -10,6 +10,13 @@ export const DEFAULT_RECURRENCE: RecurrenceConfig = { type: 'none', interval: 1 
 export const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export function parseRecurrence(val: unknown): RecurrenceConfig {
+  if (typeof val === 'string') {
+    try {
+      return parseRecurrence(JSON.parse(val));
+    } catch {
+      return DEFAULT_RECURRENCE;
+    }
+  }
   if (!val || typeof val !== 'object') return DEFAULT_RECURRENCE;
   const obj = val as Record<string, unknown>;
   return {
