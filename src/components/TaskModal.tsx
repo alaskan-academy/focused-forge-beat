@@ -296,5 +296,22 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
         </form>
       </DialogContent>
     </Dialog>
+
+    <CompletionDateDialog
+      open={showCompletionDialog}
+      taskName={name}
+      onConfirm={async (completedAt) => {
+        setShowCompletionDialog(false);
+        if (pendingPayload) {
+          await saveTask({ ...pendingPayload, completed_at: completedAt });
+          setPendingPayload(null);
+        }
+      }}
+      onCancel={() => {
+        setShowCompletionDialog(false);
+        setPendingPayload(null);
+      }}
+    />
+    </>
   );
 }
