@@ -224,8 +224,7 @@ export default function TasksPage() {
                     checked={false}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        const dueDate = parseLocalDate(t.due_date);
-                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: dueDate || new Date() });
+                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: getCompletionInitialDate() });
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
