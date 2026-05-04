@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Plus, Clock, Repeat } from 'lucide-react';
+import { Plus, Clock, Repeat, AlertCircle } from 'lucide-react';
+import { isBefore, startOfToday } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
@@ -174,6 +175,59 @@ export default function TasksPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Overdue tasks */}
+      {(() => {
+        const overdueTasks = (tasks || []).filter((t) => {
+          if (t.status === 'done') return false;
+          const dueDate = parseLocalDate(t.due_date);
+          return dueDate && isBefore(dueDate, startOfToday());
+        });
+        if (overdueTasks.length === 0) return null;
+        return (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <h2 className="font-semibold text-destructive">Tarefas Atrasadas ({overdueTasks.length})</h2>
+            </div>
+            <div className="space-y-2">
+              {overdueTasks.map((t) => (
+                <div
+                  key={t.id}
+                  onClick={() => { setEditTask(t as any); setModalKey(k => k + 1); setModalOpen(true); }}
+                  className="flex items-center gap-3 p-4 rounded-lg bg-destructive/5 border border-destructive/20 hover:border-destructive/40 cursor-pointer transition-all"
+                >
+                  <Checkbox
+                    checked={false}
+                    onCheckedChange={(checked) => {
+                      if (checked) handleStatusChange(t.id!, 'done');
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-5 w-5 rounded-full border-2 border-destructive"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-foreground truncate">{t.name}</span>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                      {t.due_date && (
+                        <span className="text-destructive font-medium">
+                          Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                      )}
+                      {t.estimated_minutes && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatMinutes(t.estimated_minutes)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <PriorityBadge priority={t.priority || 'medium'} />
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {isLoading ? (
         <div className="text-muted-foreground text-center py-12">Carregando...</div>
