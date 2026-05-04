@@ -3,7 +3,7 @@ import { Plus, Clock, Repeat, AlertCircle } from 'lucide-react';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import { isBefore, startOfToday } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
-import { parseRecurrence } from '@/lib/recurrence';
+import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -114,23 +114,37 @@ export default function TasksPage() {
       }
 
       if (areaFilter !== 'all' && t.area !== areaFilter) return false;
-      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+      const effectiveStatus = getEffectiveStatus(t as any, dateFilter, customRange);
+      if (statusFilter !== 'all' && effectiveStatus !== statusFilter) return false;
       if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
       if (projectFilter !== 'all' && t.project_id !== projectFilter) return false;
       if (recurrenceFilter === 'recurring' && !isRecurring) return false;
       if (recurrenceFilter === 'single' && isRecurring) return false;
       return true;
     });
-  }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
+  }, [tasks, dateFilter, customRange, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
 
   const handleStatusChange = async (id: string, status: string, completedAt?: string) => {
+    const task = (tasks || []).find((t) => t.id === id);
     // Always ask for the completion date when marking as done.
     if (status === 'done' && !completedAt) {
-      const task = (tasks || []).find((t) => t.id === id);
       if (task) setCompletionDialog({ id, name: task.name, initialDate: getCompletionInitialDate() });
       return;
     }
     try {
+      const recConfig = parseRecurrence((task as any)?.recurrence_config);
+      if (task && recConfig.type !== 'none') {
+        const dateKey = toLocalDateKey(completedAt ? new Date(completedAt) : getCompletionInitialDate());
+        await updateTask.mutateAsync({
+          id,
+          status: 'todo',
+          completed_at: null,
+          recurrence_config: status === 'done'
+            ? addCompletedDate((task as any).recurrence_config, dateKey)
+            : removeCompletedDate((task as any).recurrence_config, dateKey),
+        });
+        return;
+      }
       await updateTask.mutateAsync({
         id,
         status,
