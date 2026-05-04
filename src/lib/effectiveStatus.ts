@@ -15,7 +15,9 @@ export function getEffectiveStatus(
   if (recConfig.type === 'none') return task.status; // non-recurring keeps real status
 
   const completedDates = new Set(recConfig.completed_dates || []);
+  const skippedDates = new Set(recConfig.skipped_dates || []);
   const hasCompletedOccurrence = (date: Date) => completedDates.has(toLocalDateKey(date));
+  const isSkipped = (date: Date) => skippedDates.has(toLocalDateKey(date));
 
   if (dateFilter === 'today') return hasCompletedOccurrence(new Date()) ? 'done' : 'todo';
   if (dateFilter === 'yesterday') {
