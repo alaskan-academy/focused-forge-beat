@@ -213,7 +213,10 @@ export default function TasksPage() {
                   <Checkbox
                     checked={false}
                     onCheckedChange={(checked) => {
-                      if (checked) handleStatusChange(t.id!, 'done');
+                      if (checked) {
+                        const dueDate = parseLocalDate(t.due_date);
+                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: dueDate || new Date() });
+                      }
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="h-5 w-5 rounded-full border-2 border-destructive"
@@ -324,6 +327,7 @@ export default function TasksPage() {
       <CompletionDateDialog
         open={!!completionDialog}
         taskName={completionDialog?.name || ''}
+        initialDate={completionDialog?.initialDate}
         onConfirm={(completedAt) => {
           if (completionDialog) {
             handleStatusChange(completionDialog.id, 'done', completedAt);
