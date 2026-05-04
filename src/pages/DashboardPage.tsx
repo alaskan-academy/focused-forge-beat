@@ -5,6 +5,7 @@ import { formatMinutes } from '@/lib/formatters';
 import DateFilterBar from '@/components/DateFilterBar';
 import TaskModal from '@/components/TaskModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset, AlertCircle } from 'lucide-react';
 import { isBefore, startOfToday } from 'date-fns';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
