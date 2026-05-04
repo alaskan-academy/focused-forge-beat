@@ -382,6 +382,26 @@ export default function DashboardPage() {
         onClose={() => { setModalOpen(false); setEditTask(null); }}
         task={editTask}
       />
+
+      <CompletionDateDialog
+        open={!!completionDialog}
+        taskName={completionDialog?.name || ''}
+        onConfirm={async (completedAt) => {
+          if (completionDialog) {
+            try {
+              await updateTask.mutateAsync({
+                id: completionDialog.id,
+                status: 'done',
+                completed_at: completedAt,
+              });
+            } catch {
+              toast.error('Erro ao atualizar status');
+            }
+          }
+          setCompletionDialog(null);
+        }}
+        onCancel={() => setCompletionDialog(null)}
+      />
     </div>
   );
 }
