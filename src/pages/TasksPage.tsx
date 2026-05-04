@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Clock, Repeat, AlertCircle } from 'lucide-react';
+import EditableActualMinutes from '@/components/EditableActualMinutes';
 import { isBefore, startOfToday } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
