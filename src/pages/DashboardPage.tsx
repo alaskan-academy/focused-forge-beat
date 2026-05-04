@@ -15,6 +15,8 @@ import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
+import EditableActualMinutes from '@/components/EditableActualMinutes';
+import TimerButton from '@/components/TimerButton';
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
@@ -284,19 +286,30 @@ export default function DashboardPage() {
                     onClick={(e) => e.stopPropagation()}
                     className="h-5 w-5 rounded-full border-2 border-destructive"
                   />
-                  <span className="text-sm text-foreground truncate flex-1">{t.name}</span>
-                  <div className="flex items-center gap-2 ml-2 shrink-0">
-                    {t.due_date && (
-                      <span className="text-xs text-destructive font-medium">
-                        Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-foreground truncate">{t.name}</span>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                      {t.due_date && (
+                        <span className="text-destructive font-medium">
+                          Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatMinutes(t.estimated_minutes)} est.
                       </span>
-                    )}
+                      <EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} />
+                      <span className="text-muted-foreground">real</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
                       'bg-status-todo/15 text-status-todo'
                     }`}>
                       {t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
                     </span>
+                    <TimerButton taskId={t.id!} />
                   </div>
                 </div>
               ))}
