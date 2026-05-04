@@ -108,16 +108,20 @@ export default function TasksPage() {
     });
   }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
 
-  const handleStatusChange = async (id: string, status: string) => {
+  const handleStatusChange = async (id: string, status: string, completedAt?: string) => {
     try {
       await updateTask.mutateAsync({
         id,
         status,
-        completed_at: status === 'done' ? new Date().toISOString() : null,
+        completed_at: status === 'done' ? (completedAt || new Date().toISOString()) : null,
       });
     } catch {
       toast.error('Erro ao atualizar status');
     }
+  };
+
+  const handleOverdueCheck = (id: string, name: string) => {
+    setCompletionDialog({ id, name });
   };
 
   return (
