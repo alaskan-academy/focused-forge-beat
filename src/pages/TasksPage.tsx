@@ -120,6 +120,10 @@ export default function TasksPage() {
         if (!dateMatches) {
           dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
         }
+        // Include recurring tasks that have a completed_dates entry for the filter date
+        if (!dateMatches) {
+          dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
+        }
         if (!dateMatches) return false;
       }
 
