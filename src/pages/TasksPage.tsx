@@ -19,6 +19,7 @@ import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { parseLocalDate } from '@/lib/dateUtils';
+import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 export default function TasksPage() {
   const { data: tasks, isLoading } = useTasks();
@@ -34,6 +35,7 @@ export default function TasksPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [editTask, setEditTask] = useState<typeof tasks extends (infer T)[] ? T : never | null>(null);
+  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
@@ -106,16 +108,20 @@ export default function TasksPage() {
     });
   }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
 
-  const handleStatusChange = async (id: string, status: string) => {
+  const handleStatusChange = async (id: string, status: string, completedAt?: string) => {
     try {
       await updateTask.mutateAsync({
         id,
         status,
-        completed_at: status === 'done' ? new Date().toISOString() : null,
+        completed_at: status === 'done' ? (completedAt || new Date().toISOString()) : null,
       });
     } catch {
       toast.error('Erro ao atualizar status');
     }
+  };
+
+  const handleOverdueCheck = (id: string, name: string) => {
+    setCompletionDialog({ id, name });
   };
 
   return (
@@ -200,7 +206,7 @@ export default function TasksPage() {
                   <Checkbox
                     checked={false}
                     onCheckedChange={(checked) => {
-                      if (checked) handleStatusChange(t.id!, 'done');
+                      if (checked) handleOverdueCheck(t.id!, t.name);
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="h-5 w-5 rounded-full border-2 border-destructive"
@@ -298,6 +304,18 @@ export default function TasksPage() {
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditTask(null); }}
         task={editTask as any}
+      />
+
+      <CompletionDateDialog
+        open={!!completionDialog}
+        taskName={completionDialog?.name || ''}
+        onConfirm={(completedAt) => {
+          if (completionDialog) {
+            handleStatusChange(completionDialog.id, 'done', completedAt);
+          }
+          setCompletionDialog(null);
+        }}
+        onCancel={() => setCompletionDialog(null)}
       />
     </div>
   );

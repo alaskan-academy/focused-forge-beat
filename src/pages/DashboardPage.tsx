@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
-import { useTasks } from '@/hooks/useTasks';
+import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { DateFilter } from '@/lib/types';
 import { formatMinutes } from '@/lib/formatters';
 import DateFilterBar from '@/components/DateFilterBar';
 import TaskModal from '@/components/TaskModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset, AlertCircle } from 'lucide-react';
 import { isBefore, startOfToday } from 'date-fns';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
@@ -64,11 +67,13 @@ function BlockAlert({ blockKey, totalMinutes, periodDays }: { blockKey: BlockKey
 
 export default function DashboardPage() {
   const { data: tasks } = useTasks();
+  const updateTask = useUpdateTask();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
   const [editTask, setEditTask] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
+  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
@@ -257,9 +262,17 @@ export default function DashboardPage() {
               {overdueTasks.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between cursor-pointer hover:bg-destructive/10 rounded-lg px-3 py-2 transition-colors"
+                  className="flex items-center gap-3 cursor-pointer hover:bg-destructive/10 rounded-lg px-3 py-2 transition-colors"
                   onClick={() => openTask(t)}
                 >
+                  <Checkbox
+                    checked={false}
+                    onCheckedChange={(checked) => {
+                      if (checked) setCompletionDialog({ id: t.id!, name: t.name });
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-5 w-5 rounded-full border-2 border-destructive"
+                  />
                   <span className="text-sm text-foreground truncate flex-1">{t.name}</span>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
                     {t.due_date && (
@@ -368,6 +381,26 @@ export default function DashboardPage() {
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditTask(null); }}
         task={editTask}
+      />
+
+      <CompletionDateDialog
+        open={!!completionDialog}
+        taskName={completionDialog?.name || ''}
+        onConfirm={async (completedAt) => {
+          if (completionDialog) {
+            try {
+              await updateTask.mutateAsync({
+                id: completionDialog.id,
+                status: 'done',
+                completed_at: completedAt,
+              });
+            } catch {
+              toast.error('Erro ao atualizar status');
+            }
+          }
+          setCompletionDialog(null);
+        }}
+        onCancel={() => setCompletionDialog(null)}
       />
     </div>
   );
