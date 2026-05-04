@@ -65,6 +65,7 @@ function BlockAlert({ blockKey, totalMinutes, periodDays }: { blockKey: BlockKey
 
 export default function DashboardPage() {
   const { data: tasks } = useTasks();
+  const updateTask = useUpdateTask();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
   const [editTask, setEditTask] = useState<any>(null);
