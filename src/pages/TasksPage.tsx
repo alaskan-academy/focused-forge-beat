@@ -39,6 +39,19 @@ export default function TasksPage() {
   const [editTask, setEditTask] = useState<typeof tasks extends (infer T)[] ? T : never | null>(null);
   const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string; initialDate?: Date } | null>(null);
 
+  const getCompletionInitialDate = () => {
+    const now = new Date();
+    if (dateFilter === 'yesterday') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return yesterday;
+    }
+    if (dateFilter === 'custom' && customRange) {
+      return customRange.to > now ? now : customRange.to;
+    }
+    return now;
+  };
+
   const filtered = useMemo(() => {
     if (!tasks) return [];
     return tasks.filter((t) => {
@@ -114,11 +127,8 @@ export default function TasksPage() {
     // Always ask for the completion date when marking as done.
     if (status === 'done' && !completedAt) {
       const task = (tasks || []).find((t) => t.id === id);
-      if (task) {
-        const dueDate = parseLocalDate(task.due_date);
-        setCompletionDialog({ id, name: task.name, initialDate: dueDate || new Date() });
-        return;
-      }
+      if (task) setCompletionDialog({ id, name: task.name, initialDate: getCompletionInitialDate() });
+      return;
     }
     try {
       await updateTask.mutateAsync({
