@@ -244,12 +244,15 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
             </div>
           )}
 
-          {isEdit && task?.completed_at && (
+          {isEdit && status === 'done' && (
             <div>
               <Label>Concluída em</Label>
-              <div className="h-10 px-3 flex items-center rounded-md bg-status-done/10 border border-status-done/30 text-sm text-foreground">
-                {new Date(task.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} às {new Date(task.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-              </div>
+              <Input
+                type="datetime-local"
+                value={completedAt ? new Date(new Date(completedAt).getTime() - new Date(completedAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                onChange={(e) => setCompletedAt(e.target.value ? new Date(e.target.value).toISOString() : '')}
+                className="bg-secondary border-border"
+              />
             </div>
           )}
 
