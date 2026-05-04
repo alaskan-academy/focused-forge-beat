@@ -220,23 +220,26 @@ export default function TasksPage() {
                     onClick={(e) => e.stopPropagation()}
                     className="h-5 w-5 rounded-full border-2 border-destructive"
                   />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium text-foreground truncate">{t.name}</span>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                      {t.due_date && (
-                        <span className="text-destructive font-medium">
-                          Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                        </span>
-                      )}
-                      {t.estimated_minutes && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {formatMinutes(t.estimated_minutes)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <PriorityBadge priority={t.priority || 'medium'} />
+                   <div className="flex-1 min-w-0">
+                     <span className="font-medium text-foreground truncate">{t.name}</span>
+                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                       {t.due_date && (
+                         <span className="text-destructive font-medium">
+                           Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                         </span>
+                       )}
+                       <span className="flex items-center gap-1">
+                         <Clock className="h-3 w-3" />
+                         {formatMinutes(t.estimated_minutes)} est.
+                       </span>
+                       <EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} />
+                       <span className="text-muted-foreground">real</span>
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-2">
+                     <PriorityBadge priority={t.priority || 'medium'} />
+                     <TimerButton taskId={t.id!} />
+                   </div>
                 </div>
               ))}
             </div>
