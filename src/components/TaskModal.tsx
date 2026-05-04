@@ -125,6 +125,23 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     }
   };
 
+  const handleSkipOccurrence = async () => {
+    if (!task) return;
+    try {
+      const dateKey = toLocalDateKey(new Date());
+      await updateTask.mutateAsync({
+        id: task.id,
+        recurrence_config: addSkippedDate(task.recurrence_config, dateKey),
+      });
+      toast.success('Ocorrência pulada!');
+      onClose();
+    } catch {
+      toast.error('Erro ao pular ocorrência');
+    }
+  };
+
+  const isRecurring = parseRecurrence(task?.recurrence_config).type !== 'none';
+
   return (
     <>
     <Dialog open={open} onOpenChange={() => onClose()}>
