@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
-import { parseLocalDate, completedAtMatchesFilter } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import TimerButton from '@/components/TimerButton';
