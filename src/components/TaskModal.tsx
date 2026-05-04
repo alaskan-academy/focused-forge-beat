@@ -46,6 +46,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const [priority, setPriority] = useState(task?.priority || 'medium');
   const [dueDate, setDueDate] = useState(task?.due_date || '');
   const [estimated, setEstimated] = useState(String(task?.estimated_minutes || ''));
+  const [actualMinutes, setActualMinutes] = useState(String(task?.total_tracked_minutes ?? task?.actual_minutes ?? ''));
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>(
     task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
   );
