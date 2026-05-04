@@ -109,6 +109,17 @@ export default function TasksPage() {
   }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
 
   const handleStatusChange = async (id: string, status: string, completedAt?: string) => {
+    // If marking as done, check if overdue → show date picker
+    if (status === 'done' && !completedAt) {
+      const task = (tasks || []).find((t) => t.id === id);
+      if (task) {
+        const dueDate = parseLocalDate(task.due_date);
+        if (dueDate && isBefore(dueDate, startOfToday())) {
+          setCompletionDialog({ id, name: task.name });
+          return;
+        }
+      }
+    }
     try {
       await updateTask.mutateAsync({
         id,
@@ -118,10 +129,6 @@ export default function TasksPage() {
     } catch {
       toast.error('Erro ao atualizar status');
     }
-  };
-
-  const handleOverdueCheck = (id: string, name: string) => {
-    setCompletionDialog({ id, name });
   };
 
   return (
