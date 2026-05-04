@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { formatMinutes } from '@/lib/formatters';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
 import { RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, recurrenceLabel } from '@/lib/recurrence';
+import { parseLocalDate } from '@/lib/dateUtils';
+import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 interface TaskModalProps {
   open: boolean;
