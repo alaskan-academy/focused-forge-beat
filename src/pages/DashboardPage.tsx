@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
-import { parseRecurrence } from '@/lib/recurrence';
+import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
@@ -199,6 +199,37 @@ export default function DashboardPage() {
     setEditTask(t);
     setModalKey((k) => k + 1);
     setModalOpen(true);
+  };
+
+  const handleStatusChange = async (task: any, status: string, completedAt?: string) => {
+    if (status === 'done' && !completedAt) {
+      setCompletionDialog({ id: task.id, name: task.name, initialDate: getCompletionInitialDate() });
+      return;
+    }
+
+    try {
+      const recConfig = parseRecurrence(task.recurrence_config);
+      if (recConfig.type !== 'none') {
+        const dateKey = toLocalDateKey(completedAt ? new Date(completedAt) : getCompletionInitialDate());
+        await updateTask.mutateAsync({
+          id: task.id,
+          status: 'todo',
+          completed_at: null,
+          recurrence_config: status === 'done'
+            ? addCompletedDate(task.recurrence_config, dateKey)
+            : removeCompletedDate(task.recurrence_config, dateKey),
+        });
+        return;
+      }
+
+      await updateTask.mutateAsync({
+        id: task.id,
+        status,
+        completed_at: status === 'done' ? (completedAt || new Date().toISOString()) : null,
+      });
+    } catch {
+      toast.error('Erro ao atualizar status');
+    }
   };
 
   const renderTaskList = (taskList: typeof effectiveFiltered) => (
