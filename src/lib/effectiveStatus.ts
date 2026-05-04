@@ -1,4 +1,3 @@
-import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 import { DateFilter } from '@/lib/types';
 
@@ -48,20 +47,6 @@ export function getEffectiveStatus(
       day.setDate(startOfWeek.getDate() + i);
       if (hasCompletedOccurrence(day)) return 'done';
     }
-  }
-
-  if (task.status !== 'done' || !task.completed_at) return task.status;
-
-  const completedDate = new Date(task.completed_at);
-
-  if (dateFilter === 'today' && isToday(completedDate)) return 'done';
-  if (dateFilter === 'yesterday' && isYesterday(completedDate)) return 'done';
-  if (dateFilter === 'tomorrow' && isTomorrow(completedDate)) return 'done';
-  if (dateFilter === 'week' && isThisWeek(completedDate)) return 'done';
-  if (dateFilter === 'custom' && customRange) {
-    const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
-    const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate(), 23, 59, 59);
-    if (completedDate >= from && completedDate <= to) return 'done';
   }
 
   return 'todo'; // completed outside this period → show as todo
