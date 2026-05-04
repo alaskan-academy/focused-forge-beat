@@ -60,25 +60,28 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<any>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
+  const isTaskOverdue = useCallback(() => {
+    const d = parseLocalDate(dueDate || task?.due_date || null);
+    return d && isBefore(d, startOfToday());
+  }, [dueDate, task?.due_date]);
 
-    const payload = {
-      name: name.trim(),
-      area,
-      project_id: area === 'work' && projectId ? projectId : null,
-      status,
-      priority,
-      due_date: dueDate || null,
-      estimated_minutes: Number(estimated) || 0,
-      recurrence_config: recurrence,
-      notes: notes || null,
-      work_block: workBlock,
-      ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }),
-    };
+  const buildPayload = () => ({
+    name: name.trim(),
+    area,
+    project_id: area === 'work' && projectId ? projectId : null,
+    status,
+    priority,
+    due_date: dueDate || null,
+    estimated_minutes: Number(estimated) || 0,
+    recurrence_config: recurrence,
+    notes: notes || null,
+    work_block: workBlock,
+  });
 
+  const saveTask = async (payload: any) => {
     try {
       if (isEdit) {
         await updateTask.mutateAsync({ id: task.id, ...payload });
@@ -91,6 +94,28 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     } catch {
       toast.error('Erro ao salvar tarefa');
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    const payload = buildPayload();
+
+    // If marking as done and task is overdue, ask for completion date
+    const wasNotDone = task?.status !== 'done';
+    if (status === 'done' && wasNotDone && isTaskOverdue()) {
+      setPendingPayload(payload);
+      setShowCompletionDialog(true);
+      return;
+    }
+
+    // Normal flow
+    const finalPayload = {
+      ...payload,
+      ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }),
+    };
+    await saveTask(finalPayload);
   };
 
   const handleDelete = async () => {
