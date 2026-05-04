@@ -107,6 +107,9 @@ export default function DashboardPage() {
         if (!dateMatches) {
           dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
         }
+        if (!dateMatches) {
+          dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
+        }
         return dateMatches;
       }
 
