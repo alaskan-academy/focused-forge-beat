@@ -239,6 +239,48 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Overdue tasks */}
+      {(() => {
+        const overdueTasks = (tasks || []).filter((t) => {
+          if (t.status === 'done') return false;
+          const dueDate = parseLocalDate(t.due_date);
+          return dueDate && isBefore(dueDate, startOfToday());
+        });
+        if (overdueTasks.length === 0) return null;
+        return (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <h2 className="font-semibold text-destructive">Tarefas Atrasadas ({overdueTasks.length})</h2>
+            </div>
+            <div className="space-y-2">
+              {overdueTasks.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between cursor-pointer hover:bg-destructive/10 rounded-lg px-3 py-2 transition-colors"
+                  onClick={() => openTask(t)}
+                >
+                  <span className="text-sm text-foreground truncate flex-1">{t.name}</span>
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                    {t.due_date && (
+                      <span className="text-xs text-destructive font-medium">
+                        Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                      </span>
+                    )}
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
+                      'bg-status-todo/15 text-status-todo'
+                    }`}>
+                      {t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="grid grid-cols-1 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
