@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useTasks } from '@/hooks/useTasks';
+import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { DateFilter } from '@/lib/types';
 import { formatMinutes } from '@/lib/formatters';
 import DateFilterBar from '@/components/DateFilterBar';
