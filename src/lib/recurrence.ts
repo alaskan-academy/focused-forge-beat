@@ -4,6 +4,7 @@ export interface RecurrenceConfig {
   days_of_week?: number[]; // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sab
   days_of_month?: number[]; // 1-31
   completed_dates?: string[]; // yyyy-MM-dd, completion per recurring occurrence
+  skipped_dates?: string[]; // yyyy-MM-dd, skipped occurrences
   work_block?: string;
 }
 
@@ -27,7 +28,16 @@ export function parseRecurrence(val: unknown): RecurrenceConfig {
     days_of_week: Array.isArray(obj.days_of_week) ? obj.days_of_week : [],
     days_of_month: Array.isArray(obj.days_of_month) ? obj.days_of_month : [],
     completed_dates: Array.isArray(obj.completed_dates) ? obj.completed_dates.filter((d): d is string => typeof d === 'string') : [],
+    skipped_dates: Array.isArray(obj.skipped_dates) ? obj.skipped_dates.filter((d): d is string => typeof d === 'string') : [],
     work_block: typeof obj.work_block === 'string' ? obj.work_block : undefined,
+  };
+}
+
+export function addSkippedDate(config: unknown, dateKey: string): RecurrenceConfig {
+  const parsed = parseRecurrence(config);
+  return {
+    ...parsed,
+    skipped_dates: [...new Set([...(parsed.skipped_dates || []), dateKey])].sort(),
   };
 }
 
