@@ -110,6 +110,10 @@ export default function TasksPage() {
           }
         }
 
+        // Also include tasks completed on the viewed date (e.g. overdue tasks completed today)
+        if (!dateMatches) {
+          dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
+        }
         if (!dateMatches) return false;
       }
 
