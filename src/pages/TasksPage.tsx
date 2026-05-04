@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Plus, Clock, Repeat } from 'lucide-react';
+import { Plus, Clock, Repeat, AlertCircle } from 'lucide-react';
+import { isBefore, startOfToday } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
