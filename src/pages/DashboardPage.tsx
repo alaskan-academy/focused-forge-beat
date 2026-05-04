@@ -262,9 +262,17 @@ export default function DashboardPage() {
               {overdueTasks.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between cursor-pointer hover:bg-destructive/10 rounded-lg px-3 py-2 transition-colors"
+                  className="flex items-center gap-3 cursor-pointer hover:bg-destructive/10 rounded-lg px-3 py-2 transition-colors"
                   onClick={() => openTask(t)}
                 >
+                  <Checkbox
+                    checked={false}
+                    onCheckedChange={(checked) => {
+                      if (checked) setCompletionDialog({ id: t.id!, name: t.name });
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-5 w-5 rounded-full border-2 border-destructive"
+                  />
                   <span className="text-sm text-foreground truncate flex-1">{t.name}</span>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
                     {t.due_date && (
