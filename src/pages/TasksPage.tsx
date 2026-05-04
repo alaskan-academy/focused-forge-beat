@@ -206,7 +206,11 @@ export default function TasksPage() {
                   <Checkbox
                     checked={false}
                     onCheckedChange={(checked) => {
-                      if (checked) handleStatusChange(t.id!, 'done');
+                      if (checked) handleOverdueCheck(t.id!, t.name);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-5 w-5 rounded-full border-2 border-destructive"
+                  />
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="h-5 w-5 rounded-full border-2 border-destructive"
