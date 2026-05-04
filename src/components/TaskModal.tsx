@@ -130,6 +130,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="sm:max-w-lg bg-card border-border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
