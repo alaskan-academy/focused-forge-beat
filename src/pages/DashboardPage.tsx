@@ -142,29 +142,22 @@ export default function DashboardPage() {
     return 1;
   }, [dateFilter, customRange]);
 
-  const stats = useMemo(() => {
-    const total = filtered.length;
-    // Only count as "done" if completed_at falls within the current date filter period
-    const done = filtered.filter((t) => {
-      if (t.status !== 'done' || !t.completed_at) return false;
-      const completedDate = new Date(t.completed_at);
-      if (dateFilter === 'today') return isToday(completedDate);
-      if (dateFilter === 'yesterday') return isYesterday(completedDate);
-      if (dateFilter === 'tomorrow') return isTomorrow(completedDate);
-      if (dateFilter === 'week') return isThisWeek(completedDate);
-      if (dateFilter === 'custom' && customRange) {
-        const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
-        const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate(), 23, 59, 59);
-        return completedDate >= from && completedDate <= to;
-      }
-      return true;
-    }).length;
-    const inProgress = filtered.filter((t) => t.status === 'in_progress').length;
-    const pending = filtered.filter((t) => t.status === 'todo').length;
-    const estTotal = filtered.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
-    const realTotal = filtered.reduce((s, t) => s + (t.total_tracked_minutes || 0), 0);
-    return { total, done, inProgress, pending, estTotal, realTotal };
+  const effectiveFiltered = useMemo(() => {
+    return filtered.map((t) => ({
+      ...t,
+      _effectiveStatus: getEffectiveStatus(t as any, dateFilter, customRange),
+    }));
   }, [filtered, dateFilter, customRange]);
+
+  const stats = useMemo(() => {
+    const total = effectiveFiltered.length;
+    const done = effectiveFiltered.filter((t) => t._effectiveStatus === 'done').length;
+    const inProgress = effectiveFiltered.filter((t) => t._effectiveStatus === 'in_progress').length;
+    const pending = effectiveFiltered.filter((t) => t._effectiveStatus === 'todo').length;
+    const estTotal = effectiveFiltered.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+    const realTotal = effectiveFiltered.reduce((s, t) => s + (t.total_tracked_minutes || 0), 0);
+    return { total, done, inProgress, pending, estTotal, realTotal };
+  }, [effectiveFiltered]);
 
   const blockTasks = useMemo(() => {
     const getBlock = (t: any) => {
