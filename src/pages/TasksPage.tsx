@@ -288,8 +288,10 @@ export default function TasksPage() {
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {formatMinutes(t.estimated_minutes)} est. / {formatMinutes(t.total_tracked_minutes)} real
+                    {formatMinutes(t.estimated_minutes)} est. /
                   </span>
+                  <EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} />
+                  <span>real</span>
                   {t.due_date && <span>Prazo: {formatDate(t.due_date)}</span>}
                   {t.completed_at && es === 'done' && (
                     <span className="flex items-center gap-1 text-status-done">
