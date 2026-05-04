@@ -110,7 +110,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     // Normal flow
     const finalPayload = {
       ...payload,
-      completed_at: status === 'done' ? (task?.completed_at || new Date().toISOString()) : null,
+      completed_at: status === 'done' ? (completedAt || task?.completed_at || new Date().toISOString()) : null,
     };
     await saveTask(finalPayload);
   };
