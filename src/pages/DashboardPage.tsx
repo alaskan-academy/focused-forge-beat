@@ -168,10 +168,12 @@ export default function DashboardPage() {
   }, [dateFilter, customRange]);
 
   const effectiveFiltered = useMemo(() => {
-    return filtered.map((t) => ({
-      ...t,
-      _effectiveStatus: getEffectiveStatus(t as any, dateFilter, customRange),
-    }));
+    return filtered
+      .map((t) => ({
+        ...t,
+        _effectiveStatus: getEffectiveStatus(t as any, dateFilter, customRange),
+      }))
+      .filter((t) => t._effectiveStatus !== 'skipped');
   }, [filtered, dateFilter, customRange]);
 
   const stats = useMemo(() => {
@@ -315,7 +317,8 @@ export default function DashboardPage() {
       {(() => {
         const overdueTasks = (tasks || []).filter((t) => {
           const dueDate = parseLocalDate(t.due_date);
-          if (dueDate && getEffectiveStatus(t as any, 'custom', { from: dueDate, to: dueDate }) === 'done') return false;
+          const effStatus = dueDate ? getEffectiveStatus(t as any, 'custom', { from: dueDate, to: dueDate }) : null;
+          if (effStatus === 'done' || effStatus === 'skipped') return false;
           if (t.status === 'done') return false;
           return dueDate && isBefore(dueDate, startOfToday());
         });

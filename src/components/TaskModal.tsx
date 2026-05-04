@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,8 +11,9 @@ import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { toast } from 'sonner';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
-import { addCompletedDate, RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
+import { addCompletedDate, addSkippedDate, RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
+import { ChevronDown } from 'lucide-react';
 
 interface TaskModalProps {
   open: boolean;
@@ -122,6 +124,23 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
       toast.error('Erro ao excluir tarefa');
     }
   };
+
+  const handleSkipOccurrence = async () => {
+    if (!task) return;
+    try {
+      const dateKey = toLocalDateKey(new Date());
+      await updateTask.mutateAsync({
+        id: task.id,
+        recurrence_config: addSkippedDate(task.recurrence_config, dateKey),
+      });
+      toast.success('Ocorrência pulada!');
+      onClose();
+    } catch {
+      toast.error('Erro ao pular ocorrência');
+    }
+  };
+
+  const isRecurring = parseRecurrence(task?.recurrence_config).type !== 'none';
 
   return (
     <>
@@ -265,7 +284,24 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
           </div>
 
           <div className="flex gap-2 pt-2">
-            {isEdit && (
+            {isEdit && isRecurring && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="destructive">
+                    Excluir <ChevronDown className="ml-1 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={handleSkipOccurrence} className="text-destructive focus:text-destructive">
+                    Pular esta ocorrência
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
+                    Excluir tarefa permanentemente
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {isEdit && !isRecurring && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="destructive">
