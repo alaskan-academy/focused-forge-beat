@@ -165,11 +165,11 @@ export default function DashboardPage() {
       const wb = rc?.work_block || t.work_block;
       return wb || 'none';
     };
-    const morning = filtered.filter((t) => getBlock(t) === 'morning');
-    const afternoon = filtered.filter((t) => getBlock(t) === 'afternoon');
-    const none = filtered.filter((t) => getBlock(t) === 'none');
+    const morning = effectiveFiltered.filter((t) => getBlock(t) === 'morning');
+    const afternoon = effectiveFiltered.filter((t) => getBlock(t) === 'afternoon');
+    const none = effectiveFiltered.filter((t) => getBlock(t) === 'none');
     return { morning, afternoon, none };
-  }, [filtered]);
+  }, [effectiveFiltered]);
 
   const blockMinutes = useMemo(() => {
     const calc = (tasks: typeof filtered) =>
