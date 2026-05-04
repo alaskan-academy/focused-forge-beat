@@ -14,7 +14,6 @@ import RecurrenceEditor from '@/components/RecurrenceEditor';
 import { addCompletedDate, addSkippedDate, RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { ChevronDown } from 'lucide-react';
-import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 interface TaskModalProps {
   open: boolean;
