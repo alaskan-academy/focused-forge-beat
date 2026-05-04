@@ -37,7 +37,7 @@ export default function TasksPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [editTask, setEditTask] = useState<typeof tasks extends (infer T)[] ? T : never | null>(null);
-  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string } | null>(null);
+  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string; initialDate?: Date } | null>(null);
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
@@ -111,15 +111,13 @@ export default function TasksPage() {
   }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
 
   const handleStatusChange = async (id: string, status: string, completedAt?: string) => {
-    // If marking as done, check if overdue → show date picker
+    // Always ask for the completion date when marking as done.
     if (status === 'done' && !completedAt) {
       const task = (tasks || []).find((t) => t.id === id);
       if (task) {
         const dueDate = parseLocalDate(task.due_date);
-        if (dueDate && isBefore(dueDate, startOfToday())) {
-          setCompletionDialog({ id, name: task.name });
-          return;
-        }
+        setCompletionDialog({ id, name: task.name, initialDate: dueDate || new Date() });
+        return;
       }
     }
     try {
