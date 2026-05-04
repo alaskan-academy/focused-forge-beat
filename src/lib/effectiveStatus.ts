@@ -19,15 +19,20 @@ export function getEffectiveStatus(
   const hasCompletedOccurrence = (date: Date) => completedDates.has(toLocalDateKey(date));
   const isSkipped = (date: Date) => skippedDates.has(toLocalDateKey(date));
 
-  if (dateFilter === 'today') return hasCompletedOccurrence(new Date()) ? 'done' : 'todo';
+  if (dateFilter === 'today') {
+    if (isSkipped(new Date())) return 'skipped';
+    return hasCompletedOccurrence(new Date()) ? 'done' : 'todo';
+  }
   if (dateFilter === 'yesterday') {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
+    if (isSkipped(yesterday)) return 'skipped';
     return hasCompletedOccurrence(yesterday) ? 'done' : 'todo';
   }
   if (dateFilter === 'tomorrow') {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
+    if (isSkipped(tomorrow)) return 'skipped';
     return hasCompletedOccurrence(tomorrow) ? 'done' : 'todo';
   }
   if (dateFilter === 'custom' && customRange) {
