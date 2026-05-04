@@ -3,6 +3,8 @@ export interface RecurrenceConfig {
   interval: number;
   days_of_week?: number[]; // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sab
   days_of_month?: number[]; // 1-31
+  completed_dates?: string[]; // yyyy-MM-dd, completion per recurring occurrence
+  work_block?: string;
 }
 
 export const DEFAULT_RECURRENCE: RecurrenceConfig = { type: 'none', interval: 1 };
@@ -24,6 +26,31 @@ export function parseRecurrence(val: unknown): RecurrenceConfig {
     interval: typeof obj.interval === 'number' ? obj.interval : 1,
     days_of_week: Array.isArray(obj.days_of_week) ? obj.days_of_week : [],
     days_of_month: Array.isArray(obj.days_of_month) ? obj.days_of_month : [],
+    completed_dates: Array.isArray(obj.completed_dates) ? obj.completed_dates.filter((d): d is string => typeof d === 'string') : [],
+    work_block: typeof obj.work_block === 'string' ? obj.work_block : undefined,
+  };
+}
+
+export function toLocalDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function addCompletedDate(config: unknown, dateKey: string): RecurrenceConfig {
+  const parsed = parseRecurrence(config);
+  return {
+    ...parsed,
+    completed_dates: [...new Set([...(parsed.completed_dates || []), dateKey])].sort(),
+  };
+}
+
+export function removeCompletedDate(config: unknown, dateKey: string): RecurrenceConfig {
+  const parsed = parseRecurrence(config);
+  return {
+    ...parsed,
+    completed_dates: (parsed.completed_dates || []).filter((d) => d !== dateKey),
   };
 }
 
