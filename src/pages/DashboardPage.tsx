@@ -14,6 +14,7 @@ import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
 import { parseLocalDate } from '@/lib/dateUtils';
+import { getEffectiveStatus } from '@/lib/effectiveStatus';
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
@@ -141,29 +142,22 @@ export default function DashboardPage() {
     return 1;
   }, [dateFilter, customRange]);
 
-  const stats = useMemo(() => {
-    const total = filtered.length;
-    // Only count as "done" if completed_at falls within the current date filter period
-    const done = filtered.filter((t) => {
-      if (t.status !== 'done' || !t.completed_at) return false;
-      const completedDate = new Date(t.completed_at);
-      if (dateFilter === 'today') return isToday(completedDate);
-      if (dateFilter === 'yesterday') return isYesterday(completedDate);
-      if (dateFilter === 'tomorrow') return isTomorrow(completedDate);
-      if (dateFilter === 'week') return isThisWeek(completedDate);
-      if (dateFilter === 'custom' && customRange) {
-        const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
-        const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate(), 23, 59, 59);
-        return completedDate >= from && completedDate <= to;
-      }
-      return true;
-    }).length;
-    const inProgress = filtered.filter((t) => t.status === 'in_progress').length;
-    const pending = filtered.filter((t) => t.status === 'todo').length;
-    const estTotal = filtered.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
-    const realTotal = filtered.reduce((s, t) => s + (t.total_tracked_minutes || 0), 0);
-    return { total, done, inProgress, pending, estTotal, realTotal };
+  const effectiveFiltered = useMemo(() => {
+    return filtered.map((t) => ({
+      ...t,
+      _effectiveStatus: getEffectiveStatus(t as any, dateFilter, customRange),
+    }));
   }, [filtered, dateFilter, customRange]);
+
+  const stats = useMemo(() => {
+    const total = effectiveFiltered.length;
+    const done = effectiveFiltered.filter((t) => t._effectiveStatus === 'done').length;
+    const inProgress = effectiveFiltered.filter((t) => t._effectiveStatus === 'in_progress').length;
+    const pending = effectiveFiltered.filter((t) => t._effectiveStatus === 'todo').length;
+    const estTotal = effectiveFiltered.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+    const realTotal = effectiveFiltered.reduce((s, t) => s + (t.total_tracked_minutes || 0), 0);
+    return { total, done, inProgress, pending, estTotal, realTotal };
+  }, [effectiveFiltered]);
 
   const blockTasks = useMemo(() => {
     const getBlock = (t: any) => {
@@ -171,15 +165,15 @@ export default function DashboardPage() {
       const wb = rc?.work_block || t.work_block;
       return wb || 'none';
     };
-    const morning = filtered.filter((t) => getBlock(t) === 'morning');
-    const afternoon = filtered.filter((t) => getBlock(t) === 'afternoon');
-    const none = filtered.filter((t) => getBlock(t) === 'none');
+    const morning = effectiveFiltered.filter((t) => getBlock(t) === 'morning');
+    const afternoon = effectiveFiltered.filter((t) => getBlock(t) === 'afternoon');
+    const none = effectiveFiltered.filter((t) => getBlock(t) === 'none');
     return { morning, afternoon, none };
-  }, [filtered]);
+  }, [effectiveFiltered]);
 
   const blockMinutes = useMemo(() => {
-    const calc = (tasks: typeof filtered) =>
-      tasks.filter((t) => t.status !== 'done').reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+    const calc = (tasks: typeof effectiveFiltered) =>
+      tasks.filter((t) => t._effectiveStatus !== 'done').reduce((s, t) => s + (t.estimated_minutes || 0), 0);
     return {
       morning: calc(blockTasks.morning),
       afternoon: calc(blockTasks.afternoon),
@@ -192,9 +186,11 @@ export default function DashboardPage() {
     setModalOpen(true);
   };
 
-  const renderTaskList = (taskList: typeof filtered) => (
+  const renderTaskList = (taskList: typeof effectiveFiltered) => (
     <div className="space-y-2">
-      {taskList.map((t) => (
+      {taskList.map((t) => {
+        const es = t._effectiveStatus;
+        return (
         <div
           key={t.id}
           className="flex items-center justify-between cursor-pointer hover:bg-secondary/50 rounded-lg px-3 py-2 transition-colors"
@@ -206,15 +202,16 @@ export default function DashboardPage() {
               <span className="text-xs text-muted-foreground">{formatMinutes(t.estimated_minutes)}</span>
             ) : null}
             <span className={`text-xs px-2 py-0.5 rounded-full ${
-              t.status === 'done' ? 'bg-status-done/15 text-status-done' :
-              t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
+              es === 'done' ? 'bg-status-done/15 text-status-done' :
+              es === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
               'bg-status-todo/15 text-status-todo'
             }`}>
-              {t.status === 'done' ? 'Concluída' : t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
+              {es === 'done' ? 'Concluída' : es === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
             </span>
           </div>
         </div>
-      ))}
+        );
+      })}
       {taskList.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-3">Nenhuma tarefa neste bloco</p>
       )}

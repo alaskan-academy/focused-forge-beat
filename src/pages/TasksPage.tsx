@@ -3,6 +3,7 @@ import { Plus, Clock, Repeat, AlertCircle } from 'lucide-react';
 import { isBefore, startOfToday } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
+import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatMinutes, formatDate } from '@/lib/formatters';
@@ -250,14 +251,16 @@ export default function TasksPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((t) => (
+          {filtered.map((t) => {
+            const es = getEffectiveStatus(t as any, dateFilter, customRange);
+            return (
             <div
               key={t.id}
               onClick={() => { setEditTask(t as any); setModalKey(k => k + 1); setModalOpen(true); }}
               className="flex items-center gap-3 p-4 rounded-lg bg-card border border-border hover:border-primary/30 cursor-pointer transition-all group"
             >
               <Checkbox
-                checked={t.status === 'done'}
+                checked={es === 'done'}
                 onCheckedChange={(checked) => {
                   handleStatusChange(t.id!, checked ? 'done' : 'todo');
                 }}
@@ -266,7 +269,7 @@ export default function TasksPage() {
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={cn("font-medium truncate", t.status === 'done' ? "line-through text-muted-foreground" : "text-foreground")}>{t.name}</span>
+                  <span className={cn("font-medium truncate", es === 'done' ? "line-through text-muted-foreground" : "text-foreground")}>{t.name}</span>
                   {t.area === 'work' && t.project_name && (
                     <span className="text-xs px-2 py-0.5 rounded-full bg-work/15 text-work">
                       {t.project_name}
@@ -284,7 +287,7 @@ export default function TasksPage() {
                     {formatMinutes(t.estimated_minutes)} est. / {formatMinutes(t.total_tracked_minutes)} real
                   </span>
                   {t.due_date && <span>Prazo: {formatDate(t.due_date)}</span>}
-                  {t.completed_at && (
+                  {t.completed_at && es === 'done' && (
                     <span className="flex items-center gap-1 text-status-done">
                       ✓ {new Date(t.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {new Date(t.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
@@ -297,12 +300,13 @@ export default function TasksPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <StatusBadge status={t.status || 'todo'} onChange={(s) => handleStatusChange(t.id!, s)} />
+                <StatusBadge status={es || 'todo'} onChange={(s) => handleStatusChange(t.id!, s)} />
                 <PriorityBadge priority={t.priority || 'medium'} />
                 <TimerButton taskId={t.id!} />
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
