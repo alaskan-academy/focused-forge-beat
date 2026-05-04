@@ -10,7 +10,7 @@ import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { toast } from 'sonner';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
-import { RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence } from '@/lib/recurrence';
+import { addCompletedDate, RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 interface TaskModalProps {
@@ -302,7 +302,16 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
       onConfirm={async (completedAt) => {
         setShowCompletionDialog(false);
         if (pendingPayload) {
-          await saveTask({ ...pendingPayload, completed_at: completedAt });
+          const completedRecurrence = parseRecurrence(pendingPayload.recurrence_config);
+          await saveTask(completedRecurrence.type !== 'none'
+            ? {
+                ...pendingPayload,
+                status: 'todo',
+                completed_at: null,
+                recurrence_config: addCompletedDate(pendingPayload.recurrence_config, toLocalDateKey(new Date(completedAt))),
+              }
+            : { ...pendingPayload, completed_at: completedAt }
+          );
           setPendingPayload(null);
         }
       }}
