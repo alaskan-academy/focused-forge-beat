@@ -305,6 +305,18 @@ export default function TasksPage() {
         onClose={() => { setModalOpen(false); setEditTask(null); }}
         task={editTask as any}
       />
+
+      <CompletionDateDialog
+        open={!!completionDialog}
+        taskName={completionDialog?.name || ''}
+        onConfirm={(completedAt) => {
+          if (completionDialog) {
+            handleStatusChange(completionDialog.id, 'done', completedAt);
+          }
+          setCompletionDialog(null);
+        }}
+        onCancel={() => setCompletionDialog(null)}
+      />
     </div>
   );
 }
