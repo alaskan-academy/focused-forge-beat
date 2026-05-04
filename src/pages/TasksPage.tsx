@@ -19,6 +19,7 @@ import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { parseLocalDate } from '@/lib/dateUtils';
+import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 export default function TasksPage() {
   const { data: tasks, isLoading } = useTasks();
@@ -34,6 +35,7 @@ export default function TasksPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [editTask, setEditTask] = useState<typeof tasks extends (infer T)[] ? T : never | null>(null);
+  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
