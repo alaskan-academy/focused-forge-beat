@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -8,12 +8,17 @@ import { ptBR } from 'date-fns/locale';
 interface CompletionDateDialogProps {
   open: boolean;
   taskName: string;
+  initialDate?: Date;
   onConfirm: (completedAt: string) => void;
   onCancel: () => void;
 }
 
-export default function CompletionDateDialog({ open, taskName, onConfirm, onCancel }: CompletionDateDialogProps) {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+export default function CompletionDateDialog({ open, taskName, initialDate, onConfirm, onCancel }: CompletionDateDialogProps) {
+  const [selectedDate, setSelectedDate] = useState<Date>(initialDate || new Date());
+
+  useEffect(() => {
+    if (open) setSelectedDate(initialDate || new Date());
+  }, [open, initialDate]);
 
   const handleConfirm = () => {
     // Set time to end of day for past dates, now for today
@@ -50,6 +55,7 @@ export default function CompletionDateDialog({ open, taskName, onConfirm, onCanc
             onSelect={(d) => d && setSelectedDate(d)}
             locale={ptBR}
             disabled={(date) => date > new Date()}
+            className="pointer-events-auto"
           />
         </div>
         <p className="text-center text-sm text-muted-foreground">
