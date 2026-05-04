@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import { isBefore, startOfToday } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,8 @@ import { toast } from 'sonner';
 import { formatMinutes } from '@/lib/formatters';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
 import { RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, recurrenceLabel } from '@/lib/recurrence';
+import { parseLocalDate } from '@/lib/dateUtils';
+import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 interface TaskModalProps {
   open: boolean;
@@ -57,25 +60,28 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<any>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
+  const isTaskOverdue = useCallback(() => {
+    const d = parseLocalDate(dueDate || task?.due_date || null);
+    return d && isBefore(d, startOfToday());
+  }, [dueDate, task?.due_date]);
 
-    const payload = {
-      name: name.trim(),
-      area,
-      project_id: area === 'work' && projectId ? projectId : null,
-      status,
-      priority,
-      due_date: dueDate || null,
-      estimated_minutes: Number(estimated) || 0,
-      recurrence_config: recurrence,
-      notes: notes || null,
-      work_block: workBlock,
-      ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }),
-    };
+  const buildPayload = () => ({
+    name: name.trim(),
+    area,
+    project_id: area === 'work' && projectId ? projectId : null,
+    status,
+    priority,
+    due_date: dueDate || null,
+    estimated_minutes: Number(estimated) || 0,
+    recurrence_config: recurrence,
+    notes: notes || null,
+    work_block: workBlock,
+  });
 
+  const saveTask = async (payload: any) => {
     try {
       if (isEdit) {
         await updateTask.mutateAsync({ id: task.id, ...payload });
@@ -90,6 +96,28 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    const payload = buildPayload();
+
+    // If marking as done and task is overdue, ask for completion date
+    const wasNotDone = task?.status !== 'done';
+    if (status === 'done' && wasNotDone && isTaskOverdue()) {
+      setPendingPayload(payload);
+      setShowCompletionDialog(true);
+      return;
+    }
+
+    // Normal flow
+    const finalPayload = {
+      ...payload,
+      ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }),
+    };
+    await saveTask(finalPayload);
+  };
+
   const handleDelete = async () => {
     if (!task) return;
     try {
@@ -102,6 +130,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="sm:max-w-lg bg-card border-border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -268,5 +297,22 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
         </form>
       </DialogContent>
     </Dialog>
+
+    <CompletionDateDialog
+      open={showCompletionDialog}
+      taskName={name}
+      onConfirm={async (completedAt) => {
+        setShowCompletionDialog(false);
+        if (pendingPayload) {
+          await saveTask({ ...pendingPayload, completed_at: completedAt });
+          setPendingPayload(null);
+        }
+      }}
+      onCancel={() => {
+        setShowCompletionDialog(false);
+        setPendingPayload(null);
+      }}
+    />
+    </>
   );
 }
