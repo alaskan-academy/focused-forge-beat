@@ -13,7 +13,10 @@ export function useTasks() {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []).map((task: any) => ({
+        ...task,
+        total_tracked_minutes: Math.max(Number(task.actual_minutes) || 0, Number(task.total_tracked_minutes) || 0),
+      }));
     },
   });
 }
