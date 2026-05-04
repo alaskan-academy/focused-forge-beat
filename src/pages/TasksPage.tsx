@@ -216,8 +216,9 @@ export default function TasksPage() {
       {/* Overdue tasks */}
       {(() => {
         const overdueTasks = (tasks || []).filter((t) => {
-          if (t.status === 'done') return false;
           const dueDate = parseLocalDate(t.due_date);
+          if (dueDate && getEffectiveStatus(t as any, 'custom', { from: dueDate, to: dueDate }) === 'done') return false;
+          if (t.status === 'done') return false;
           return dueDate && isBefore(dueDate, startOfToday());
         });
         if (overdueTasks.length === 0) return null;
@@ -238,7 +239,7 @@ export default function TasksPage() {
                     checked={false}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: getCompletionInitialDate() });
+                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
