@@ -62,11 +62,17 @@ export default function TasksPage() {
       if (dateFilter === 'custom') {
         if (customRange) {
           const dueDate = parseLocalDate(t.due_date);
-          if (!dueDate) return false;
-          const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
-          const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate());
-          const d = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
-          if (d < from || d > to) return false;
+          let dateMatches = false;
+          if (dueDate) {
+            const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
+            const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate());
+            const d = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+            dateMatches = d >= from && d <= to;
+          }
+          if (!dateMatches) {
+            dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
+          }
+          if (!dateMatches) return false;
         }
       } else {
         let dateMatches = false;
