@@ -218,11 +218,15 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
 
           {isEdit && (
             <div>
-              <Label>Tempo Real</Label>
-              <div className="h-10 px-3 flex items-center rounded-md bg-secondary/50 border border-border text-sm text-foreground">
-                {formatMinutes(task?.total_tracked_minutes ?? task?.actual_minutes ?? 0)}
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1">Atualizado automaticamente pelo timer</p>
+              <Label>Tempo Real (min)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={actualMinutes}
+                onChange={(e) => setActualMinutes(e.target.value)}
+                className="bg-secondary border-border"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Editável manualmente ou atualizado pelo timer</p>
             </div>
           )}
 
