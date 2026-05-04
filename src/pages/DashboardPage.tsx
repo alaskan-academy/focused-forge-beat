@@ -76,7 +76,20 @@ export default function DashboardPage() {
   const [editTask, setEditTask] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
-  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string } | null>(null);
+  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string; initialDate?: Date } | null>(null);
+
+  const getCompletionInitialDate = () => {
+    const now = new Date();
+    if (dateFilter === 'yesterday') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return yesterday;
+    }
+    if (dateFilter === 'custom' && customRange) {
+      return customRange.to > now ? now : customRange.to;
+    }
+    return now;
+  };
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
@@ -281,7 +294,9 @@ export default function DashboardPage() {
                   <Checkbox
                     checked={false}
                     onCheckedChange={(checked) => {
-                      if (checked) setCompletionDialog({ id: t.id!, name: t.name });
+                      if (checked) {
+                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: getCompletionInitialDate() });
+                      }
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="h-5 w-5 rounded-full border-2 border-destructive"
@@ -410,6 +425,7 @@ export default function DashboardPage() {
       <CompletionDateDialog
         open={!!completionDialog}
         taskName={completionDialog?.name || ''}
+        initialDate={completionDialog?.initialDate}
         onConfirm={async (completedAt) => {
           if (completionDialog) {
             try {

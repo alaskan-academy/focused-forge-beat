@@ -37,7 +37,20 @@ export default function TasksPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
   const [editTask, setEditTask] = useState<typeof tasks extends (infer T)[] ? T : never | null>(null);
-  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string } | null>(null);
+  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string; initialDate?: Date } | null>(null);
+
+  const getCompletionInitialDate = () => {
+    const now = new Date();
+    if (dateFilter === 'yesterday') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return yesterday;
+    }
+    if (dateFilter === 'custom' && customRange) {
+      return customRange.to > now ? now : customRange.to;
+    }
+    return now;
+  };
 
   const filtered = useMemo(() => {
     if (!tasks) return [];
@@ -111,16 +124,11 @@ export default function TasksPage() {
   }, [tasks, dateFilter, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
 
   const handleStatusChange = async (id: string, status: string, completedAt?: string) => {
-    // If marking as done, check if overdue → show date picker
+    // Always ask for the completion date when marking as done.
     if (status === 'done' && !completedAt) {
       const task = (tasks || []).find((t) => t.id === id);
-      if (task) {
-        const dueDate = parseLocalDate(task.due_date);
-        if (dueDate && isBefore(dueDate, startOfToday())) {
-          setCompletionDialog({ id, name: task.name });
-          return;
-        }
-      }
+      if (task) setCompletionDialog({ id, name: task.name, initialDate: getCompletionInitialDate() });
+      return;
     }
     try {
       await updateTask.mutateAsync({
@@ -215,7 +223,9 @@ export default function TasksPage() {
                   <Checkbox
                     checked={false}
                     onCheckedChange={(checked) => {
-                      if (checked) handleStatusChange(t.id!, 'done');
+                      if (checked) {
+                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: getCompletionInitialDate() });
+                      }
                     }}
                     onClick={(e) => e.stopPropagation()}
                     className="h-5 w-5 rounded-full border-2 border-destructive"
@@ -326,6 +336,7 @@ export default function TasksPage() {
       <CompletionDateDialog
         open={!!completionDialog}
         taskName={completionDialog?.name || ''}
+        initialDate={completionDialog?.initialDate}
         onConfirm={(completedAt) => {
           if (completionDialog) {
             handleStatusChange(completionDialog.id, 'done', completedAt);

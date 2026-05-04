@@ -1,5 +1,4 @@
-import { useState, useCallback } from 'react';
-import { isBefore, startOfToday } from 'date-fns';
+import { FormEvent, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
@@ -10,10 +9,8 @@ import { Button } from '@/components/ui/button';
 import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
 import { toast } from 'sonner';
-import { formatMinutes } from '@/lib/formatters';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
-import { RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, recurrenceLabel } from '@/lib/recurrence';
-import { parseLocalDate } from '@/lib/dateUtils';
+import { RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence } from '@/lib/recurrence';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 interface TaskModalProps {
@@ -64,11 +61,6 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
 
-  const isTaskOverdue = useCallback(() => {
-    const d = parseLocalDate(dueDate || task?.due_date || null);
-    return d && isBefore(d, startOfToday());
-  }, [dueDate, task?.due_date]);
-
   const buildPayload = () => ({
     name: name.trim(),
     area,
@@ -98,15 +90,15 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
     const payload = buildPayload();
 
-    // If marking as done and task is overdue, ask for completion date
+    // Always ask for the completion date when marking as done.
     const wasNotDone = task?.status !== 'done';
-    if (status === 'done' && wasNotDone && isTaskOverdue()) {
+    if (status === 'done' && wasNotDone) {
       setPendingPayload(payload);
       setShowCompletionDialog(true);
       return;
@@ -115,7 +107,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     // Normal flow
     const finalPayload = {
       ...payload,
-      ...(status === 'done' ? { completed_at: new Date().toISOString() } : { completed_at: null }),
+      completed_at: status === 'done' ? (task?.completed_at || new Date().toISOString()) : null,
     };
     await saveTask(finalPayload);
   };
