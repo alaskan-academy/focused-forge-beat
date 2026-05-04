@@ -3,6 +3,7 @@ import { Plus, Clock, Repeat, AlertCircle } from 'lucide-react';
 import { isBefore, startOfToday } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
+import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatMinutes, formatDate } from '@/lib/formatters';

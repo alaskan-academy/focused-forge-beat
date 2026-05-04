@@ -14,6 +14,7 @@ import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { parseRecurrence } from '@/lib/recurrence';
 import { parseLocalDate } from '@/lib/dateUtils';
+import { getEffectiveStatus } from '@/lib/effectiveStatus';
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
