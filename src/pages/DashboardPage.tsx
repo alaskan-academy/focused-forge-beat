@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
-import { parseRecurrence } from '@/lib/recurrence';
+import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
@@ -201,6 +201,37 @@ export default function DashboardPage() {
     setModalOpen(true);
   };
 
+  const handleStatusChange = async (task: any, status: string, completedAt?: string) => {
+    if (status === 'done' && !completedAt) {
+      setCompletionDialog({ id: task.id, name: task.name, initialDate: getCompletionInitialDate() });
+      return;
+    }
+
+    try {
+      const recConfig = parseRecurrence(task.recurrence_config);
+      if (recConfig.type !== 'none') {
+        const dateKey = toLocalDateKey(completedAt ? new Date(completedAt) : getCompletionInitialDate());
+        await updateTask.mutateAsync({
+          id: task.id,
+          status: 'todo',
+          completed_at: null,
+          recurrence_config: status === 'done'
+            ? addCompletedDate(task.recurrence_config, dateKey)
+            : removeCompletedDate(task.recurrence_config, dateKey),
+        });
+        return;
+      }
+
+      await updateTask.mutateAsync({
+        id: task.id,
+        status,
+        completed_at: status === 'done' ? (completedAt || new Date().toISOString()) : null,
+      });
+    } catch {
+      toast.error('Erro ao atualizar status');
+    }
+  };
+
   const renderTaskList = (taskList: typeof effectiveFiltered) => (
     <div className="space-y-2">
       {taskList.map((t) => {
@@ -273,8 +304,9 @@ export default function DashboardPage() {
       {/* Overdue tasks */}
       {(() => {
         const overdueTasks = (tasks || []).filter((t) => {
-          if (t.status === 'done') return false;
           const dueDate = parseLocalDate(t.due_date);
+          if (dueDate && getEffectiveStatus(t as any, 'custom', { from: dueDate, to: dueDate }) === 'done') return false;
+          if (t.status === 'done') return false;
           return dueDate && isBefore(dueDate, startOfToday());
         });
         if (overdueTasks.length === 0) return null;
@@ -295,7 +327,7 @@ export default function DashboardPage() {
                     checked={false}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: getCompletionInitialDate() });
+                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
@@ -428,15 +460,8 @@ export default function DashboardPage() {
         initialDate={completionDialog?.initialDate}
         onConfirm={async (completedAt) => {
           if (completionDialog) {
-            try {
-              await updateTask.mutateAsync({
-                id: completionDialog.id,
-                status: 'done',
-                completed_at: completedAt,
-              });
-            } catch {
-              toast.error('Erro ao atualizar status');
-            }
+            const task = (tasks || []).find((t) => t.id === completionDialog.id);
+            if (task) await handleStatusChange(task, 'done', completedAt);
           }
           setCompletionDialog(null);
         }}

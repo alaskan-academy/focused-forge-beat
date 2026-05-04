@@ -78,7 +78,7 @@ export function useSaveTimer() {
         .not('ended_at', 'is', null);
 
       const totalMinutes = Math.round(
-        (allSessions || []).reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0) + duration
+        (allSessions || []).reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0)
       );
 
       await supabase
