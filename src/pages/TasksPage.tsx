@@ -20,7 +20,7 @@ import { DateFilter, AreaFilter, StatusFilter, PriorityFilter } from '@/lib/type
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { parseLocalDate } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter } from '@/lib/dateUtils';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 export default function TasksPage() {
