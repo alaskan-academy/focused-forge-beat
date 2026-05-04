@@ -46,6 +46,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const [priority, setPriority] = useState(task?.priority || 'medium');
   const [dueDate, setDueDate] = useState(task?.due_date || '');
   const [estimated, setEstimated] = useState(String(task?.estimated_minutes || ''));
+  const [actualMinutes, setActualMinutes] = useState(String(task?.total_tracked_minutes ?? task?.actual_minutes ?? ''));
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>(
     task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
   );
@@ -76,6 +77,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     priority,
     due_date: dueDate || null,
     estimated_minutes: Number(estimated) || 0,
+    actual_minutes: Number(actualMinutes) || 0,
     recurrence_config: recurrence,
     notes: notes || null,
     work_block: workBlock,
@@ -218,11 +220,15 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
 
           {isEdit && (
             <div>
-              <Label>Tempo Real</Label>
-              <div className="h-10 px-3 flex items-center rounded-md bg-secondary/50 border border-border text-sm text-foreground">
-                {formatMinutes(task?.total_tracked_minutes ?? task?.actual_minutes ?? 0)}
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1">Atualizado automaticamente pelo timer</p>
+              <Label>Tempo Real (min)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={actualMinutes}
+                onChange={(e) => setActualMinutes(e.target.value)}
+                className="bg-secondary border-border"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Editável manualmente ou atualizado pelo timer</p>
             </div>
           )}
 
