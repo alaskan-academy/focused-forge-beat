@@ -211,10 +211,6 @@ export default function TasksPage() {
                     onClick={(e) => e.stopPropagation()}
                     className="h-5 w-5 rounded-full border-2 border-destructive"
                   />
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-5 w-5 rounded-full border-2 border-destructive"
-                  />
                   <div className="flex-1 min-w-0">
                     <span className="font-medium text-foreground truncate">{t.name}</span>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
