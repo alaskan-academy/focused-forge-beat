@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
-import { parseLocalDate, completedAtMatchesFilter } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import TimerButton from '@/components/TimerButton';
@@ -107,6 +107,9 @@ export default function DashboardPage() {
         if (!dateMatches) {
           dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
         }
+        if (!dateMatches) {
+          dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
+        }
         return dateMatches;
       }
 
@@ -153,6 +156,10 @@ export default function DashboardPage() {
       // Also include tasks completed on the viewed date (e.g. overdue tasks completed today)
       if (!dateMatches) {
         dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
+      }
+      // Include recurring tasks that have a completed_dates entry for the filter date
+      if (!dateMatches) {
+        dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
       }
       return dateMatches;
     });

@@ -20,7 +20,7 @@ import { DateFilter, AreaFilter, StatusFilter, PriorityFilter } from '@/lib/type
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { parseLocalDate, completedAtMatchesFilter } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate } from '@/lib/dateUtils';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 export default function TasksPage() {
@@ -72,6 +72,9 @@ export default function TasksPage() {
           if (!dateMatches) {
             dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
           }
+          if (!dateMatches) {
+            dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
+          }
           if (!dateMatches) return false;
         }
       } else {
@@ -119,6 +122,10 @@ export default function TasksPage() {
         // Also include tasks completed on the viewed date (e.g. overdue tasks completed today)
         if (!dateMatches) {
           dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
+        }
+        // Include recurring tasks that have a completed_dates entry for the filter date
+        if (!dateMatches) {
+          dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
         }
         if (!dateMatches) return false;
       }

@@ -1,5 +1,6 @@
 import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { DateFilter } from '@/lib/types';
+import { parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 
 export function parseLocalDate(dateValue: string | null | undefined): Date | null {
   if (!dateValue) return null;
@@ -47,6 +48,53 @@ export function completedAtMatchesFilter(
     const from = startOfLocalDay(customRange.from);
     const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate(), 23, 59, 59, 999);
     return d >= from && d <= to;
+  }
+  return false;
+}
+
+/**
+ * Check if a recurring task has a completed_dates entry matching the filter date.
+ */
+export function recurringCompletedOnFilterDate(
+  recurrenceConfig: unknown,
+  dateFilter: DateFilter,
+  customRange?: { from: Date; to: Date } | null,
+): boolean {
+  const rc = parseRecurrence(recurrenceConfig);
+  if (rc.type === 'none') return false;
+  const completedDates = rc.completed_dates || [];
+  if (completedDates.length === 0) return false;
+
+  const dateSet = new Set(completedDates);
+
+  if (dateFilter === 'today') return dateSet.has(toLocalDateKey(new Date()));
+  if (dateFilter === 'yesterday') {
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    return dateSet.has(toLocalDateKey(y));
+  }
+  if (dateFilter === 'tomorrow') {
+    const t = new Date(); t.setDate(t.getDate() + 1);
+    return dateSet.has(toLocalDateKey(t));
+  }
+  if (dateFilter === 'week') {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
+      if (dateSet.has(toLocalDateKey(day))) return true;
+    }
+    return false;
+  }
+  if (dateFilter === 'custom' && customRange) {
+    const current = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
+    const end = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate());
+    while (current <= end) {
+      if (dateSet.has(toLocalDateKey(current))) return true;
+      current.setDate(current.getDate() + 1);
+    }
+    return false;
   }
   return false;
 }
