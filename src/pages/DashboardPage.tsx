@@ -220,16 +220,13 @@ export default function DashboardPage() {
     setModalOpen(true);
   };
 
-  const handleStatusChange = async (task: any, status: string, completedAt?: string) => {
-    if (status === 'done' && !completedAt) {
-      setCompletionDialog({ id: task.id, name: task.name, initialDate: getCompletionInitialDate() });
-      return;
-    }
+  const handleStatusChange = async (task: any, status: string, completedAt?: string, occurrenceDateKey?: string) => {
+    const recConfig = parseRecurrence(task.recurrence_config);
 
-    try {
-      const recConfig = parseRecurrence(task.recurrence_config);
-      if (recConfig.type !== 'none') {
-        const dateKey = toLocalDateKey(completedAt ? new Date(completedAt) : getCompletionInitialDate());
+    // For recurring tasks, skip CompletionDateDialog — use the occurrence date directly
+    if (recConfig.type !== 'none') {
+      try {
+        const dateKey = occurrenceDateKey || toLocalDateKey(completedAt ? new Date(completedAt) : getCompletionInitialDate());
         await updateTask.mutateAsync({
           id: task.id,
           status: 'todo',
@@ -238,9 +235,20 @@ export default function DashboardPage() {
             ? addCompletedDate(task.recurrence_config, dateKey)
             : removeCompletedDate(task.recurrence_config, dateKey),
         });
-        return;
+        toast.success(status === 'done' ? 'Ocorrência concluída!' : 'Conclusão removida!');
+      } catch {
+        toast.error('Erro ao atualizar status');
       }
+      return;
+    }
 
+    // Non-recurring: show CompletionDateDialog
+    if (status === 'done' && !completedAt) {
+      setCompletionDialog({ id: task.id, name: task.name, initialDate: getCompletionInitialDate() });
+      return;
+    }
+
+    try {
       await updateTask.mutateAsync({
         id: task.id,
         status,
