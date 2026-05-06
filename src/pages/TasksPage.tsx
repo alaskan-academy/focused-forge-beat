@@ -265,7 +265,13 @@ export default function TasksPage() {
                     checked={false}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
+                        const recConfig = parseRecurrence((t as any).recurrence_config);
+                        if (recConfig.type !== 'none') {
+                          const dateKey = t.due_date || toLocalDateKey(new Date());
+                          handleStatusChange(t.id!, 'done', undefined, dateKey);
+                        } else {
+                          setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
+                        }
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
