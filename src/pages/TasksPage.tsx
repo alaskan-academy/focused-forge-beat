@@ -142,17 +142,14 @@ export default function TasksPage() {
     });
   }, [tasks, dateFilter, customRange, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
 
-  const handleStatusChange = async (id: string, status: string, completedAt?: string) => {
+  const handleStatusChange = async (id: string, status: string, completedAt?: string, occurrenceDateKey?: string) => {
     const task = (tasks || []).find((t) => t.id === id);
-    // Always ask for the completion date when marking as done.
-    if (status === 'done' && !completedAt) {
-      if (task) setCompletionDialog({ id, name: task.name, initialDate: getCompletionInitialDate() });
-      return;
-    }
-    try {
-      const recConfig = parseRecurrence((task as any)?.recurrence_config);
-      if (task && recConfig.type !== 'none') {
-        const dateKey = toLocalDateKey(completedAt ? new Date(completedAt) : getCompletionInitialDate());
+    const recConfig = parseRecurrence((task as any)?.recurrence_config);
+
+    // For recurring tasks, skip CompletionDateDialog — use the occurrence date directly
+    if (task && recConfig.type !== 'none') {
+      try {
+        const dateKey = occurrenceDateKey || toLocalDateKey(completedAt ? new Date(completedAt) : getCompletionInitialDate());
         await updateTask.mutateAsync({
           id,
           status: 'todo',
@@ -161,8 +158,19 @@ export default function TasksPage() {
             ? addCompletedDate((task as any).recurrence_config, dateKey)
             : removeCompletedDate((task as any).recurrence_config, dateKey),
         });
-        return;
+        toast.success(status === 'done' ? 'Ocorrência concluída!' : 'Conclusão removida!');
+      } catch {
+        toast.error('Erro ao atualizar status');
       }
+      return;
+    }
+
+    // Non-recurring: show CompletionDateDialog
+    if (status === 'done' && !completedAt) {
+      if (task) setCompletionDialog({ id, name: task.name, initialDate: getCompletionInitialDate() });
+      return;
+    }
+    try {
       await updateTask.mutateAsync({
         id,
         status,
@@ -257,7 +265,13 @@ export default function TasksPage() {
                     checked={false}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
+                        const recConfig = parseRecurrence((t as any).recurrence_config);
+                        if (recConfig.type !== 'none') {
+                          const dateKey = t.due_date || toLocalDateKey(new Date());
+                          handleStatusChange(t.id!, 'done', undefined, dateKey);
+                        } else {
+                          setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
+                        }
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
