@@ -355,7 +355,14 @@ export default function DashboardPage() {
                     checked={false}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
+                        const recConfig = parseRecurrence((t as any).recurrence_config);
+                        if (recConfig.type !== 'none') {
+                          // Recurring: directly mark the due_date occurrence as done
+                          const dateKey = t.due_date || toLocalDateKey(new Date());
+                          handleStatusChange(t, 'done', undefined, dateKey);
+                        } else {
+                          setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
+                        }
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
