@@ -10,10 +10,9 @@ import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, Aler
 import { isBefore, startOfToday } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
-import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import TimerButton from '@/components/TimerButton';
@@ -96,35 +95,17 @@ export default function DashboardPage() {
     return tasks.filter((t) => {
       if (dateFilter === 'custom') {
         if (!customRange) return true;
-        const dueDate = parseLocalDate(t.due_date);
-        let dateMatches = false;
-        if (dueDate) {
-          const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
-          const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate());
-          const d = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
-          dateMatches = d >= from && d <= to;
-        }
-        if (!dateMatches) {
-          dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
-        }
-        if (!dateMatches) {
-          dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
-        }
+        let dateMatches = taskDateRangeMatchesFilter(t as any, 'custom', customRange);
+        if (!dateMatches) dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
+        if (!dateMatches) dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
         return dateMatches;
       }
 
       const recConfig = parseRecurrence((t as any).recurrence_config);
       const isRecurring = recConfig.type !== 'none';
-      let dateMatches = false;
+      let dateMatches = taskDateRangeMatchesFilter(t as any, dateFilter, customRange);
 
-      const dueDate = parseLocalDate(t.due_date);
-      if (dueDate) {
-        const d = dueDate;
-        if (dateFilter === 'today') dateMatches = isToday(d);
-        else if (dateFilter === 'yesterday') dateMatches = isYesterday(d);
-        else if (dateFilter === 'tomorrow') dateMatches = isTomorrow(d);
-        else if (dateFilter === 'week') dateMatches = isThisWeek(d);
-      } else if (!t.due_date && !isRecurring) {
+      if (!dateMatches && !t.due_date && !isRecurring) {
         dateMatches = dateFilter === 'today';
       }
 
@@ -153,14 +134,8 @@ export default function DashboardPage() {
         }
       }
 
-      // Also include tasks completed on the viewed date (e.g. overdue tasks completed today)
-      if (!dateMatches) {
-        dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
-      }
-      // Include recurring tasks that have a completed_dates entry for the filter date
-      if (!dateMatches) {
-        dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
-      }
+      if (!dateMatches) dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
+      if (!dateMatches) dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
       return dateMatches;
     });
   }, [tasks, dateFilter, customRange]);
@@ -339,10 +314,11 @@ export default function DashboardPage() {
         });
         if (overdueTasks.length === 0) return null;
         return (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-5">
+          <div className="bg-card border border-destructive/40 rounded-xl p-5">
             <div className="flex items-center gap-2 mb-4">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              <h2 className="font-semibold text-destructive">Tarefas Atrasadas ({overdueTasks.length})</h2>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <h2 className="font-semibold text-foreground">Atrasadas</h2>
+              <span className="text-xs bg-destructive/15 text-destructive px-2 py-0.5 rounded-full font-medium">{overdueTasks.length}</span>
             </div>
             <div className="space-y-2">
               {overdueTasks.map((t) => (

@@ -17,10 +17,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useProjects } from '@/hooks/useProjects';
 import { DateFilter, AreaFilter, StatusFilter, PriorityFilter } from '@/lib/types';
-import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter } from '@/lib/dateUtils';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 
 export default function TasksPage() {
@@ -58,41 +57,20 @@ export default function TasksPage() {
       const recConfig = parseRecurrence((t as any).recurrence_config);
       const isRecurring = recConfig.type !== 'none';
 
-      // Date filter
       if (dateFilter === 'custom') {
         if (customRange) {
-          const dueDate = parseLocalDate(t.due_date);
-          let dateMatches = false;
-          if (dueDate) {
-            const from = new Date(customRange.from.getFullYear(), customRange.from.getMonth(), customRange.from.getDate());
-            const to = new Date(customRange.to.getFullYear(), customRange.to.getMonth(), customRange.to.getDate());
-            const d = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
-            dateMatches = d >= from && d <= to;
-          }
-          if (!dateMatches) {
-            dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
-          }
-          if (!dateMatches) {
-            dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
-          }
+          let dateMatches = taskDateRangeMatchesFilter(t as any, 'custom', customRange);
+          if (!dateMatches) dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
+          if (!dateMatches) dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
           if (!dateMatches) return false;
         }
       } else {
-        let dateMatches = false;
+        let dateMatches = taskDateRangeMatchesFilter(t as any, dateFilter, customRange);
 
-        const dueDate = parseLocalDate(t.due_date);
-        if (dueDate) {
-          const d = dueDate;
-          if (dateFilter === 'today') dateMatches = isToday(d);
-          else if (dateFilter === 'yesterday') dateMatches = isYesterday(d);
-          else if (dateFilter === 'tomorrow') dateMatches = isTomorrow(d);
-          else if (dateFilter === 'week') dateMatches = isThisWeek(d);
-        } else if (!t.due_date) {
-          // Undated non-recurring tasks show on "today"
-          if (dateFilter === 'today' && !isRecurring) dateMatches = true;
+        if (!dateMatches && !t.due_date && !isRecurring) {
+          dateMatches = dateFilter === 'today';
         }
 
-        // For recurring tasks, also check if recurrence matches the filter date(s)
         if (!dateMatches && isRecurring) {
           const createdAt = t.due_date || t.created_at;
           if (dateFilter === 'today') {
@@ -104,7 +82,6 @@ export default function TasksPage() {
             const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
             dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, tomorrow);
           } else if (dateFilter === 'week') {
-            // Check each day of the current week
             const now = new Date();
             const startOfWeek = new Date(now);
             startOfWeek.setDate(now.getDate() - now.getDay());
@@ -119,14 +96,8 @@ export default function TasksPage() {
           }
         }
 
-        // Also include tasks completed on the viewed date (e.g. overdue tasks completed today)
-        if (!dateMatches) {
-          dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
-        }
-        // Include recurring tasks that have a completed_dates entry for the filter date
-        if (!dateMatches) {
-          dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
-        }
+        if (!dateMatches) dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
+        if (!dateMatches) dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
         if (!dateMatches) return false;
       }
 
@@ -190,7 +161,7 @@ export default function TasksPage() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-wrap sm:gap-3">
         <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
         <Select value={areaFilter} onValueChange={(v) => setAreaFilter(v as AreaFilter)}>
           <SelectTrigger className="w-32 bg-secondary border-border"><SelectValue /></SelectTrigger>
@@ -249,10 +220,11 @@ export default function TasksPage() {
         });
         if (overdueTasks.length === 0) return null;
         return (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-5">
+          <div className="bg-card border border-destructive/40 rounded-xl p-5">
             <div className="flex items-center gap-2 mb-4">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              <h2 className="font-semibold text-destructive">Tarefas Atrasadas ({overdueTasks.length})</h2>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <h2 className="font-semibold text-foreground">Atrasadas</h2>
+              <span className="text-xs bg-destructive/15 text-destructive px-2 py-0.5 rounded-full font-medium">{overdueTasks.length}</span>
             </div>
             <div className="space-y-2">
               {overdueTasks.map((t) => (
@@ -343,13 +315,23 @@ export default function TasksPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {formatMinutes(t.estimated_minutes)} est. /
-                  </span>
-                  <EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} />
-                  <span>real</span>
-                  {t.due_date && <span>Prazo: {formatDate(t.due_date)}</span>}
+                  {(t.estimated_minutes || 0) > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatMinutes(t.estimated_minutes)} est.
+                    </span>
+                  )}
+                  {(t.total_tracked_minutes || 0) > 0 && (
+                    <>
+                      <EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} />
+                      <span>real</span>
+                    </>
+                  )}
+                  {(t as any).start_date ? (
+                    <span>{formatDate((t as any).start_date)} → {formatDate(t.due_date)}</span>
+                  ) : t.due_date ? (
+                    <span>Prazo: {formatDate(t.due_date)}</span>
+                  ) : null}
                   {t.completed_at && es === 'done' && (
                     <span className="flex items-center gap-1 text-status-done">
                       ✓ {new Date(t.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {new Date(t.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}

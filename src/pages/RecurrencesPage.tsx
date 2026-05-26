@@ -115,7 +115,9 @@ export default function RecurrencesPage() {
                     )}>
                       {isActive ? recurrenceLabel(config) : 'Interrompida'}
                     </span>
-                    {t.due_date && <span>Início: {t.due_date}</span>}
+                    {t.due_date && (
+                      <span>Início: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

@@ -10,7 +10,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import { parseLocalDate } from '@/lib/dateUtils';
+import { parseLocalDate, startOfLocalDay } from '@/lib/dateUtils';
 
 export default function CalendarPage() {
   const { data: tasks } = useTasks();
@@ -32,13 +32,18 @@ export default function CalendarPage() {
   const getTasksForDate = (date: Date) => {
     if (!tasks) return [];
     return tasks.filter((t) => {
-      // Check direct due_date match
       const dueDate = parseLocalDate(t.due_date);
       if (dueDate) {
-        const d = dueDate;
-        if (isSameDay(d, date)) return true;
+        const startDate = parseLocalDate((t as any).start_date);
+        if (startDate) {
+          const day = startOfLocalDay(date);
+          const taskStart = startOfLocalDay(startDate);
+          const taskEnd = startOfLocalDay(dueDate);
+          if (day >= taskStart && day <= taskEnd) return true;
+        } else if (isSameDay(dueDate, date)) {
+          return true;
+        }
       }
-      // Check recurrence match
       const recConfig = parseRecurrence((t as any).recurrence_config);
       if (recConfig.type !== 'none') {
         const createdAt = t.due_date || t.created_at;
@@ -105,31 +110,29 @@ export default function CalendarPage() {
                   )}>
                     {format(day, 'd')}
                   </div>
-                  <div className="space-y-0.5">
-                    {dayTasks.slice(0, 3).map((t) => {
+                  <div className="flex flex-wrap gap-0.5 mt-1">
+                    {dayTasks.slice(0, 5).map((t) => {
                       const recConfig = parseRecurrence((t as any).recurrence_config);
                       const isRecurring = recConfig.type !== 'none';
                       return (
                         <div
                           key={t.id}
-                          className={cn(
-                            "text-[10px] px-1 py-0.5 rounded truncate",
-                            t.status === 'done'
-                              ? "bg-status-done/15 text-status-done line-through"
-                              : isRecurring
-                                ? "bg-primary/15 text-primary"
-                                : "bg-secondary text-foreground"
-                          )}
                           title={t.name}
-                        >
-                          {t.name}
-                        </div>
+                          className={cn(
+                            "h-2 w-2 rounded-full flex-shrink-0",
+                            t.status === 'done'
+                              ? "bg-status-done"
+                              : t.status === 'in_progress'
+                                ? "bg-status-in-progress"
+                                : isRecurring
+                                  ? "bg-primary"
+                                  : "bg-muted-foreground/60"
+                          )}
+                        />
                       );
                     })}
-                    {dayTasks.length > 3 && (
-                      <div className="text-[10px] text-muted-foreground px-1">
-                        +{dayTasks.length - 3} mais
-                      </div>
+                    {dayTasks.length > 5 && (
+                      <span className="text-[9px] text-muted-foreground leading-none self-center">+{dayTasks.length - 5}</span>
                     )}
                   </div>
                 </div>

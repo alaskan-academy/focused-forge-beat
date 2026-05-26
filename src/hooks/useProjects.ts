@@ -16,7 +16,13 @@ export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (project: { name: string; color: string; status?: string }) => {
-      const { data, error } = await supabase.from('projects').insert(project).select().single();
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user.id;
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({ ...project, ...(userId ? { user_id: userId } : {}) })
+        .select()
+        .single();
       if (error) throw error;
       return data;
     },

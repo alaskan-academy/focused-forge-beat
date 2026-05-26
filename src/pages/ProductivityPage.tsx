@@ -189,7 +189,7 @@ export default function ProductivityPage() {
             <BarChart data={timeChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(222, 30%, 16%)" />
               <XAxis dataKey="day" stroke="hsl(215, 20%, 55%)" fontSize={12} />
-              <YAxis stroke="hsl(215, 20%, 55%)" fontSize={12} />
+              <YAxis stroke="hsl(215, 20%, 55%)" fontSize={12} tickFormatter={(v: number) => v >= 60 ? `${Math.round(v/60)}h` : `${v}m`} />
               <Tooltip contentStyle={{ background: 'hsl(222, 47%, 9%)', border: '1px solid hsl(222, 30%, 16%)', borderRadius: 8, color: 'hsl(210, 40%, 96%)' }} />
               <Bar dataKey="estimado" fill="hsl(238, 84%, 67%)" radius={[4, 4, 0, 0]} name="Estimado" />
               <Bar dataKey="real" fill="hsl(160, 84%, 39%)" radius={[4, 4, 0, 0]} name="Real" />

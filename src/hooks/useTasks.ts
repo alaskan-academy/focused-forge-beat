@@ -75,6 +75,7 @@ export function useCreateTask() {
       project_id?: string | null;
       status?: string;
       priority?: string;
+      start_date?: string | null;
       due_date?: string | null;
       estimated_minutes?: number;
       recurrence_config?: RecurrenceConfig;
@@ -84,11 +85,14 @@ export function useCreateTask() {
       const { recurrence_config, work_block, ...rest } = task;
       const recJson = recurrence_config ? JSON.parse(JSON.stringify(recurrence_config)) : { type: 'none' };
       if (work_block) recJson.work_block = work_block;
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user.id;
       const insertData = {
         ...rest,
         recurrence_config: recJson,
+        ...(userId ? { user_id: userId } : {}),
       };
-      
+
       const { data, error } = await supabase.from('tasks').insert(insertData as any).select().single();
       if (error) throw error;
       return data;
@@ -102,8 +106,8 @@ export function useUpdateTask() {
   return useMutation({
     mutationFn: async (params: { id: string } & Partial<{
       name: string; area: string; project_id: string | null; status: string;
-      priority: string; due_date: string | null; estimated_minutes: number;
-      actual_minutes: number; notes: string | null;
+      priority: string; start_date: string | null; due_date: string | null;
+      estimated_minutes: number; actual_minutes: number; notes: string | null;
       completed_at: string | null; recurrence_config: RecurrenceConfig;
       work_block: string;
     }>) => {

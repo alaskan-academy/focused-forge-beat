@@ -2,6 +2,63 @@ import { isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { DateFilter } from '@/lib/types';
 import { parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 
+/**
+ * Returns true if the task's date range [start_date, due_date] overlaps the filter period.
+ * When start_date is absent, falls back to matching only on due_date (original behavior).
+ */
+export function taskDateRangeMatchesFilter(
+  task: { due_date: string | null; start_date?: string | null },
+  dateFilter: DateFilter,
+  customRange?: { from: Date; to: Date } | null,
+): boolean {
+  const dueDate = parseLocalDate(task.due_date);
+  if (!dueDate) return false;
+
+  const startDate = parseLocalDate(task.start_date ?? null);
+  const taskEnd = startOfLocalDay(dueDate);
+
+  if (!startDate) {
+    if (dateFilter === 'today') return isToday(dueDate);
+    if (dateFilter === 'yesterday') return isYesterday(dueDate);
+    if (dateFilter === 'tomorrow') return isTomorrow(dueDate);
+    if (dateFilter === 'week') return isThisWeek(dueDate);
+    if (dateFilter === 'custom' && customRange) {
+      const from = startOfLocalDay(customRange.from);
+      const to = startOfLocalDay(customRange.to);
+      return taskEnd >= from && taskEnd <= to;
+    }
+    return false;
+  }
+
+  const taskStart = startOfLocalDay(startDate);
+  const overlaps = (fStart: Date, fEnd: Date) => taskStart <= fEnd && taskEnd >= fStart;
+
+  if (dateFilter === 'today') {
+    const today = startOfLocalDay(new Date());
+    return overlaps(today, today);
+  }
+  if (dateFilter === 'yesterday') {
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const yd = startOfLocalDay(y);
+    return overlaps(yd, yd);
+  }
+  if (dateFilter === 'tomorrow') {
+    const tm = new Date(); tm.setDate(tm.getDate() + 1);
+    const tmd = startOfLocalDay(tm);
+    return overlaps(tmd, tmd);
+  }
+  if (dateFilter === 'week') {
+    const now = new Date();
+    const ws = new Date(now); ws.setDate(now.getDate() - now.getDay());
+    const we = new Date(ws); we.setDate(ws.getDate() + 6);
+    return overlaps(startOfLocalDay(ws), startOfLocalDay(we));
+  }
+  if (dateFilter === 'custom' && customRange) {
+    return overlaps(startOfLocalDay(customRange.from), startOfLocalDay(customRange.to));
+  }
+  return false;
+}
+
 export function parseLocalDate(dateValue: string | null | undefined): Date | null {
   if (!dateValue) return null;
 

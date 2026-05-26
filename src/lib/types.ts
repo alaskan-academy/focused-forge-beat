@@ -5,6 +5,7 @@ export interface TaskWithTime {
   project_id: string | null;
   status: string;
   priority: string;
+  start_date: string | null;
   due_date: string | null;
   estimated_minutes: number | null;
   actual_minutes: number | null;
