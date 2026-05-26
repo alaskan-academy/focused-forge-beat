@@ -251,18 +251,18 @@ export default function TasksPage() {
                   />
                    <div className="flex-1 min-w-0">
                      <span className="font-medium text-foreground truncate">{t.name}</span>
-                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                     <div className="flex flex-nowrap items-center gap-2 text-xs text-muted-foreground mt-1 overflow-x-auto scrollbar-none">
                        {t.due_date && (
-                         <span className="text-destructive font-medium">
+                         <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
                            Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                          </span>
                        )}
-                       <span className="flex items-center gap-1">
+                       <span className="whitespace-nowrap shrink-0 flex items-center gap-1">
                          <Clock className="h-3 w-3" />
                          {formatMinutes(t.estimated_minutes)} est.
                        </span>
-                       <EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} />
-                       <span className="text-muted-foreground">real</span>
+                       <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} /></span>
+                       <span className="whitespace-nowrap shrink-0">real</span>
                      </div>
                    </div>
                    <div className="flex items-center gap-2">
@@ -314,31 +314,31 @@ export default function TasksPage() {
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex flex-nowrap items-center gap-2 text-xs text-muted-foreground overflow-x-auto scrollbar-none">
                   {(t.estimated_minutes || 0) > 0 && (
-                    <span className="flex items-center gap-1">
+                    <span className="whitespace-nowrap shrink-0 flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {formatMinutes(t.estimated_minutes)} est.
                     </span>
                   )}
                   {(t.total_tracked_minutes || 0) > 0 && (
                     <>
-                      <EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} />
-                      <span>real</span>
+                      <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} /></span>
+                      <span className="whitespace-nowrap shrink-0">real</span>
                     </>
                   )}
                   {(t as any).start_date ? (
-                    <span>{formatDate((t as any).start_date)} → {formatDate(t.due_date)}</span>
+                    <span className="whitespace-nowrap shrink-0">{formatDate((t as any).start_date)} → {formatDate(t.due_date)}</span>
                   ) : t.due_date ? (
-                    <span>Prazo: {formatDate(t.due_date)}</span>
+                    <span className="whitespace-nowrap shrink-0">Prazo: {formatDate(t.due_date)}</span>
                   ) : null}
                   {t.completed_at && es === 'done' && (
-                    <span className="flex items-center gap-1 text-status-done">
+                    <span className="whitespace-nowrap shrink-0 flex items-center gap-1 text-status-done">
                       ✓ {new Date(t.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {new Date(t.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   )}
                   {(t as any).recurrence_config && (t as any).recurrence_config?.type !== 'none' && (
-                    <span className="flex items-center gap-1 text-primary/70">
+                    <span className="whitespace-nowrap shrink-0 flex items-center gap-1 text-primary/70">
                       <Repeat className="h-3 w-3" /> Recorrente
                     </span>
                   )}

@@ -346,18 +346,18 @@ export default function DashboardPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <span className="text-sm text-foreground truncate">{t.name}</span>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                    <div className="flex flex-nowrap items-center gap-2 text-xs text-muted-foreground mt-1 overflow-x-auto scrollbar-none">
                       {t.due_date && (
-                        <span className="text-destructive font-medium">
+                        <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
                           Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                         </span>
                       )}
-                      <span className="flex items-center gap-1">
+                      <span className="whitespace-nowrap shrink-0 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {formatMinutes(t.estimated_minutes)} est.
                       </span>
-                      <EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} />
-                      <span className="text-muted-foreground">real</span>
+                      <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} /></span>
+                      <span className="whitespace-nowrap shrink-0">real</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
