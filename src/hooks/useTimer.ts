@@ -84,14 +84,37 @@ export function useSaveTimer() {
         );
       }
 
+      const { data: sessionFull } = await supabase
+        .from('timer_sessions')
+        .select('task_id')
+        .eq('id', sessionId)
+        .single();
+
       const { error } = await supabase
         .from('timer_sessions')
         .update({ ended_at: new Date(pausedAt).toISOString(), duration_minutes: duration })
         .eq('id', sessionId);
       if (error) throw error;
 
-      // Note: total_tracked_minutes is computed by the view (SUM of timer_sessions.duration_minutes)
-      // No need to update tasks.actual_minutes — that's for manual overrides only.
+      // Update actual_minutes on the task = sum of all valid sessions (capped at MAX each)
+      // Filtering out historically stale sessions (> MAX_SESSION_MINUTES) that slipped in before the fix
+      if (sessionFull?.task_id) {
+        const { data: allSessions } = await supabase
+          .from('timer_sessions')
+          .select('duration_minutes')
+          .eq('task_id', sessionFull.task_id)
+          .not('ended_at', 'is', null)
+          .lte('duration_minutes', MAX_SESSION_MINUTES); // exclude legacy stale sessions
+
+        const totalMinutes = Math.round(
+          (allSessions || []).reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0)
+        );
+
+        await supabase
+          .from('tasks')
+          .update({ actual_minutes: totalMinutes })
+          .eq('id', sessionFull.task_id);
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['active_timer'] });
