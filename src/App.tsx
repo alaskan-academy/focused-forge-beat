@@ -13,6 +13,7 @@ import RecurrencesPage from "@/pages/RecurrencesPage";
 import ProjectsPage from "@/pages/ProjectsPage";
 import ProductivityPage from "@/pages/ProductivityPage";
 import InboxPage from "@/pages/InboxPage";
+import RemindersPage from "@/pages/RemindersPage";
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -41,6 +42,7 @@ function ProtectedLayout() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/productivity" element={<ProductivityPage />} />
           <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/reminders" element={<RemindersPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

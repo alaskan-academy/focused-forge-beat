@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { DateFilter } from '@/lib/types';
+import { useReminders } from '@/hooks/useReminders';
+import { REMINDER_COLORS } from '@/lib/reminderColors';
 import { formatMinutes } from '@/lib/formatters';
 import DateFilterBar from '@/components/DateFilterBar';
 import TaskModal from '@/components/TaskModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
-import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset, AlertCircle, StickyNote } from 'lucide-react';
 import { isBefore, startOfToday } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
@@ -69,6 +72,7 @@ function BlockAlert({ blockKey, totalMinutes, periodDays }: { blockKey: BlockKey
 
 export default function DashboardPage() {
   const { data: tasks } = useTasks();
+  const { data: reminders } = useReminders();
   const updateTask = useUpdateTask();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
@@ -301,6 +305,35 @@ export default function DashboardPage() {
             />
           </div>
           <p className="text-xs text-muted-foreground mt-2">{stats.done} de {stats.total} tarefas concluídas</p>
+        </div>
+      )}
+
+      {/* Reminders mural — subtle, not the visual focus */}
+      {(reminders || []).length > 0 && (
+        <div className="bg-card/50 border border-border/50 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-1.5">
+              <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">Lembretes</span>
+            </div>
+            <Link to="/reminders" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Gerenciar →
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(reminders || []).map((r) => {
+              const c = REMINDER_COLORS[r.color] ?? REMINDER_COLORS.yellow;
+              return (
+                <div
+                  key={r.id}
+                  className={`text-xs px-3 py-1.5 rounded-lg border max-w-[220px] truncate ${c.bg} ${c.border} ${c.text}`}
+                  title={r.content}
+                >
+                  {r.content}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
