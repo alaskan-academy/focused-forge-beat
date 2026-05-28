@@ -9,7 +9,7 @@ export interface Reminder {
   content: string;
   color: ReminderColor;
   position: number;
-  archived: boolean;
+  archived?: boolean;
   created_at: string;
 }
 
@@ -22,11 +22,11 @@ export function useReminders() {
       const { data, error } = await supabase
         .from('reminders')
         .select('*')
-        .eq('archived', false)
         .order('position', { ascending: true })
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return (data || []) as Reminder[];
+      // filter client-side — works even before the archived column exists
+      return ((data || []) as Reminder[]).filter((r) => !r.archived);
     },
   });
 }

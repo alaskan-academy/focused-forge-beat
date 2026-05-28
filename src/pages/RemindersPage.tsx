@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useReminders, useCreateReminder, useUpdateReminder, useDeleteReminder, Reminder } from '@/hooks/useReminders';
+import { useReminders, useCreateReminder, useUpdateReminder, useDeleteReminder, useArchiveReminder, Reminder } from '@/hooks/useReminders';
 import { REMINDER_COLORS, REMINDER_COLOR_KEYS, ReminderColor } from '@/lib/reminderColors';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { StickyNote, Plus, Trash2, Check, X } from 'lucide-react';
+import { StickyNote, Plus, Trash2, Archive, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -33,7 +33,9 @@ function ReminderCard({ reminder }: { reminder: Reminder }) {
   const [color, setColor] = useState<ReminderColor>(reminder.color);
   const updateReminder = useUpdateReminder();
   const deleteReminder = useDeleteReminder();
+  const archiveReminder = useArchiveReminder();
   const colors = REMINDER_COLORS[color];
+  const cardColors = REMINDER_COLORS[reminder.color];
 
   const handleSave = async () => {
     if (!content.trim()) return;
@@ -55,13 +57,20 @@ function ReminderCard({ reminder }: { reminder: Reminder }) {
     }
   };
 
+  const handleArchive = async () => {
+    try {
+      await archiveReminder.mutateAsync(reminder.id);
+      toast.success('Lembrete arquivado');
+    } catch {
+      toast.error('Erro ao arquivar');
+    }
+  };
+
   const handleCancel = () => {
     setContent(reminder.content);
     setColor(reminder.color);
     setEditing(false);
   };
-
-  const cardColors = REMINDER_COLORS[reminder.color];
 
   if (editing) {
     return (
@@ -78,7 +87,7 @@ function ReminderCard({ reminder }: { reminder: Reminder }) {
             <Button size="sm" variant="ghost" onClick={handleCancel} className="h-7 px-2">
               <X className="h-3.5 w-3.5" />
             </Button>
-            <Button size="sm" onClick={handleSave} className="h-7 px-3 gap-1">
+            <Button size="sm" onClick={handleSave} disabled={!content.trim() || updateReminder.isPending} className="h-7 px-3 gap-1">
               <Check className="h-3.5 w-3.5" /> Salvar
             </Button>
           </div>
@@ -95,15 +104,30 @@ function ReminderCard({ reminder }: { reminder: Reminder }) {
       )}
       onClick={() => setEditing(true)}
     >
-      <p className={cn('text-sm leading-relaxed whitespace-pre-wrap break-words', cardColors.text)}>
+      <p className={cn('text-sm leading-relaxed whitespace-pre-wrap break-words pr-16', cardColors.text)}>
         {reminder.content}
       </p>
-      <button
-        onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/20"
-      >
-        <Trash2 className={cn('h-3.5 w-3.5', cardColors.text)} />
-      </button>
+
+      {/* Action buttons — visible on hover */}
+      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); handleArchive(); }}
+          className="p-1.5 rounded hover:bg-black/20"
+          title="Arquivar"
+          disabled={archiveReminder.isPending}
+        >
+          <Archive className={cn('h-3.5 w-3.5', cardColors.text)} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+          className="p-1.5 rounded hover:bg-black/20"
+          title="Excluir"
+          disabled={deleteReminder.isPending}
+        >
+          <Trash2 className={cn('h-3.5 w-3.5', cardColors.text)} />
+        </button>
+      </div>
+
       <div className={cn('mt-2 h-1 w-6 rounded-full opacity-40', REMINDER_COLORS[reminder.color].dot)} />
     </div>
   );
@@ -178,7 +202,7 @@ export default function RemindersPage() {
       </div>
 
       <p className="text-sm text-muted-foreground -mt-2">
-        Clique em qualquer lembrete para editar. Aparece no mural do Dashboard.
+        Clique em qualquer lembrete para editar. Passe o mouse para arquivar ou excluir.
       </p>
 
       {isLoading ? (
