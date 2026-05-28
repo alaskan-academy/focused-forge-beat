@@ -13,6 +13,11 @@ export interface Reminder {
   created_at: string;
 }
 
+const invalidateAll = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: ['reminders'] });
+  qc.invalidateQueries({ queryKey: ['reminders-archived'] });
+};
+
 export function useReminders() {
   const { user } = useAuth();
   return useQuery<Reminder[]>({
@@ -25,8 +30,24 @@ export function useReminders() {
         .order('position', { ascending: true })
         .order('created_at', { ascending: true });
       if (error) throw error;
-      // filter client-side — works even before the archived column exists
+      // filter client-side so it works even before the archived column exists
       return ((data || []) as Reminder[]).filter((r) => !r.archived);
+    },
+  });
+}
+
+export function useArchivedReminders() {
+  const { user } = useAuth();
+  return useQuery<Reminder[]>({
+    queryKey: ['reminders-archived', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reminders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return ((data || []) as Reminder[]).filter((r) => r.archived === true);
     },
   });
 }
@@ -52,7 +73,7 @@ export function useCreateReminder() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => invalidateAll(qc),
   });
 }
 
@@ -63,7 +84,7 @@ export function useUpdateReminder() {
       const { error } = await supabase.from('reminders').update(updates).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => invalidateAll(qc),
   });
 }
 
@@ -74,7 +95,18 @@ export function useArchiveReminder() {
       const { error } = await supabase.from('reminders').update({ archived: true }).eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => invalidateAll(qc),
+  });
+}
+
+export function useUnarchiveReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('reminders').update({ archived: false }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateAll(qc),
   });
 }
 
@@ -85,6 +117,6 @@ export function useDeleteReminder() {
       const { error } = await supabase.from('reminders').delete().eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => invalidateAll(qc),
   });
 }

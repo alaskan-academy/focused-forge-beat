@@ -1,11 +1,23 @@
 import { useState } from 'react';
-import { useReminders, useCreateReminder, useUpdateReminder, useDeleteReminder, useArchiveReminder, Reminder } from '@/hooks/useReminders';
+import {
+  useReminders, useArchivedReminders,
+  useCreateReminder, useUpdateReminder,
+  useDeleteReminder, useArchiveReminder, useUnarchiveReminder,
+  Reminder,
+} from '@/hooks/useReminders';
 import { REMINDER_COLORS, REMINDER_COLOR_KEYS, ReminderColor } from '@/lib/reminderColors';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { StickyNote, Plus, Trash2, Archive, Check, X } from 'lucide-react';
+import { StickyNote, Plus, Trash2, Archive, ArchiveRestore, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+function formatCreatedAt(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+    + ', '
+    + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
 
 function ColorPicker({ value, onChange }: { value: ReminderColor; onChange: (c: ReminderColor) => void }) {
   return (
@@ -27,15 +39,16 @@ function ColorPicker({ value, onChange }: { value: ReminderColor; onChange: (c: 
   );
 }
 
-function ReminderCard({ reminder }: { reminder: Reminder }) {
+function ReminderCard({ reminder, archived = false }: { reminder: Reminder; archived?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(reminder.content);
   const [color, setColor] = useState<ReminderColor>(reminder.color);
   const updateReminder = useUpdateReminder();
   const deleteReminder = useDeleteReminder();
   const archiveReminder = useArchiveReminder();
+  const unarchiveReminder = useUnarchiveReminder();
   const colors = REMINDER_COLORS[color];
-  const cardColors = REMINDER_COLORS[reminder.color];
+  const cardColors = REMINDER_COLORS[reminder.color] ?? REMINDER_COLORS.yellow;
 
   const handleSave = async () => {
     if (!content.trim()) return;
@@ -63,6 +76,15 @@ function ReminderCard({ reminder }: { reminder: Reminder }) {
       toast.success('Lembrete arquivado');
     } catch {
       toast.error('Erro ao arquivar');
+    }
+  };
+
+  const handleUnarchive = async () => {
+    try {
+      await unarchiveReminder.mutateAsync(reminder.id);
+      toast.success('Lembrete restaurado');
+    } catch {
+      toast.error('Erro ao restaurar');
     }
   };
 
@@ -99,36 +121,55 @@ function ReminderCard({ reminder }: { reminder: Reminder }) {
   return (
     <div
       className={cn(
-        'rounded-xl border p-4 cursor-pointer group transition-all hover:brightness-110 relative',
-        cardColors.bg, cardColors.border
+        'rounded-xl border p-4 group transition-all hover:brightness-110 relative',
+        cardColors.bg, cardColors.border,
+        archived ? 'opacity-60' : 'cursor-pointer',
       )}
-      onClick={() => setEditing(true)}
+      onClick={() => { if (!archived) setEditing(true); }}
     >
       <p className={cn('text-sm leading-relaxed whitespace-pre-wrap break-words pr-16', cardColors.text)}>
         {reminder.content}
       </p>
 
-      {/* Action buttons — visible on hover */}
+      {/* Creation date — subtle, bottom */}
+      <p className="text-[10px] text-muted-foreground/50 mt-2">
+        {formatCreatedAt(reminder.created_at)}
+      </p>
+
+      {/* Action buttons */}
       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => { e.stopPropagation(); handleArchive(); }}
-          className="p-1.5 rounded hover:bg-black/20"
-          title="Arquivar"
-          disabled={archiveReminder.isPending}
-        >
-          <Archive className={cn('h-3.5 w-3.5', cardColors.text)} />
-        </button>
+        {archived ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleUnarchive(); }}
+            className="p-1.5 rounded hover:bg-black/20"
+            title="Restaurar"
+            disabled={unarchiveReminder.isPending}
+          >
+            <ArchiveRestore className={cn('h-3.5 w-3.5', cardColors.text)} />
+          </button>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleArchive(); }}
+            className="p-1.5 rounded hover:bg-black/20"
+            title="Arquivar"
+            disabled={archiveReminder.isPending}
+          >
+            <Archive className={cn('h-3.5 w-3.5', cardColors.text)} />
+          </button>
+        )}
         <button
           onClick={(e) => { e.stopPropagation(); handleDelete(); }}
           className="p-1.5 rounded hover:bg-black/20"
-          title="Excluir"
+          title="Excluir permanentemente"
           disabled={deleteReminder.isPending}
         >
           <Trash2 className={cn('h-3.5 w-3.5', cardColors.text)} />
         </button>
       </div>
 
-      <div className={cn('mt-2 h-1 w-6 rounded-full opacity-40', REMINDER_COLORS[reminder.color].dot)} />
+      {!archived && (
+        <div className={cn('mt-1 h-1 w-6 rounded-full opacity-40', REMINDER_COLORS[reminder.color]?.dot)} />
+      )}
     </div>
   );
 }
@@ -182,10 +223,13 @@ function NewReminderCard({ onDone }: { onDone: () => void }) {
 
 export default function RemindersPage() {
   const { data: reminders, isLoading } = useReminders();
+  const { data: archived } = useArchivedReminders();
   const [creating, setCreating] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   return (
     <div className="p-3 sm:p-6 space-y-6 max-w-4xl mx-auto">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <StickyNote className="h-6 w-6 text-primary" />
@@ -202,9 +246,10 @@ export default function RemindersPage() {
       </div>
 
       <p className="text-sm text-muted-foreground -mt-2">
-        Clique em qualquer lembrete para editar. Passe o mouse para arquivar ou excluir.
+        Clique para editar · Passe o mouse para arquivar ou excluir
       </p>
 
+      {/* Active reminders */}
       {isLoading ? (
         <p className="text-sm text-muted-foreground text-center py-12">Carregando...</p>
       ) : (
@@ -220,6 +265,28 @@ export default function RemindersPage() {
               <Button variant="outline" size="sm" onClick={() => setCreating(true)} className="gap-2">
                 <Plus className="h-4 w-4" /> Criar primeiro lembrete
               </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Archived section */}
+      {(archived?.length ?? 0) > 0 && (
+        <div className="border-t border-border/50 pt-4">
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Archive className="h-4 w-4" />
+            <span>Arquivados ({archived!.length})</span>
+            {showArchived ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+
+          {showArchived && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              {archived!.map((r) => (
+                <ReminderCard key={r.id} reminder={r} archived />
+              ))}
             </div>
           )}
         </div>
