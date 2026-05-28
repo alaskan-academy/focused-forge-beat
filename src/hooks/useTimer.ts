@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { externalSupabase as supabase } from '@/integrations/supabase/externalClient';
 
+// Sessions longer than this are considered stale (browser left open, etc.)
+const MAX_SESSION_MINUTES = 480; // 8 hours
+
 export function useActiveTimer() {
   return useQuery({
     queryKey: ['active_timer'],
@@ -24,7 +27,7 @@ export function useStartTimer() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (taskId: string) => {
-      // Stop any active timer first (save it)
+      // Stop any active timer first
       const { data: active } = await supabase
         .from('timer_sessions')
         .select('*')
@@ -33,11 +36,20 @@ export function useStartTimer() {
         .maybeSingle();
 
       if (active) {
-        const duration = (Date.now() - new Date(active.started_at).getTime()) / 60000;
-        await supabase
-          .from('timer_sessions')
-          .update({ ended_at: new Date().toISOString(), duration_minutes: Math.round(duration * 100) / 100 })
-          .eq('id', active.id);
+        const durationMinutes = (Date.now() - new Date(active.started_at).getTime()) / 60000;
+
+        if (durationMinutes > MAX_SESSION_MINUTES) {
+          // Stale session — discard silently instead of saving inflated time
+          await supabase.from('timer_sessions').delete().eq('id', active.id);
+        } else {
+          await supabase
+            .from('timer_sessions')
+            .update({
+              ended_at: new Date().toISOString(),
+              duration_minutes: Math.round(durationMinutes * 100) / 100,
+            })
+            .eq('id', active.id);
+        }
       }
 
       const { error } = await supabase
@@ -58,37 +70,33 @@ export function useSaveTimer() {
     mutationFn: async ({ sessionId, pausedAt }: { sessionId: string; pausedAt: number }) => {
       const { data: session } = await supabase
         .from('timer_sessions')
-        .select('*')
+        .select('started_at')
         .eq('id', sessionId)
         .single();
 
       if (!session) return;
+
       const duration = Math.round(((pausedAt - new Date(session.started_at).getTime()) / 60000) * 100) / 100;
+
+      if (duration > MAX_SESSION_MINUTES) {
+        throw new Error(
+          `Esta sessão tem ${Math.round(duration / 60)}h — parece que o timer ficou aberto. Use "Descartar" e reinicie o timer.`
+        );
+      }
+
       const { error } = await supabase
         .from('timer_sessions')
         .update({ ended_at: new Date(pausedAt).toISOString(), duration_minutes: duration })
         .eq('id', sessionId);
       if (error) throw error;
 
-      // Update actual_minutes on the task with total tracked time
-      const { data: allSessions } = await supabase
-        .from('timer_sessions')
-        .select('duration_minutes')
-        .eq('task_id', session.task_id)
-        .not('ended_at', 'is', null);
-
-      const totalMinutes = Math.round(
-        (allSessions || []).reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0)
-      );
-
-      await supabase
-        .from('tasks')
-        .update({ actual_minutes: totalMinutes })
-        .eq('id', session.task_id);
+      // Note: total_tracked_minutes is computed by the view (SUM of timer_sessions.duration_minutes)
+      // No need to update tasks.actual_minutes — that's for manual overrides only.
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['active_timer'] });
       qc.invalidateQueries({ queryKey: ['tasks_with_time'] });
+      qc.invalidateQueries({ queryKey: ['daily_work_time'] });
     },
   });
 }
@@ -115,7 +123,7 @@ export function useElapsedTime(startedAt: string | null, frozen: boolean) {
 
   useEffect(() => {
     if (!startedAt) { setElapsed(0); return; }
-    if (frozen) return; // don't update when paused
+    if (frozen) return;
     const update = () => setElapsed((Date.now() - new Date(startedAt).getTime()) / 1000);
     update();
     const interval = setInterval(update, 1000);
