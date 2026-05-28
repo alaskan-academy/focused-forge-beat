@@ -278,6 +278,35 @@ export default function DashboardPage() {
         <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
       </div>
 
+      {/* Reminders mural — subtle, not the visual focus */}
+      {(reminders || []).length > 0 && (
+        <div className="bg-card/50 border border-border/50 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-1.5">
+              <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">Lembretes</span>
+            </div>
+            <Link to="/reminders" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              Gerenciar →
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(reminders || []).map((r) => {
+              const c = REMINDER_COLORS[r.color] ?? REMINDER_COLORS.yellow;
+              return (
+                <div
+                  key={r.id}
+                  className={`text-xs px-3 py-1.5 rounded-lg border max-w-[220px] truncate ${c.bg} ${c.border} ${c.text}`}
+                  title={r.content}
+                >
+                  {r.content}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Per-block alerts */}
       <div className="space-y-2">
         <BlockAlert blockKey="morning" totalMinutes={blockMinutes.morning} periodDays={periodDays} />
@@ -305,35 +334,6 @@ export default function DashboardPage() {
             />
           </div>
           <p className="text-xs text-muted-foreground mt-2">{stats.done} de {stats.total} tarefas concluídas</p>
-        </div>
-      )}
-
-      {/* Reminders mural — subtle, not the visual focus */}
-      {(reminders || []).length > 0 && (
-        <div className="bg-card/50 border border-border/50 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-1.5">
-              <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">Lembretes</span>
-            </div>
-            <Link to="/reminders" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              Gerenciar →
-            </Link>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {(reminders || []).map((r) => {
-              const c = REMINDER_COLORS[r.color] ?? REMINDER_COLORS.yellow;
-              return (
-                <div
-                  key={r.id}
-                  className={`text-xs px-3 py-1.5 rounded-lg border max-w-[220px] truncate ${c.bg} ${c.border} ${c.text}`}
-                  title={r.content}
-                >
-                  {r.content}
-                </div>
-              );
-            })}
-          </div>
         </div>
       )}
 
