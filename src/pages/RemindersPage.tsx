@@ -121,55 +121,63 @@ function ReminderCard({ reminder, archived = false }: { reminder: Reminder; arch
   return (
     <div
       className={cn(
-        'rounded-xl border p-4 group transition-all hover:brightness-110 relative',
+        'rounded-xl border flex flex-col transition-all',
         cardColors.bg, cardColors.border,
-        archived ? 'opacity-60' : 'cursor-pointer',
+        archived ? 'opacity-60' : '',
       )}
-      onClick={() => { if (!archived) setEditing(true); }}
     >
-      <p className={cn('text-sm leading-relaxed whitespace-pre-wrap break-words pr-16', cardColors.text)}>
-        {reminder.content}
-      </p>
-
-      {/* Creation date — subtle, bottom */}
-      <p className="text-[10px] text-muted-foreground/50 mt-2">
-        {formatCreatedAt(reminder.created_at)}
-      </p>
-
-      {/* Action buttons */}
-      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        {archived ? (
-          <button
-            onClick={(e) => { e.stopPropagation(); handleUnarchive(); }}
-            className="p-1.5 rounded hover:bg-black/20"
-            title="Restaurar"
-            disabled={unarchiveReminder.isPending}
-          >
-            <ArchiveRestore className={cn('h-3.5 w-3.5', cardColors.text)} />
-          </button>
-        ) : (
-          <button
-            onClick={(e) => { e.stopPropagation(); handleArchive(); }}
-            className="p-1.5 rounded hover:bg-black/20"
-            title="Arquivar"
-            disabled={archiveReminder.isPending}
-          >
-            <Archive className={cn('h-3.5 w-3.5', cardColors.text)} />
-          </button>
-        )}
-        <button
-          onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-          className="p-1.5 rounded hover:bg-black/20"
-          title="Excluir permanentemente"
-          disabled={deleteReminder.isPending}
-        >
-          <Trash2 className={cn('h-3.5 w-3.5', cardColors.text)} />
-        </button>
+      {/* Content area — clicável para editar (só ativos) */}
+      <div
+        className={cn('p-4 flex-1', !archived && 'cursor-pointer')}
+        onClick={() => { if (!archived) setEditing(true); }}
+      >
+        <p className={cn('text-sm leading-relaxed whitespace-pre-wrap break-words', cardColors.text)}>
+          {reminder.content}
+        </p>
       </div>
 
-      {!archived && (
-        <div className={cn('mt-1 h-1 w-6 rounded-full opacity-40', REMINDER_COLORS[reminder.color]?.dot)} />
-      )}
+      {/* Footer: data + ações — sempre visível */}
+      <div className={cn(
+        'flex items-center justify-between px-4 py-2 border-t',
+        cardColors.border,
+        'bg-black/5'
+      )}>
+        <span className="text-[10px] text-muted-foreground/50">
+          {formatCreatedAt(reminder.created_at)}
+        </span>
+        <div className="flex gap-1">
+          {archived ? (
+            <button
+              onClick={handleUnarchive}
+              disabled={unarchiveReminder.isPending}
+              title="Restaurar"
+              className={cn('flex items-center gap-1 text-[11px] px-2 py-1 rounded-md transition-colors hover:bg-black/15', cardColors.text, 'opacity-70 hover:opacity-100')}
+            >
+              <ArchiveRestore className="h-3.5 w-3.5" />
+              <span>Restaurar</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleArchive}
+              disabled={archiveReminder.isPending}
+              title="Arquivar"
+              className={cn('flex items-center gap-1 text-[11px] px-2 py-1 rounded-md transition-colors hover:bg-black/15', cardColors.text, 'opacity-70 hover:opacity-100')}
+            >
+              <Archive className="h-3.5 w-3.5" />
+              <span>Arquivar</span>
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={deleteReminder.isPending}
+            title="Excluir"
+            className={cn('flex items-center gap-1 text-[11px] px-2 py-1 rounded-md transition-colors hover:bg-black/15', cardColors.text, 'opacity-70 hover:opacity-100')}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>Excluir</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
