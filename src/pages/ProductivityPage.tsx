@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTasks } from '@/hooks/useTasks';
+import { useDailyWorkTime } from '@/hooks/useTimerSessions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { subDays, format, isWithinInterval, startOfDay, endOfDay, isBefore, startOfToday, isToday, isYesterday, isTomorrow, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,6 +15,7 @@ const PRIORITY_COLORS = ['hsl(0, 72%, 51%)', 'hsl(45, 93%, 47%)', 'hsl(142, 71%,
 
 export default function ProductivityPage() {
   const { data: tasks } = useTasks();
+  const { data: dailyWork } = useDailyWorkTime(7);
   const [dateFilter, setDateFilter] = useState<DateFilter>('week');
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
   const [areaFilter, setAreaFilter] = useState<AreaFilter>('all');
@@ -59,10 +61,13 @@ export default function ProductivityPage() {
   }, [filteredTasks]);
 
   // Time chart: last 7 days
+  // "estimado" = sum of estimated_minutes for tasks due that day
+  // "real"     = sum of timer_sessions.duration_minutes that STARTED on that day (not task-based total)
   const timeChartData = useMemo(() => {
     const days = [];
     for (let i = 6; i >= 0; i--) {
       const day = subDays(new Date(), i);
+      const dateKey = format(day, 'yyyy-MM-dd');
       const dayTasks = filteredTasks.filter((t) => {
         const dueDate = parseLocalDate(t.due_date);
         if (!dueDate) return false;
@@ -71,11 +76,12 @@ export default function ProductivityPage() {
       days.push({
         day: format(day, 'EEE', { locale: ptBR }),
         estimado: dayTasks.reduce((s, t) => s + (t.estimated_minutes || 0), 0),
-        real: dayTasks.reduce((s, t) => s + (t.total_tracked_minutes || 0), 0),
+        // Real work time comes from actual timer sessions started on that day
+        real: dailyWork?.[dateKey] ?? 0,
       });
     }
     return days;
-  }, [filteredTasks]);
+  }, [filteredTasks, dailyWork]);
 
   // Status distribution
   const statusData = useMemo(() => {
@@ -184,7 +190,7 @@ export default function ProductivityPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Est vs Real */}
         <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-4">Tempo Estimado vs Real (7 dias)</h2>
+          <h2 className="font-semibold text-foreground mb-4">Tempo Trabalhado por Dia (7 dias)</h2>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={timeChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(222, 30%, 16%)" />

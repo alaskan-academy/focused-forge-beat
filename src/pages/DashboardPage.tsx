@@ -256,6 +256,7 @@ export default function DashboardPage() {
             }`}>
               {es === 'done' ? 'Concluída' : es === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
             </span>
+            {es !== 'done' && <TimerButton taskId={t.id!} />}
           </div>
         </div>
         );

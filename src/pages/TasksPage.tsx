@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Plus, Clock, Repeat, AlertCircle } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { Plus, Clock, Repeat, AlertCircle, ArrowUpDown } from 'lucide-react';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import { isBefore, startOfToday } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
@@ -21,6 +21,16 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter } from '@/lib/dateUtils';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
+import { useUserPreferences, useUpdateUserPreferences } from '@/hooks/useUserPreferences';
+
+const PRIORITY_ORDER: Record<string, number> = { high: 1, medium: 2, low: 3 };
+
+const SORT_OPTIONS = [
+  { value: 'created_desc', label: 'Mais recentes', field: 'created_at', dir: 'desc' },
+  { value: 'priority_asc', label: 'Prioridade', field: 'priority', dir: 'asc' },
+  { value: 'due_date_asc', label: 'Prazo', field: 'due_date', dir: 'asc' },
+  { value: 'name_asc', label: 'Nome A→Z', field: 'name', dir: 'asc' },
+] as const;
 
 export default function TasksPage() {
   const { data: tasks, isLoading } = useTasks();
@@ -33,7 +43,20 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [projectFilter, setProjectFilter] = useState('all');
   const [recurrenceFilter, setRecurrenceFilter] = useState<'all' | 'recurring' | 'single'>('all');
+  const [sortKey, setSortKey] = useState<string>('created_desc');
+  const { data: prefs } = useUserPreferences();
+  const updatePrefs = useUpdateUserPreferences();
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Load sort preference from user settings
+  useEffect(() => {
+    if (prefs?.tasks_sort_key) setSortKey(prefs.tasks_sort_key);
+  }, [prefs?.tasks_sort_key]);
+
+  const handleSortChange = (value: string) => {
+    setSortKey(value);
+    updatePrefs.mutate({ ...prefs, tasks_sort_key: value });
+  };
   const [modalKey, setModalKey] = useState(0);
   const [editTask, setEditTask] = useState<typeof tasks extends (infer T)[] ? T : never | null>(null);
   const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string; initialDate?: Date } | null>(null);
@@ -112,6 +135,27 @@ export default function TasksPage() {
       return true;
     });
   }, [tasks, dateFilter, customRange, areaFilter, statusFilter, priorityFilter, projectFilter, recurrenceFilter]);
+
+  const sortedFiltered = useMemo(() => {
+    const opt = SORT_OPTIONS.find((o) => o.value === sortKey) ?? SORT_OPTIONS[0];
+    return [...filtered].sort((a, b) => {
+      const mul = opt.dir === 'asc' ? 1 : -1;
+      if (opt.field === 'priority') {
+        return ((PRIORITY_ORDER[a.priority ?? 'medium'] ?? 2) - (PRIORITY_ORDER[b.priority ?? 'medium'] ?? 2)) * mul;
+      }
+      if (opt.field === 'due_date') {
+        if (!a.due_date && !b.due_date) return 0;
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return (a.due_date < b.due_date ? -1 : 1) * mul;
+      }
+      if (opt.field === 'name') {
+        return a.name.localeCompare(b.name, 'pt-BR') * mul;
+      }
+      // created_at
+      return (a.created_at < b.created_at ? 1 : -1) * mul;
+    });
+  }, [filtered, sortKey]);
 
   const handleStatusChange = async (id: string, status: string, completedAt?: string, occurrenceDateKey?: string) => {
     const task = (tasks || []).find((t) => t.id === id);
@@ -208,6 +252,18 @@ export default function TasksPage() {
             <SelectItem value="single">Únicas</SelectItem>
           </SelectContent>
         </Select>
+        {/* Sort control */}
+        <Select value={sortKey} onValueChange={handleSortChange}>
+          <SelectTrigger className="w-36 bg-secondary border-border gap-1">
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Overdue tasks */}
@@ -278,13 +334,13 @@ export default function TasksPage() {
 
       {isLoading ? (
         <div className="text-muted-foreground text-center py-12">Carregando...</div>
-      ) : filtered.length === 0 ? (
+      ) : sortedFiltered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           Nenhuma tarefa encontrada
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((t) => {
+          {sortedFiltered.map((t) => {
             const es = getEffectiveStatus(t as any, dateFilter, customRange);
             return (
             <div
