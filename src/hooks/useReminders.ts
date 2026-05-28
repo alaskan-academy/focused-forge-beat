@@ -9,6 +9,7 @@ export interface Reminder {
   content: string;
   color: ReminderColor;
   position: number;
+  archived: boolean;
   created_at: string;
 }
 
@@ -21,6 +22,7 @@ export function useReminders() {
       const { data, error } = await supabase
         .from('reminders')
         .select('*')
+        .eq('archived', false)
         .order('position', { ascending: true })
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -59,6 +61,17 @@ export function useUpdateReminder() {
   return useMutation({
     mutationFn: async ({ id, ...updates }: { id: string; content?: string; color?: ReminderColor }) => {
       const { error } = await supabase.from('reminders').update(updates).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['reminders'] }),
+  });
+}
+
+export function useArchiveReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('reminders').update({ archived: true }).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reminders'] }),

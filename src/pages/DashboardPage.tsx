@@ -2,23 +2,134 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { DateFilter } from '@/lib/types';
-import { useReminders } from '@/hooks/useReminders';
-import { REMINDER_COLORS } from '@/lib/reminderColors';
+import { useReminders, useUpdateReminder, useArchiveReminder, useDeleteReminder, Reminder } from '@/hooks/useReminders';
+import { REMINDER_COLORS, REMINDER_COLOR_KEYS, ReminderColor } from '@/lib/reminderColors';
 import { formatMinutes } from '@/lib/formatters';
 import DateFilterBar from '@/components/DateFilterBar';
 import TaskModal from '@/components/TaskModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
-import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset, AlertCircle, StickyNote } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset, AlertCircle, StickyNote, Archive, Trash2, Check, X } from 'lucide-react';
 import { isBefore, startOfToday } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
 import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import TimerButton from '@/components/TimerButton';
+
+function ColorPicker({ value, onChange }: { value: ReminderColor; onChange: (c: ReminderColor) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      {REMINDER_COLOR_KEYS.map((c) => (
+        <button
+          key={c}
+          type="button"
+          title={REMINDER_COLORS[c].label}
+          onClick={() => onChange(c)}
+          className={cn(
+            'h-5 w-5 rounded-full transition-all shrink-0',
+            REMINDER_COLORS[c].dot,
+            value === c ? 'ring-2 ring-offset-2 ring-offset-background ring-white/50 scale-110' : 'opacity-50 hover:opacity-100'
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ReminderEditDialog({ reminder, open, onClose }: { reminder: Reminder; open: boolean; onClose: () => void }) {
+  const [content, setContent] = useState(reminder.content);
+  const [color, setColor] = useState<ReminderColor>(reminder.color);
+  const updateReminder = useUpdateReminder();
+  const archiveReminder = useArchiveReminder();
+  const deleteReminder = useDeleteReminder();
+  const colors = REMINDER_COLORS[color];
+
+  const handleSave = async () => {
+    if (!content.trim()) return;
+    try {
+      await updateReminder.mutateAsync({ id: reminder.id, content: content.trim(), color });
+      toast.success('Lembrete atualizado');
+      onClose();
+    } catch {
+      toast.error('Erro ao atualizar');
+    }
+  };
+
+  const handleArchive = async () => {
+    try {
+      await archiveReminder.mutateAsync(reminder.id);
+      toast.success('Lembrete arquivado');
+      onClose();
+    } catch {
+      toast.error('Erro ao arquivar');
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteReminder.mutateAsync(reminder.id);
+      toast.success('Lembrete removido');
+      onClose();
+    } catch {
+      toast.error('Erro ao remover');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-base">Editar Lembrete</DialogTitle>
+        </DialogHeader>
+        <div className={cn('rounded-xl border p-3 space-y-3', colors.bg, colors.border)}>
+          <Textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="bg-transparent border-0 p-0 resize-none focus-visible:ring-0 text-sm min-h-[80px]"
+            autoFocus
+          />
+          <ColorPicker value={color} onChange={setColor} />
+        </div>
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex gap-2">
+            <Button
+              size="sm" variant="ghost"
+              onClick={handleArchive}
+              disabled={archiveReminder.isPending}
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+            >
+              <Archive className="h-3.5 w-3.5" /> Arquivar
+            </Button>
+            <Button
+              size="sm" variant="ghost"
+              onClick={handleDelete}
+              disabled={deleteReminder.isPending}
+              className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Excluir
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={onClose} className="h-8 px-2">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={!content.trim() || updateReminder.isPending} className="h-8 px-3 gap-1">
+              <Check className="h-3.5 w-3.5" /> Salvar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
@@ -76,6 +187,7 @@ export default function DashboardPage() {
   const updateTask = useUpdateTask();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [editTask, setEditTask] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalKey, setModalKey] = useState(0);
@@ -294,16 +406,20 @@ export default function DashboardPage() {
             {(reminders || []).map((r) => {
               const c = REMINDER_COLORS[r.color] ?? REMINDER_COLORS.yellow;
               return (
-                <div
+                <button
                   key={r.id}
-                  className={`w-[160px] sm:w-[180px] min-h-[100px] p-3 rounded-sm border shadow-md flex flex-col justify-between ${c.bg} ${c.border}`}
+                  onClick={() => setEditingReminder(r)}
+                  className={cn(
+                    'w-[160px] sm:w-[180px] min-h-[100px] p-3 rounded-sm border text-left flex flex-col justify-between transition-transform hover:scale-[1.02] active:scale-[0.98]',
+                    c.bg, c.border
+                  )}
                   style={{ boxShadow: '2px 3px 8px rgba(0,0,0,0.25)' }}
                 >
-                  <p className={`text-xs leading-relaxed whitespace-pre-wrap break-words ${c.text}`}>
+                  <p className={cn('text-xs leading-relaxed whitespace-pre-wrap break-words', c.text)}>
                     {r.content}
                   </p>
-                  <div className={`mt-2 h-0.5 w-5 rounded-full opacity-40 ${c.dot}`} />
-                </div>
+                  <div className={cn('mt-2 h-0.5 w-5 rounded-full opacity-40', c.dot)} />
+                </button>
               );
             })}
           </div>
@@ -515,6 +631,14 @@ export default function DashboardPage() {
         }}
         onCancel={() => setCompletionDialog(null)}
       />
+
+      {editingReminder && (
+        <ReminderEditDialog
+          reminder={editingReminder}
+          open={!!editingReminder}
+          onClose={() => setEditingReminder(null)}
+        />
+      )}
     </div>
   );
 }
