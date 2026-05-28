@@ -278,9 +278,9 @@ export default function DashboardPage() {
         <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
       </div>
 
-      {/* Reminders mural — subtle, not the visual focus */}
+      {/* Reminders mural — post-it style */}
       {(reminders || []).length > 0 && (
-        <div className="bg-card/50 border border-border/50 rounded-xl p-4">
+        <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5">
               <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
@@ -290,16 +290,19 @@ export default function DashboardPage() {
               Gerenciar →
             </Link>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-3">
             {(reminders || []).map((r) => {
               const c = REMINDER_COLORS[r.color] ?? REMINDER_COLORS.yellow;
               return (
                 <div
                   key={r.id}
-                  className={`text-xs px-3 py-1.5 rounded-lg border max-w-[220px] truncate ${c.bg} ${c.border} ${c.text}`}
-                  title={r.content}
+                  className={`w-[160px] sm:w-[180px] min-h-[100px] p-3 rounded-sm border shadow-md flex flex-col justify-between ${c.bg} ${c.border}`}
+                  style={{ boxShadow: '2px 3px 8px rgba(0,0,0,0.25)' }}
                 >
-                  {r.content}
+                  <p className={`text-xs leading-relaxed whitespace-pre-wrap break-words ${c.text}`}>
+                    {r.content}
+                  </p>
+                  <div className={`mt-2 h-0.5 w-5 rounded-full opacity-40 ${c.dot}`} />
                 </div>
               );
             })}
