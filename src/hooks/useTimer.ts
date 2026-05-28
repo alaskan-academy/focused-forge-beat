@@ -96,23 +96,19 @@ export function useSaveTimer() {
         .eq('id', sessionId);
       if (error) throw error;
 
-      // Update actual_minutes on the task = sum of all valid sessions (capped at MAX each)
-      // Filtering out historically stale sessions (> MAX_SESSION_MINUTES) that slipped in before the fix
+      // Increment actual_minutes by this session's duration only.
+      // Avoids re-summing all historical sessions (which may include legacy stale data).
       if (sessionFull?.task_id) {
-        const { data: allSessions } = await supabase
-          .from('timer_sessions')
-          .select('duration_minutes')
-          .eq('task_id', sessionFull.task_id)
-          .not('ended_at', 'is', null)
-          .lte('duration_minutes', MAX_SESSION_MINUTES); // exclude legacy stale sessions
+        const { data: currentTask } = await supabase
+          .from('tasks')
+          .select('actual_minutes')
+          .eq('id', sessionFull.task_id)
+          .single();
 
-        const totalMinutes = Math.round(
-          (allSessions || []).reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0)
-        );
-
+        const previous = Number(currentTask?.actual_minutes ?? 0);
         await supabase
           .from('tasks')
-          .update({ actual_minutes: totalMinutes })
+          .update({ actual_minutes: Math.round(previous + duration) })
           .eq('id', sessionFull.task_id);
       }
     },
