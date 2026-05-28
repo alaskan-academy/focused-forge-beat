@@ -15,7 +15,12 @@ export function useTasks() {
       if (error) throw error;
       return (data || []).map((task: any) => ({
         ...task,
-        total_tracked_minutes: Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0),
+        // Use the greater of manual entry (actual_minutes) or sum of timer sessions
+        // This ensures new sessions always accumulate even if actual_minutes is stale
+        total_tracked_minutes: Math.max(
+          Number(task.actual_minutes ?? 0),
+          Number(task.total_tracked_minutes ?? 0),
+        ),
       }));
     },
   });
