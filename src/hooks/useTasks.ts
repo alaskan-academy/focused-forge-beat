@@ -39,6 +39,11 @@ export function useTasks() {
         }
       });
 
+      // DEBUG — remover após diagnóstico
+      console.log('[useTasks] timezone do browser:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+      console.log('[useTasks] sessions brutas (últimos 30 dias):', (sessions || []).length, 'sessões');
+      console.log('[useTasks] sessionsByTaskAndDate:', JSON.stringify(sessionsByTaskAndDate, null, 2));
+
       return (data || []).map((task: any) => {
         const recConfig = task.recurrence_config as any;
         const isRecurring = recConfig?.type && recConfig.type !== 'none';
