@@ -8,27 +8,34 @@ export function useTasks() {
   return useQuery({
     queryKey: ['tasks_with_time'],
     queryFn: async () => {
-      // Fetch tasks and today's completed timer sessions in parallel.
-      // Today's sessions are used to compute per-occurrence time for recurring tasks,
-      // so the display always shows 0 at the start of a new day regardless of history.
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+      // Fetch tasks and the last 30 days of completed timer sessions in parallel.
+      // Sessions are grouped by (task_id, local date) so any date filter can read the
+      // correct per-occurrence time. For today's display, only today's sessions count,
+      // ensuring recurring tasks always start each new day at zero.
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+      const todayKey = new Date().toLocaleDateString('sv-SE'); // 'YYYY-MM-DD' in local tz
 
       const [{ data, error }, { data: sessions }] = await Promise.all([
         supabase.from('tasks_with_time').select('*').order('created_at', { ascending: false }),
         supabase
           .from('timer_sessions')
-          .select('task_id, duration_minutes')
+          .select('task_id, duration_minutes, started_at')
           .not('ended_at', 'is', null)
-          .gte('started_at', todayStart.toISOString()),
+          .gte('started_at', thirtyDaysAgo.toISOString()),
       ]);
       if (error) throw error;
 
-      // Build a per-task map of today's saved session minutes
-      const todayByTask: Record<string, number> = {};
+      // Group sessions by (task_id, local_date) — uses browser local timezone
+      const sessionsByTaskAndDate: Record<string, Record<string, number>> = {};
       (sessions || []).forEach((s: any) => {
         if (s.task_id && s.duration_minutes) {
-          todayByTask[s.task_id] = (todayByTask[s.task_id] || 0) + Number(s.duration_minutes);
+          const dateKey = new Date(s.started_at).toLocaleDateString('sv-SE');
+          if (!sessionsByTaskAndDate[s.task_id]) sessionsByTaskAndDate[s.task_id] = {};
+          sessionsByTaskAndDate[s.task_id][dateKey] =
+            (sessionsByTaskAndDate[s.task_id][dateKey] || 0) + Number(s.duration_minutes);
         }
       });
 
@@ -36,13 +43,15 @@ export function useTasks() {
         const recConfig = task.recurrence_config as any;
         const isRecurring = recConfig?.type && recConfig.type !== 'none';
 
-        // Recurring tasks: always show only today's saved sessions — never bleeds from
-        // previous occurrences. Non-recurring: use actual_minutes as before.
+        const sessionsByDate = isRecurring ? (sessionsByTaskAndDate[task.id] || {}) : undefined;
+
+        // Recurring tasks: today's sessions only (each occurrence starts fresh at 0).
+        // Non-recurring: use actual_minutes (accumulated all-time total).
         const total_tracked_minutes = isRecurring
-          ? Number(todayByTask[task.id] ?? 0)
+          ? Number((sessionsByDate || {})[todayKey] ?? 0)
           : Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
 
-        return { ...task, total_tracked_minutes };
+        return { ...task, total_tracked_minutes, session_minutes_by_date: sessionsByDate };
       });
     },
   });

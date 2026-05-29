@@ -19,7 +19,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { DateFilter, AreaFilter, StatusFilter, PriorityFilter } from '@/lib/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes } from '@/lib/dateUtils';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { useUserPreferences, useUpdateUserPreferences } from '@/hooks/useUserPreferences';
 
@@ -377,12 +377,15 @@ export default function TasksPage() {
                       {formatMinutes(t.estimated_minutes)} est.
                     </span>
                   )}
-                  {(t.total_tracked_minutes || 0) > 0 && (
-                    <>
-                      <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} recurrenceConfig={(t as any).recurrence_config} /></span>
-                      <span className="whitespace-nowrap shrink-0">real</span>
-                    </>
-                  )}
+                  {(() => {
+                    const displayMins = getTaskDisplayMinutes(t as any, dateFilter, customRange);
+                    return displayMins > 0 ? (
+                      <>
+                        <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={displayMins} recurrenceConfig={(t as any).recurrence_config} /></span>
+                        <span className="whitespace-nowrap shrink-0">real</span>
+                      </>
+                    ) : null;
+                  })()}
                   {(t as any).start_date ? (
                     <span className="whitespace-nowrap shrink-0">{formatDate((t as any).start_date)} → {formatDate(t.due_date)}</span>
                   ) : t.due_date ? (

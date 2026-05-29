@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
-import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import TimerButton from '@/components/TimerButton';
@@ -280,9 +280,13 @@ export default function DashboardPage() {
     const inProgress = effectiveFiltered.filter((t) => t._effectiveStatus === 'in_progress').length;
     const pending = effectiveFiltered.filter((t) => t._effectiveStatus === 'todo').length;
     const estTotal = effectiveFiltered.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
-    const realTotal = effectiveFiltered.reduce((s, t) => s + (t.total_tracked_minutes || 0), 0);
+    // Use getTaskDisplayMinutes so recurring tasks contribute the correct period's time
+    const realTotal = effectiveFiltered.reduce(
+      (s, t) => s + getTaskDisplayMinutes(t as any, dateFilter, customRange),
+      0,
+    );
     return { total, done, inProgress, pending, estTotal, realTotal };
-  }, [effectiveFiltered]);
+  }, [effectiveFiltered, dateFilter, customRange]);
 
   const blockTasks = useMemo(() => {
     const getBlock = (t: any) => {
