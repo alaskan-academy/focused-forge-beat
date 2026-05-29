@@ -364,9 +364,6 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
                 ...pendingPayload,
                 status: 'todo',
                 completed_at: null,
-                // Reset tracked time so the next occurrence starts at zero.
-                // Full history is preserved in timer_sessions (used by Productivity page).
-                actual_minutes: 0,
                 recurrence_config: addCompletedDate(pendingPayload.recurrence_config, toLocalDateKey(new Date(completedAt))),
               }
             : { ...pendingPayload, completed_at: completedAt }

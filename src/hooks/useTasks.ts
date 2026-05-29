@@ -26,10 +26,12 @@ export function useTasks() {
             // Other dates are untouched; next occurrence starts at 0 automatically.
             total_tracked_minutes = Number(timeByDate[today] ?? 0);
           } else {
-            // Legacy fallback: task was last saved before time_by_date existed.
-            // Show actual_minutes until the user saves a new session (which will
-            // create time_by_date and switch this task to the new system).
-            total_tracked_minutes = Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
+            // Legacy fallback: no time_by_date yet.
+            // Use actual_minutes when > 0; if it was wrongly reset to 0 by a previous
+            // bug, fall back to the view's SUM(timer_sessions) so data isn't hidden.
+            const actualMins = Number(task.actual_minutes ?? 0);
+            const sessionSum = Number(task.total_tracked_minutes ?? 0);
+            total_tracked_minutes = actualMins > 0 ? actualMins : sessionSum;
           }
         } else {
           total_tracked_minutes = Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
