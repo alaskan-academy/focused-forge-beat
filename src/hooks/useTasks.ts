@@ -8,34 +8,39 @@ export function useTasks() {
   return useQuery({
     queryKey: ['tasks_with_time'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tasks_with_time')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Fetch tasks and today's completed timer sessions in parallel.
+      // Today's sessions are used to compute per-occurrence time for recurring tasks,
+      // so the display always shows 0 at the start of a new day regardless of history.
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const [{ data, error }, { data: sessions }] = await Promise.all([
+        supabase.from('tasks_with_time').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('timer_sessions')
+          .select('task_id, duration_minutes')
+          .not('ended_at', 'is', null)
+          .gte('started_at', todayStart.toISOString()),
+      ]);
       if (error) throw error;
-      const today = new Date().toISOString().split('T')[0]; // 'yyyy-MM-dd'
+
+      // Build a per-task map of today's saved session minutes
+      const todayByTask: Record<string, number> = {};
+      (sessions || []).forEach((s: any) => {
+        if (s.task_id && s.duration_minutes) {
+          todayByTask[s.task_id] = (todayByTask[s.task_id] || 0) + Number(s.duration_minutes);
+        }
+      });
+
       return (data || []).map((task: any) => {
         const recConfig = task.recurrence_config as any;
         const isRecurring = recConfig?.type && recConfig.type !== 'none';
 
-        let total_tracked_minutes: number;
-        if (isRecurring) {
-          const timeByDate = recConfig?.time_by_date;
-          if (timeByDate && typeof timeByDate === 'object') {
-            // New system: task has per-date tracking — show today's occurrence only.
-            // Other dates are untouched; next occurrence starts at 0 automatically.
-            total_tracked_minutes = Number(timeByDate[today] ?? 0);
-          } else {
-            // Legacy fallback: no time_by_date yet.
-            // Use actual_minutes when > 0; if it was wrongly reset to 0 by a previous
-            // bug, fall back to the view's SUM(timer_sessions) so data isn't hidden.
-            const actualMins = Number(task.actual_minutes ?? 0);
-            const sessionSum = Number(task.total_tracked_minutes ?? 0);
-            total_tracked_minutes = actualMins > 0 ? actualMins : sessionSum;
-          }
-        } else {
-          total_tracked_minutes = Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
-        }
+        // Recurring tasks: always show only today's saved sessions — never bleeds from
+        // previous occurrences. Non-recurring: use actual_minutes as before.
+        const total_tracked_minutes = isRecurring
+          ? Number(todayByTask[task.id] ?? 0)
+          : Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
 
         return { ...task, total_tracked_minutes };
       });
