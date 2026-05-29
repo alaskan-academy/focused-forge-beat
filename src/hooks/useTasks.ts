@@ -17,12 +17,24 @@ export function useTasks() {
       return (data || []).map((task: any) => {
         const recConfig = task.recurrence_config as any;
         const isRecurring = recConfig?.type && recConfig.type !== 'none';
-        // Recurring tasks: show only today's occurrence time (from time_by_date).
-        // Non-recurring: use actual_minutes (accumulated across all sessions).
-        // This prevents yesterday's tracked time from bleeding into today's occurrence.
-        const total_tracked_minutes = isRecurring
-          ? Number(recConfig?.time_by_date?.[today] ?? 0)
-          : Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
+
+        let total_tracked_minutes: number;
+        if (isRecurring) {
+          const timeByDate = recConfig?.time_by_date;
+          if (timeByDate && typeof timeByDate === 'object') {
+            // New system: task has per-date tracking — show today's occurrence only.
+            // Other dates are untouched; next occurrence starts at 0 automatically.
+            total_tracked_minutes = Number(timeByDate[today] ?? 0);
+          } else {
+            // Legacy fallback: task was last saved before time_by_date existed.
+            // Show actual_minutes until the user saves a new session (which will
+            // create time_by_date and switch this task to the new system).
+            total_tracked_minutes = Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
+          }
+        } else {
+          total_tracked_minutes = Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
+        }
+
         return { ...task, total_tracked_minutes };
       });
     },
