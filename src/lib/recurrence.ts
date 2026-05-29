@@ -6,6 +6,9 @@ export interface RecurrenceConfig {
   completed_dates?: string[]; // yyyy-MM-dd, completion per recurring occurrence
   skipped_dates?: string[]; // yyyy-MM-dd, skipped occurrences
   work_block?: string;
+  /** Minutes tracked per occurrence date (yyyy-MM-dd → minutes). Used to show
+   *  per-occurrence time without bleeding across days. History stays in timer_sessions. */
+  time_by_date?: Record<string, number>;
 }
 
 export const DEFAULT_RECURRENCE: RecurrenceConfig = { type: 'none', interval: 1 };

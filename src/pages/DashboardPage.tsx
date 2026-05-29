@@ -512,7 +512,7 @@ export default function DashboardPage() {
                         <Clock className="h-3 w-3" />
                         {formatMinutes(t.estimated_minutes)} est.
                       </span>
-                      <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} /></span>
+                      <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} recurrenceConfig={(t as any).recurrence_config} /></span>
                       <span className="whitespace-nowrap shrink-0">real</span>
                     </div>
                   </div>

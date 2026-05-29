@@ -96,10 +96,11 @@ export function useSaveTimer() {
         .eq('id', sessionId);
       if (error) throw error;
 
-      // Update actual_minutes on the task.
-      // For recurring tasks: reset to the session's duration when it's a new occurrence day,
-      // so each occurrence starts fresh while full history is preserved in timer_sessions.
-      // For non-recurring tasks: always accumulate.
+      // Update actual_minutes (and time_by_date for recurring tasks).
+      // For recurring tasks: accumulate within the same day via time_by_date[today],
+      // so each new occurrence date starts at zero automatically.
+      // For non-recurring tasks: always accumulate in actual_minutes directly.
+      // Full session history is always preserved in timer_sessions.
       if (sessionFull?.task_id) {
         const { data: currentTask } = await supabase
           .from('tasks')
@@ -110,22 +111,18 @@ export function useSaveTimer() {
         const recConfig = currentTask?.recurrence_config as any;
         const isRecurring = recConfig?.type && recConfig.type !== 'none';
         const today = new Date().toISOString().split('T')[0]; // 'yyyy-MM-dd'
-        const lastTrackedDate = recConfig?.last_occurrence_tracked_date as string | undefined;
 
-        let newActualMinutes: number;
-        if (isRecurring && lastTrackedDate !== today) {
-          // First save of a new occurrence day — discard previous occurrences' accumulated time
-          newActualMinutes = Math.round(duration * 100) / 100;
-        } else {
-          // Same day (multiple sessions) or non-recurring — accumulate normally
-          const previous = Number(currentTask?.actual_minutes ?? 0);
-          newActualMinutes = Math.round((previous + duration) * 100) / 100;
-        }
+        const taskUpdates: Record<string, unknown> = {};
 
-        const taskUpdates: Record<string, unknown> = { actual_minutes: newActualMinutes };
         if (isRecurring) {
-          // Persist today's date so subsequent saves on the same day accumulate correctly
-          taskUpdates.recurrence_config = { ...recConfig, last_occurrence_tracked_date: today };
+          // Accumulate within today's occurrence; other dates are untouched
+          const timeByDate: Record<string, number> = { ...(recConfig?.time_by_date || {}) };
+          timeByDate[today] = Math.round(((timeByDate[today] ?? 0) + duration) * 100) / 100;
+          taskUpdates.recurrence_config = { ...recConfig, time_by_date: timeByDate };
+          taskUpdates.actual_minutes = timeByDate[today];
+        } else {
+          const previous = Number(currentTask?.actual_minutes ?? 0);
+          taskUpdates.actual_minutes = Math.round((previous + duration) * 100) / 100;
         }
 
         await supabase

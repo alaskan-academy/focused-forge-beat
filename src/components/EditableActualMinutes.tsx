@@ -8,9 +8,11 @@ import { toast } from 'sonner';
 interface EditableActualMinutesProps {
   taskId: string;
   value: number;
+  /** Pass the task's recurrence_config so edits update time_by_date[today] for recurring tasks. */
+  recurrenceConfig?: unknown;
 }
 
-export default function EditableActualMinutes({ taskId, value }: EditableActualMinutesProps) {
+export default function EditableActualMinutes({ taskId, value, recurrenceConfig }: EditableActualMinutesProps) {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState(String(value || 0));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -25,10 +27,26 @@ export default function EditableActualMinutes({ taskId, value }: EditableActualM
 
   const save = async () => {
     setEditing(false);
-    const mins = parseInt(input, 10);
+    const mins = Math.max(0, parseInt(input, 10));
     if (isNaN(mins) || mins === value) return;
     try {
-      await updateTask.mutateAsync({ id: taskId, actual_minutes: Math.max(0, mins) });
+      const updates: Parameters<typeof updateTask.mutateAsync>[0] = {
+        id: taskId,
+        actual_minutes: mins,
+      };
+
+      // For recurring tasks: also update time_by_date[today] so the per-occurrence
+      // display stays in sync with the manually edited value.
+      if (recurrenceConfig) {
+        const rc = recurrenceConfig as any;
+        if (rc?.type && rc.type !== 'none') {
+          const today = new Date().toISOString().split('T')[0];
+          const timeByDate = { ...(rc.time_by_date || {}), [today]: mins };
+          (updates as any).recurrence_config = { ...rc, time_by_date: timeByDate };
+        }
+      }
+
+      await updateTask.mutateAsync(updates);
     } catch {
       toast.error('Erro ao salvar tempo real');
     }

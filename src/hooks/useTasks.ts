@@ -13,12 +13,18 @@ export function useTasks() {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return (data || []).map((task: any) => ({
-        ...task,
-        // actual_minutes is updated by useSaveTimer (sum of timer sessions)
-        // and can also be set manually by the user; fall back to view's SUM
-        total_tracked_minutes: Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0),
-      }));
+      const today = new Date().toISOString().split('T')[0]; // 'yyyy-MM-dd'
+      return (data || []).map((task: any) => {
+        const recConfig = task.recurrence_config as any;
+        const isRecurring = recConfig?.type && recConfig.type !== 'none';
+        // Recurring tasks: show only today's occurrence time (from time_by_date).
+        // Non-recurring: use actual_minutes (accumulated across all sessions).
+        // This prevents yesterday's tracked time from bleeding into today's occurrence.
+        const total_tracked_minutes = isRecurring
+          ? Number(recConfig?.time_by_date?.[today] ?? 0)
+          : Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
+        return { ...task, total_tracked_minutes };
+      });
     },
   });
 }
