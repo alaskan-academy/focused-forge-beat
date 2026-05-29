@@ -322,6 +322,9 @@ export default function DashboardPage() {
           id: task.id,
           status: 'todo',
           completed_at: null,
+          // Reset tracked time when completing an occurrence so the next one starts at zero.
+          // Full history is preserved in timer_sessions (used by Productivity page).
+          ...(status === 'done' ? { actual_minutes: 0 } : {}),
           recurrence_config: status === 'done'
             ? addCompletedDate(task.recurrence_config, dateKey)
             : removeCompletedDate(task.recurrence_config, dateKey),
