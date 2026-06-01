@@ -9,6 +9,10 @@ export interface RecurrenceConfig {
   /** Minutes tracked per occurrence date (yyyy-MM-dd → minutes). Used to show
    *  per-occurrence time without bleeding across days. History stays in timer_sessions. */
   time_by_date?: Record<string, number>;
+  /** Manual time overrides per date (yyyy-MM-dd → minutes). When set for a date,
+   *  overrides the timer_sessions sum for that day — allows editing time without
+   *  touching timer history. */
+  time_by_date_manual?: Record<string, number>;
 }
 
 export const DEFAULT_RECURRENCE: RecurrenceConfig = { type: 'none', interval: 1 };

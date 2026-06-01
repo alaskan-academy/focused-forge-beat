@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 interface EditableActualMinutesProps {
   taskId: string;
   value: number;
-  /** Pass the task's recurrence_config so edits update time_by_date[today] for recurring tasks. */
+  /** Pass the task's recurrence_config so manual edits are saved as per-date overrides
+   *  (time_by_date_manual[today]) without affecting timer_sessions history. */
   recurrenceConfig?: unknown;
 }
 
@@ -35,14 +36,15 @@ export default function EditableActualMinutes({ taskId, value, recurrenceConfig 
         actual_minutes: mins,
       };
 
-      // For recurring tasks: also update time_by_date[today] so the per-occurrence
-      // display stays in sync with the manually edited value.
       if (recurrenceConfig) {
         const rc = recurrenceConfig as any;
         if (rc?.type && rc.type !== 'none') {
-          const today = new Date().toISOString().split('T')[0];
-          const timeByDate = { ...(rc.time_by_date || {}), [today]: mins };
-          (updates as any).recurrence_config = { ...rc, time_by_date: timeByDate };
+          // Recurring tasks: persist the manual value as a per-date override so it shows
+          // correctly alongside (or instead of) timer_sessions for today.
+          // Uses local date key (sv-SE = YYYY-MM-DD) to match useTasks grouping.
+          const today = new Date().toLocaleDateString('sv-SE');
+          const manualOverrides = { ...(rc.time_by_date_manual || {}), [today]: mins };
+          (updates as any).recurrence_config = { ...rc, time_by_date_manual: manualOverrides };
         }
       }
 

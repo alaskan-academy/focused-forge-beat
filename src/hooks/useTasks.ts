@@ -39,18 +39,20 @@ export function useTasks() {
         }
       });
 
-      // DEBUG — remover após diagnóstico
-      console.log('[useTasks] timezone do browser:', Intl.DateTimeFormat().resolvedOptions().timeZone);
-      console.log('[useTasks] sessions brutas (últimos 30 dias):', (sessions || []).length, 'sessões');
-      console.log('[useTasks] sessionsByTaskAndDate:', JSON.stringify(sessionsByTaskAndDate, null, 2));
-
       return (data || []).map((task: any) => {
         const recConfig = task.recurrence_config as any;
         const isRecurring = recConfig?.type && recConfig.type !== 'none';
 
-        const sessionsByDate = isRecurring ? (sessionsByTaskAndDate[task.id] || {}) : undefined;
+        let sessionsByDate: Record<string, number> | undefined;
+        if (isRecurring) {
+          // Start with timer_sessions grouped by date
+          const timerByDate = sessionsByTaskAndDate[task.id] || {};
+          // Apply manual overrides on top — user-entered values take precedence
+          const manualOverrides: Record<string, number> = recConfig?.time_by_date_manual || {};
+          sessionsByDate = { ...timerByDate, ...manualOverrides };
+        }
 
-        // Recurring tasks: today's sessions only (each occurrence starts fresh at 0).
+        // Recurring tasks: today's sessions (+ any manual override) for current occurrence.
         // Non-recurring: use actual_minutes (accumulated all-time total).
         const total_tracked_minutes = isRecurring
           ? Number((sessionsByDate || {})[todayKey] ?? 0)
