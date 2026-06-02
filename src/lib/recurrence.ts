@@ -37,6 +37,9 @@ export function parseRecurrence(val: unknown): RecurrenceConfig {
     completed_dates: Array.isArray(obj.completed_dates) ? obj.completed_dates.filter((d): d is string => typeof d === 'string') : [],
     skipped_dates: Array.isArray(obj.skipped_dates) ? obj.skipped_dates.filter((d): d is string => typeof d === 'string') : [],
     work_block: typeof obj.work_block === 'string' ? obj.work_block : undefined,
+    // Preserve per-date tracking fields so they survive modal open/save cycles
+    time_by_date: obj.time_by_date && typeof obj.time_by_date === 'object' ? obj.time_by_date as Record<string, number> : undefined,
+    time_by_date_manual: obj.time_by_date_manual && typeof obj.time_by_date_manual === 'object' ? obj.time_by_date_manual as Record<string, number> : undefined,
   };
 }
 

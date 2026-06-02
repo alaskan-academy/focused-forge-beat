@@ -66,20 +66,37 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
 
-  const buildPayload = () => ({
-    name: name.trim(),
-    area,
-    project_id: area === 'work' && projectId ? projectId : null,
-    status,
-    priority,
-    start_date: startDate || null,
-    due_date: dueDate || null,
-    estimated_minutes: Number(estimated) || 0,
-    actual_minutes: Number(actualMinutes) || 0,
-    recurrence_config: recurrence,
-    notes: notes || null,
-    work_block: workBlock,
-  });
+  const buildPayload = () => {
+    const mins = Number(actualMinutes) || 0;
+    const isRecurring = recurrence.type !== 'none';
+
+    // For recurring tasks: persist the manually entered time as a per-date override
+    // so useTasks (which reads timer_sessions, not actual_minutes) shows it correctly.
+    const recurrenceConfig: RecurrenceConfig = isRecurring
+      ? {
+          ...recurrence,
+          time_by_date_manual: {
+            ...(recurrence.time_by_date_manual || {}),
+            [toLocalDateKey(new Date())]: mins,
+          },
+        }
+      : recurrence;
+
+    return {
+      name: name.trim(),
+      area,
+      project_id: area === 'work' && projectId ? projectId : null,
+      status,
+      priority,
+      start_date: startDate || null,
+      due_date: dueDate || null,
+      estimated_minutes: Number(estimated) || 0,
+      actual_minutes: mins,
+      recurrence_config: recurrenceConfig,
+      notes: notes || null,
+      work_block: workBlock,
+    };
+  };
 
   const saveTask = async (payload: any) => {
     try {
