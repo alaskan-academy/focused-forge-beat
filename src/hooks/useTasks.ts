@@ -47,9 +47,14 @@ export function useTasks() {
         if (isRecurring) {
           // Start with timer_sessions grouped by date
           const timerByDate = sessionsByTaskAndDate[task.id] || {};
-          // Apply manual overrides on top — user-entered values take precedence
-          const manualOverrides: Record<string, number> = recConfig?.time_by_date_manual || {};
-          sessionsByDate = { ...timerByDate, ...manualOverrides };
+          // Apply manual overrides on top — only when the value is > 0.
+          // Zero-value entries are ignored so a buggy/accidental save of 0 never
+          // silences real timer sessions.
+          const merged = { ...timerByDate };
+          Object.entries(recConfig?.time_by_date_manual || {}).forEach(([k, v]) => {
+            if (typeof v === 'number' && v > 0) merged[k] = v;
+          });
+          sessionsByDate = merged;
         }
 
         // Recurring tasks: today's sessions (+ any manual override) for current occurrence.
