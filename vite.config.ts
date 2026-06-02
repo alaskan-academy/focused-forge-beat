@@ -14,6 +14,10 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
+      // selfDestroying: gera um SW que se auto-cancela — limpa qualquer cache
+      // travado em todos os browsers sem precisar de ação manual do usuário.
+      // O manifest e ícone continuam servidos para permitir "instalar como app".
+      selfDestroying: true,
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
@@ -28,16 +32,6 @@ export default defineConfig(({ mode }) => ({
         start_url: '/',
         icons: [
           { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
-        ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'supabase-cache', networkTimeoutSeconds: 10 },
-          },
         ],
       },
     }),
