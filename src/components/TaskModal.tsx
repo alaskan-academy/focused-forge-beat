@@ -48,6 +48,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const [dueDate, setDueDate] = useState(task?.due_date || '');
   const [estimated, setEstimated] = useState(String(task?.estimated_minutes || ''));
   const [actualMinutes, setActualMinutes] = useState(String(task?.total_tracked_minutes ?? task?.actual_minutes ?? ''));
+  const [actualMinutesChanged, setActualMinutesChanged] = useState(false);
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>(
     task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
   );
@@ -70,17 +71,19 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     const mins = Number(actualMinutes) || 0;
     const isRecurring = recurrence.type !== 'none';
 
-    // For recurring tasks: persist the manually entered time as a per-date override
-    // so useTasks (which reads timer_sessions, not actual_minutes) shows it correctly.
-    const recurrenceConfig: RecurrenceConfig = isRecurring
-      ? {
-          ...recurrence,
-          time_by_date_manual: {
-            ...(recurrence.time_by_date_manual || {}),
-            [toLocalDateKey(new Date())]: mins,
-          },
-        }
-      : recurrence;
+    // For recurring tasks: only write time_by_date_manual when the user explicitly
+    // changed the Tempo Real field. If they didn't touch it, don't overwrite —
+    // otherwise a save-without-edit would set the override to 0 and mask timer sessions.
+    const recurrenceConfig: RecurrenceConfig =
+      isRecurring && actualMinutesChanged
+        ? {
+            ...recurrence,
+            time_by_date_manual: {
+              ...(recurrence.time_by_date_manual || {}),
+              [toLocalDateKey(new Date())]: mins,
+            },
+          }
+        : recurrence;
 
     return {
       name: name.trim(),
@@ -267,7 +270,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
               {isEdit && (
                 <div>
                   <Label>Tempo Real (min)</Label>
-                  <Input type="number" min={0} value={actualMinutes} onChange={(e) => setActualMinutes(e.target.value)} className="bg-secondary border-border" />
+                  <Input type="number" min={0} value={actualMinutes} onChange={(e) => { setActualMinutes(e.target.value); setActualMinutesChanged(true); }} className="bg-secondary border-border" />
                   <p className="text-[10px] text-muted-foreground mt-1">Editável manualmente ou atualizado pelo timer</p>
                 </div>
               )}
