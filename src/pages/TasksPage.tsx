@@ -378,8 +378,10 @@ export default function TasksPage() {
                     </span>
                   )}
                   {(() => {
+                    const isRecurring = (t as any).recurrence_config?.type && (t as any).recurrence_config.type !== 'none';
                     const displayMins = getTaskDisplayMinutes(t as any, dateFilter, customRange);
-                    return displayMins > 0 ? (
+                    // Always show for recurring tasks (allows manual entry even when 0)
+                    return (displayMins > 0 || isRecurring) ? (
                       <>
                         <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={displayMins} recurrenceConfig={(t as any).recurrence_config} /></span>
                         <span className="whitespace-nowrap shrink-0">real</span>

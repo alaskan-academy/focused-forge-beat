@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasks';
 import { useProjects } from '@/hooks/useProjects';
+import { externalSupabase as supabase } from '@/integrations/supabase/externalClient';
 import { toast } from 'sonner';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
 import { addCompletedDate, addSkippedDate, RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
@@ -48,7 +49,6 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const [dueDate, setDueDate] = useState(task?.due_date || '');
   const [estimated, setEstimated] = useState(String(task?.estimated_minutes || ''));
   const [actualMinutes, setActualMinutes] = useState(String(task?.total_tracked_minutes ?? task?.actual_minutes ?? ''));
-  const [actualMinutesChanged, setActualMinutesChanged] = useState(false);
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>(
     task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
   );
@@ -67,44 +67,44 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
 
-  const buildPayload = () => {
-    const mins = Number(actualMinutes) || 0;
-    const isRecurring = recurrence.type !== 'none';
-
-    // For recurring tasks: only write time_by_date_manual when the user explicitly
-    // changed the Tempo Real field. If they didn't touch it, don't overwrite —
-    // otherwise a save-without-edit would set the override to 0 and mask timer sessions.
-    const recurrenceConfig: RecurrenceConfig =
-      isRecurring && actualMinutesChanged
-        ? {
-            ...recurrence,
-            time_by_date_manual: {
-              ...(recurrence.time_by_date_manual || {}),
-              [toLocalDateKey(new Date())]: mins,
-            },
-          }
-        : recurrence;
-
-    return {
-      name: name.trim(),
-      area,
-      project_id: area === 'work' && projectId ? projectId : null,
-      status,
-      priority,
-      start_date: startDate || null,
-      due_date: dueDate || null,
-      estimated_minutes: Number(estimated) || 0,
-      actual_minutes: mins,
-      recurrence_config: recurrenceConfig,
-      notes: notes || null,
-      work_block: workBlock,
-    };
-  };
+  const buildPayload = () => ({
+    name: name.trim(),
+    area,
+    project_id: area === 'work' && projectId ? projectId : null,
+    status,
+    priority,
+    start_date: startDate || null,
+    due_date: dueDate || null,
+    estimated_minutes: Number(estimated) || 0,
+    actual_minutes: Number(actualMinutes) || 0,
+    recurrence_config: recurrence,
+    notes: notes || null,
+    work_block: workBlock,
+  });
 
   const saveTask = async (payload: any) => {
     try {
       if (isEdit) {
         await updateTask.mutateAsync({ id: task.id, ...payload });
+
+        // For recurring tasks: if the user manually increased Tempo Real,
+        // insert the delta as a timer session so it shows correctly.
+        const isRecurring = (payload.recurrence_config as RecurrenceConfig)?.type !== 'none';
+        if (isRecurring) {
+          const currentTotal = Number(task.total_tracked_minutes ?? task.actual_minutes ?? 0);
+          const newTotal = payload.actual_minutes as number;
+          const delta = Math.round((newTotal - currentTotal) * 100) / 100;
+          if (delta > 0) {
+            const now = new Date().toISOString();
+            await supabase.from('timer_sessions').insert({
+              task_id: task.id,
+              started_at: now,
+              ended_at: now,
+              duration_minutes: delta,
+            });
+          }
+        }
+
         toast.success('Tarefa atualizada!');
       } else {
         await createTask.mutateAsync(payload);
@@ -270,7 +270,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
               {isEdit && (
                 <div>
                   <Label>Tempo Real (min)</Label>
-                  <Input type="number" min={0} value={actualMinutes} onChange={(e) => { setActualMinutes(e.target.value); setActualMinutesChanged(true); }} className="bg-secondary border-border" />
+                  <Input type="number" min={0} value={actualMinutes} onChange={(e) => setActualMinutes(e.target.value)} className="bg-secondary border-border" />
                   <p className="text-[10px] text-muted-foreground mt-1">Editável manualmente ou atualizado pelo timer</p>
                 </div>
               )}

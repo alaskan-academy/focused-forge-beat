@@ -43,19 +43,11 @@ export function useTasks() {
         const recConfig = task.recurrence_config as any;
         const isRecurring = recConfig?.type && recConfig.type !== 'none';
 
-        let sessionsByDate: Record<string, number> | undefined;
-        if (isRecurring) {
-          // Start with timer_sessions grouped by date
-          const timerByDate = sessionsByTaskAndDate[task.id] || {};
-          // Apply manual overrides on top — only when the value is > 0.
-          // Zero-value entries are ignored so a buggy/accidental save of 0 never
-          // silences real timer sessions.
-          const merged = { ...timerByDate };
-          Object.entries(recConfig?.time_by_date_manual || {}).forEach(([k, v]) => {
-            if (typeof v === 'number' && v > 0) merged[k] = v;
-          });
-          sessionsByDate = merged;
-        }
+        // For recurring tasks: timer_sessions is the single source of truth.
+        // No overrides, no JSONB fields — just the raw session sum per date.
+        const sessionsByDate = isRecurring
+          ? (sessionsByTaskAndDate[task.id] || {})
+          : undefined;
 
         // Recurring tasks: today's sessions (+ any manual override) for current occurrence.
         // Non-recurring: use actual_minutes (accumulated all-time total).
