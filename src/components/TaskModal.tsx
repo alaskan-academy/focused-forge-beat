@@ -87,22 +87,19 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
       if (isEdit) {
         await updateTask.mutateAsync({ id: task.id, ...payload });
 
-        // For recurring tasks: if the user manually increased Tempo Real,
-        // insert the delta as a timer session so it shows correctly.
-        const isRecurring = (payload.recurrence_config as RecurrenceConfig)?.type !== 'none';
-        if (isRecurring) {
-          const currentTotal = Number(task.total_tracked_minutes ?? task.actual_minutes ?? 0);
-          const newTotal = payload.actual_minutes as number;
-          const delta = Math.round((newTotal - currentTotal) * 100) / 100;
-          if (delta > 0) {
-            const now = new Date().toISOString();
-            await supabase.from('timer_sessions').insert({
-              task_id: task.id,
-              started_at: now,
-              ended_at: now,
-              duration_minutes: delta,
-            });
-          }
+        // For ALL task types: if Tempo Real was manually increased, insert the
+        // delta as a timer session so it appears in history (Rules 3 & 5).
+        const currentTotal = Number(task.total_tracked_minutes || task.actual_minutes || 0);
+        const newTotal = payload.actual_minutes as number;
+        const delta = Math.round((newTotal - currentTotal) * 100) / 100;
+        if (delta > 0) {
+          const now = new Date().toISOString();
+          await supabase.from('timer_sessions').insert({
+            task_id: task.id,
+            started_at: now,
+            ended_at: now,
+            duration_minutes: delta,
+          });
         }
 
         toast.success('Tarefa atualizada!');

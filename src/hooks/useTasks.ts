@@ -49,11 +49,12 @@ export function useTasks() {
           ? (sessionsByTaskAndDate[task.id] || {})
           : undefined;
 
-        // Recurring tasks: today's sessions (+ any manual override) for current occurrence.
-        // Non-recurring: use actual_minutes (accumulated all-time total).
+        // Recurring tasks: today's sessions for current occurrence (resets each new day).
+        // Non-recurring: use total_tracked_minutes from the view (authoritative all-time session
+        // sum). Fall back to actual_minutes only for legacy tasks that have no sessions yet.
         const total_tracked_minutes = isRecurring
           ? Number((sessionsByDate || {})[todayKey] ?? 0)
-          : Number(task.actual_minutes ?? task.total_tracked_minutes ?? 0);
+          : Number(task.total_tracked_minutes || task.actual_minutes || 0);
 
         return { ...task, total_tracked_minutes, session_minutes_by_date: sessionsByDate };
       });
