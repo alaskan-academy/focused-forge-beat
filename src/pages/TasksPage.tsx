@@ -268,11 +268,33 @@ export default function TasksPage() {
 
       {/* Overdue tasks */}
       {(() => {
+        // Helper: finds the most recently missed occurrence date for a recurring task (last 7 days)
+        const getMissedDateKey = (t: any): string | null => {
+          const recConfig = parseRecurrence(t.recurrence_config);
+          if (recConfig.type === 'none') return null;
+          const completedDates = new Set(recConfig.completed_dates || []);
+          const skippedDates = new Set(recConfig.skipped_dates || []);
+          const createdAt = t.due_date || t.created_at;
+          for (let i = 1; i <= 7; i++) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            const key = toLocalDateKey(d);
+            if (doesRecurrenceMatchDate(recConfig, createdAt, d) && !completedDates.has(key) && !skippedDates.has(key)) {
+              return key;
+            }
+          }
+          return null;
+        };
+
         const overdueTasks = (tasks || []).filter((t) => {
+          const recConfig = parseRecurrence((t as any).recurrence_config);
+          const isRecurring = recConfig.type !== 'none';
+          if (isRecurring) {
+            return getMissedDateKey(t) !== null;
+          }
           const dueDate = parseLocalDate(t.due_date);
           if (dueDate && getEffectiveStatus(t as any, 'custom', { from: dueDate, to: dueDate }) === 'done') return false;
           if (t.status === 'done') return false;
-          return dueDate && isBefore(dueDate, startOfToday());
+          return !!(dueDate && isBefore(dueDate, startOfToday()));
         });
         if (overdueTasks.length === 0) return null;
         return (
@@ -283,7 +305,11 @@ export default function TasksPage() {
               <span className="text-xs bg-destructive/15 text-destructive px-2 py-0.5 rounded-full font-medium">{overdueTasks.length}</span>
             </div>
             <div className="space-y-2">
-              {overdueTasks.map((t) => (
+              {overdueTasks.map((t) => {
+                const recConfig = parseRecurrence((t as any).recurrence_config);
+                const isRecurring = recConfig.type !== 'none';
+                const missedDateKey = isRecurring ? getMissedDateKey(t) : null;
+                return (
                 <div
                   key={t.id}
                   onClick={() => { setEditTask(t as any); setModalKey(k => k + 1); setModalOpen(true); }}
@@ -293,9 +319,8 @@ export default function TasksPage() {
                     checked={false}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        const recConfig = parseRecurrence((t as any).recurrence_config);
-                        if (recConfig.type !== 'none') {
-                          const dateKey = t.due_date || toLocalDateKey(new Date());
+                        if (isRecurring) {
+                          const dateKey = missedDateKey || toLocalDateKey(new Date());
                           handleStatusChange(t.id!, 'done', undefined, dateKey);
                         } else {
                           setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
@@ -308,7 +333,12 @@ export default function TasksPage() {
                    <div className="flex-1 min-w-0">
                      <span className="font-medium text-foreground truncate">{t.name}</span>
                      <div className="flex flex-nowrap items-center gap-2 text-xs text-muted-foreground mt-1 overflow-x-auto scrollbar-none">
-                       {t.due_date && (
+                       {missedDateKey && (
+                         <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
+                           Perdida: {new Date(missedDateKey + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                         </span>
+                       )}
+                       {!isRecurring && t.due_date && (
                          <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
                            Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                          </span>
@@ -322,11 +352,13 @@ export default function TasksPage() {
                      </div>
                    </div>
                    <div className="flex items-center gap-2">
+                     {isRecurring && <span className="text-primary/70"><Repeat className="h-3 w-3" /></span>}
                      <PriorityBadge priority={t.priority || 'medium'} />
                      <TimerButton taskId={t.id!} />
                    </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
