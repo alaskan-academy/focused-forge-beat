@@ -13,7 +13,6 @@ import { externalSupabase as supabase } from '@/integrations/supabase/externalCl
 import { toast } from 'sonner';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
 import { addCompletedDate, addSkippedDate, RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
-import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { getMissedDateKey } from '@/lib/overdueUtils';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { ChevronDown } from 'lucide-react';
@@ -151,17 +150,12 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const handleSkipOccurrence = async () => {
     if (!task) return;
     try {
-      const recConfig = parseRecurrence(task.recurrence_config);
-      const createdAt = (task as any).due_date || task.created_at || '';
-      const today = new Date();
-
-      // If today IS a scheduled occurrence, skip today.
-      // Otherwise the task is being opened from the overdue section — skip
-      // the most recently missed occurrence so it stops appearing as overdue.
-      const todayIsScheduled = doesRecurrenceMatchDate(recConfig, createdAt, today);
-      const dateKey = todayIsScheduled
-        ? toLocalDateKey(today)
-        : (getMissedDateKey(task) ?? toLocalDateKey(today));
+      // Priority: if there is an overdue (missed) occurrence, always clear it first.
+      // Only fall back to today if there is no missed date.
+      // This fixes the case where a task is BOTH overdue (missed last week) AND
+      // scheduled for today — the old logic would skip today and leave the overdue
+      // occurrence uncleared, making it appear as if "Pular" did nothing.
+      const dateKey = getMissedDateKey(task) ?? toLocalDateKey(new Date());
 
       await updateTask.mutateAsync({
         id: task.id,
