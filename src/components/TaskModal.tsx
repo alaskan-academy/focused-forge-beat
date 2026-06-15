@@ -13,6 +13,8 @@ import { externalSupabase as supabase } from '@/integrations/supabase/externalCl
 import { toast } from 'sonner';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
 import { addCompletedDate, addSkippedDate, RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
+import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
+import { getMissedDateKey } from '@/lib/overdueUtils';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { ChevronDown } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -149,7 +151,18 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const handleSkipOccurrence = async () => {
     if (!task) return;
     try {
-      const dateKey = toLocalDateKey(new Date());
+      const recConfig = parseRecurrence(task.recurrence_config);
+      const createdAt = (task as any).due_date || task.created_at || '';
+      const today = new Date();
+
+      // If today IS a scheduled occurrence, skip today.
+      // Otherwise the task is being opened from the overdue section — skip
+      // the most recently missed occurrence so it stops appearing as overdue.
+      const todayIsScheduled = doesRecurrenceMatchDate(recConfig, createdAt, today);
+      const dateKey = todayIsScheduled
+        ? toLocalDateKey(today)
+        : (getMissedDateKey(task) ?? toLocalDateKey(today));
+
       await updateTask.mutateAsync({
         id: task.id,
         recurrence_config: addSkippedDate(task.recurrence_config, dateKey),

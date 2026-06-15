@@ -40,8 +40,10 @@ export function getMissedDateKey(task: {
  * Returns true if a task should appear in the "Atrasadas" section.
  * Works for both recurring and non-recurring tasks.
  *
- * - Recurring: any occurrence in the past 7 days that was not completed
- *   and not skipped counts as overdue.
+ * - Daily recurring tasks are NEVER overdue: a missed day simply means the
+ *   next occurrence is today — no overdue state needed.
+ * - Weekly / monthly recurring tasks: any occurrence in the past 7 days that
+ *   was not completed and not skipped counts as overdue.
  * - Non-recurring: has a due_date in the past and is not done/skipped.
  */
 export function isOverdueTask(task: any): boolean {
@@ -49,6 +51,8 @@ export function isOverdueTask(task: any): boolean {
   const isRecurring = recConfig.type !== 'none';
 
   if (isRecurring) {
+    // Daily tasks restart automatically each day — never mark as overdue
+    if (recConfig.type === 'daily') return false;
     return getMissedDateKey(task) !== null;
   }
 
