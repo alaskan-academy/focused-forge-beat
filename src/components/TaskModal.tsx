@@ -13,6 +13,7 @@ import { externalSupabase as supabase } from '@/integrations/supabase/externalCl
 import { toast } from 'sonner';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
 import { addCompletedDate, addSkippedDate, RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
+import { formatMinutes } from '@/lib/formatters';
 import { getMissedDateKey } from '@/lib/overdueUtils';
 import { ChevronDown } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -48,7 +49,7 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const [startDate, setStartDate] = useState((task as any)?.start_date || '');
   const [dueDate, setDueDate] = useState(task?.due_date || '');
   const [estimated, setEstimated] = useState(String(task?.estimated_minutes || ''));
-  const [actualMinutes, setActualMinutes] = useState(String(task?.total_tracked_minutes ?? task?.actual_minutes ?? ''));
+  const [addMinutes, setAddMinutes] = useState('');
   const [recurrence, setRecurrence] = useState<RecurrenceConfig>(
     task?.recurrence_config ? parseRecurrence(task.recurrence_config) : DEFAULT_RECURRENCE
   );
@@ -74,7 +75,6 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
     start_date: startDate || null,
     due_date: dueDate || null,
     estimated_minutes: Number(estimated) || 0,
-    actual_minutes: Number(actualMinutes) || 0,
     recurrence_config: recurrence,
     notes: notes || null,
     work_block: workBlock,
@@ -85,18 +85,15 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
       if (isEdit) {
         await updateTask.mutateAsync({ id: task.id, ...payload });
 
-        // For ALL task types: if Tempo Real was manually increased, insert the
-        // delta as a timer session so it appears in history (Rules 3 & 5).
-        const currentTotal = Number(task.total_tracked_minutes || task.actual_minutes || 0);
-        const newTotal = payload.actual_minutes as number;
-        const delta = Math.round((newTotal - currentTotal) * 100) / 100;
-        if (delta > 0) {
+        // If the user typed minutes to add, insert a timer_session for that amount.
+        const mins = parseInt(addMinutes, 10);
+        if (!isNaN(mins) && mins > 0) {
           const now = new Date().toISOString();
           await supabase.from('timer_sessions').insert({
             task_id: task.id,
             started_at: now,
             ended_at: now,
-            duration_minutes: delta,
+            duration_minutes: mins,
           });
         }
 
@@ -288,9 +285,18 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
               {/* Actual minutes (edit only) */}
               {isEdit && (
                 <div>
-                  <Label>Tempo Real (min)</Label>
-                  <Input type="number" min={0} value={actualMinutes} onChange={(e) => setActualMinutes(e.target.value)} className="bg-secondary border-border" />
-                  <p className="text-[10px] text-muted-foreground mt-1">Editável manualmente ou atualizado pelo timer</p>
+                  <Label>Adicionar Tempo (min)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="0"
+                    value={addMinutes}
+                    onChange={(e) => setAddMinutes(e.target.value)}
+                    className="bg-secondary border-border"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Total registrado: <strong>{formatMinutes(Number(task?.total_tracked_minutes ?? task?.actual_minutes ?? 0))}</strong> — digite quantos minutos adicionar
+                  </p>
                 </div>
               )}
               {/* Completed at */}
