@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import RecurrenceEditor from '@/components/RecurrenceEditor';
 import { addCompletedDate, addSkippedDate, RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 import { getMissedDateKey } from '@/lib/overdueUtils';
-import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { ChevronDown } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -65,8 +64,6 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
-  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
-  const [pendingPayload, setPendingPayload] = useState<any>(null);
 
   const buildPayload = () => ({
     name: name.trim(),
@@ -120,20 +117,26 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
 
     const payload = buildPayload();
 
-    // Always ask for the completion date when marking as done.
-    const wasNotDone = task?.status !== 'done';
-    if (status === 'done' && wasNotDone) {
-      setPendingPayload(payload);
-      setShowCompletionDialog(true);
+    // For recurring tasks, mark the occurrence as complete instead of changing status.
+    const completedRecurrence = parseRecurrence(payload.recurrence_config);
+    if (status === 'done' && completedRecurrence.type !== 'none') {
+      const completedDateKey = completedAt
+        ? toLocalDateKey(new Date(completedAt))
+        : toLocalDateKey(new Date());
+      await saveTask({
+        ...payload,
+        status: 'todo',
+        completed_at: null,
+        recurrence_config: addCompletedDate(payload.recurrence_config, completedDateKey),
+      });
       return;
     }
 
-    // Normal flow
-    const finalPayload = {
+    // Non-recurring: use the completedAt from the form field (auto-set when status changes).
+    await saveTask({
       ...payload,
-      completed_at: status === 'done' ? (completedAt || task?.completed_at || new Date().toISOString()) : null,
-    };
-    await saveTask(finalPayload);
+      completed_at: status === 'done' ? (completedAt || new Date().toISOString()) : null,
+    });
   };
 
   const handleDelete = async () => {
@@ -207,7 +210,17 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
                 </div>
                 <div>
                   <Label>Status</Label>
-                  <Select value={status} onValueChange={setStatus}>
+                  <Select
+                    value={status}
+                    onValueChange={(v) => {
+                      setStatus(v);
+                      if (v === 'done' && !completedAt) {
+                        setCompletedAt(new Date().toISOString());
+                      } else if (v !== 'done') {
+                        setCompletedAt('');
+                      }
+                    }}
+                  >
                     <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="todo">A Fazer</SelectItem>
@@ -280,8 +293,8 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
                   <p className="text-[10px] text-muted-foreground mt-1">Editável manualmente ou atualizado pelo timer</p>
                 </div>
               )}
-              {/* Completed at (edit + done) */}
-              {isEdit && status === 'done' && (
+              {/* Completed at */}
+              {status === 'done' && (
                 <div>
                   <Label>Concluída em</Label>
                   <Input
@@ -378,30 +391,6 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
       </DialogContent>
     </Dialog>
 
-    <CompletionDateDialog
-      open={showCompletionDialog}
-      taskName={name}
-      onConfirm={async (completedAt) => {
-        setShowCompletionDialog(false);
-        if (pendingPayload) {
-          const completedRecurrence = parseRecurrence(pendingPayload.recurrence_config);
-          await saveTask(completedRecurrence.type !== 'none'
-            ? {
-                ...pendingPayload,
-                status: 'todo',
-                completed_at: null,
-                recurrence_config: addCompletedDate(pendingPayload.recurrence_config, toLocalDateKey(new Date(completedAt))),
-              }
-            : { ...pendingPayload, completed_at: completedAt }
-          );
-          setPendingPayload(null);
-        }
-      }}
-      onCancel={() => {
-        setShowCompletionDialog(false);
-        setPendingPayload(null);
-      }}
-    />
-    </>
+</>
   );
 }
