@@ -1,10 +1,10 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Plus, Clock, Repeat, AlertCircle, ArrowUpDown } from 'lucide-react';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
-import { isBefore, startOfToday } from 'date-fns';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
+import { getMissedDateKey, isOverdueTask } from '@/lib/overdueUtils';
 import { useTasks, useUpdateTask } from '@/hooks/useTasks';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatMinutes, formatDate } from '@/lib/formatters';
@@ -268,34 +268,7 @@ export default function TasksPage() {
 
       {/* Overdue tasks */}
       {(() => {
-        // Helper: finds the most recently missed occurrence date for a recurring task (last 7 days)
-        const getMissedDateKey = (t: any): string | null => {
-          const recConfig = parseRecurrence(t.recurrence_config);
-          if (recConfig.type === 'none') return null;
-          const completedDates = new Set(recConfig.completed_dates || []);
-          const skippedDates = new Set(recConfig.skipped_dates || []);
-          const createdAt = t.due_date || t.created_at;
-          for (let i = 1; i <= 7; i++) {
-            const d = new Date(); d.setDate(d.getDate() - i);
-            const key = toLocalDateKey(d);
-            if (doesRecurrenceMatchDate(recConfig, createdAt, d) && !completedDates.has(key) && !skippedDates.has(key)) {
-              return key;
-            }
-          }
-          return null;
-        };
-
-        const overdueTasks = (tasks || []).filter((t) => {
-          const recConfig = parseRecurrence((t as any).recurrence_config);
-          const isRecurring = recConfig.type !== 'none';
-          if (isRecurring) {
-            return getMissedDateKey(t) !== null;
-          }
-          const dueDate = parseLocalDate(t.due_date);
-          if (dueDate && getEffectiveStatus(t as any, 'custom', { from: dueDate, to: dueDate }) === 'done') return false;
-          if (t.status === 'done') return false;
-          return !!(dueDate && isBefore(dueDate, startOfToday()));
-        });
+        const overdueTasks = (tasks || []).filter((t) => isOverdueTask(t));
         if (overdueTasks.length === 0) return null;
         return (
           <div className="bg-card border border-destructive/40 rounded-xl p-5">

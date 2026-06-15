@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset, AlertCircle, StickyNote, Archive, Trash2, Check, X } from 'lucide-react';
-import { isBefore, startOfToday } from 'date-fns';
+import { getMissedDateKey, isOverdueTask } from '@/lib/overdueUtils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -462,13 +462,7 @@ export default function DashboardPage() {
 
       {/* Overdue tasks */}
       {(() => {
-        const overdueTasks = (tasks || []).filter((t) => {
-          const dueDate = parseLocalDate(t.due_date);
-          const effStatus = dueDate ? getEffectiveStatus(t as any, 'custom', { from: dueDate, to: dueDate }) : null;
-          if (effStatus === 'done' || effStatus === 'skipped') return false;
-          if (t.status === 'done') return false;
-          return dueDate && isBefore(dueDate, startOfToday());
-        });
+        const overdueTasks = (tasks || []).filter((t) => isOverdueTask(t));
         if (overdueTasks.length === 0) return null;
         return (
           <div className="bg-card border border-destructive/40 rounded-xl p-5">
@@ -478,7 +472,11 @@ export default function DashboardPage() {
               <span className="text-xs bg-destructive/15 text-destructive px-2 py-0.5 rounded-full font-medium">{overdueTasks.length}</span>
             </div>
             <div className="space-y-2">
-              {overdueTasks.map((t) => (
+              {overdueTasks.map((t) => {
+                const recConfig = parseRecurrence((t as any).recurrence_config);
+                const isRecurring = recConfig.type !== 'none';
+                const missedDateKey = isRecurring ? getMissedDateKey(t) : null;
+                return (
                 <div
                   key={t.id}
                   className="flex items-center gap-3 cursor-pointer hover:bg-destructive/10 rounded-lg px-3 py-2 transition-colors"
@@ -488,10 +486,8 @@ export default function DashboardPage() {
                     checked={false}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        const recConfig = parseRecurrence((t as any).recurrence_config);
-                        if (recConfig.type !== 'none') {
-                          // Recurring: directly mark the due_date occurrence as done
-                          const dateKey = t.due_date || toLocalDateKey(new Date());
+                        if (isRecurring) {
+                          const dateKey = missedDateKey || toLocalDateKey(new Date());
                           handleStatusChange(t, 'done', undefined, dateKey);
                         } else {
                           setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
@@ -504,7 +500,12 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <span className="text-sm text-foreground truncate">{t.name}</span>
                     <div className="flex flex-nowrap items-center gap-2 text-xs text-muted-foreground mt-1 overflow-x-auto scrollbar-none">
-                      {t.due_date && (
+                      {missedDateKey && (
+                        <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
+                          Perdida: {new Date(missedDateKey + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                      )}
+                      {!isRecurring && t.due_date && (
                         <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
                           Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                         </span>
@@ -518,16 +519,21 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-2 shrink-0">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
-                      'bg-status-todo/15 text-status-todo'
-                    }`}>
-                      {t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
-                    </span>
+                    {isRecurring ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary/70">Recorrente</span>
+                    ) : (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
+                        'bg-status-todo/15 text-status-todo'
+                      }`}>
+                        {t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
+                      </span>
+                    )}
                     <TimerButton taskId={t.id!} />
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );

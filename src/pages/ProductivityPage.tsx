@@ -7,8 +7,8 @@ import {
 } from 'recharts';
 import {
   subDays, format, isWithinInterval, startOfDay, endOfDay,
-  isBefore, startOfToday,
 } from 'date-fns';
+import { isOverdueTask } from '@/lib/overdueUtils';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parseLocalDate } from '@/lib/dateUtils';
@@ -74,12 +74,7 @@ export default function ProductivityPage() {
     const done = filteredTasks.filter((t) => t.status === 'done').length;
     const inProgress = filteredTasks.filter((t) => t.status === 'in_progress').length;
     const todo = filteredTasks.filter((t) => t.status === 'todo').length;
-    const today = startOfToday();
-    const overdue = filteredTasks.filter((t) => {
-      if (t.status === 'done') return false;
-      const d = parseLocalDate(t.due_date);
-      return d ? isBefore(d, today) : false;
-    }).length;
+    const overdue = filteredTasks.filter((t) => isOverdueTask(t)).length;
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     const totalEstimated = filteredTasks.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
     const totalTracked = Object.values(dailyWork || {}).reduce((s, v) => s + v, 0);
