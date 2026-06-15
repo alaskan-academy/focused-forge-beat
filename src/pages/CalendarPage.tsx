@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { useTasks, useUpdateTask } from '@/hooks/useTasks';
-import { useProjects } from '@/hooks/useProjects';
+import { useTasks } from '@/hooks/useTasks';
 import { parseRecurrence } from '@/lib/recurrence';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
+import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TaskModal from '@/components/TaskModal';
@@ -14,7 +14,6 @@ import { parseLocalDate, startOfLocalDay } from '@/lib/dateUtils';
 
 export default function CalendarPage() {
   const { data: tasks } = useTasks();
-  const updateTask = useUpdateTask();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [modalOpen, setModalOpen] = useState(false);
@@ -112,21 +111,23 @@ export default function CalendarPage() {
                   </div>
                   <div className="flex flex-wrap gap-0.5 mt-1">
                     {dayTasks.slice(0, 5).map((t) => {
-                      const recConfig = parseRecurrence((t as any).recurrence_config);
-                      const isRecurring = recConfig.type !== 'none';
+                      const dayRange = { from: day, to: day };
+                      const es = getEffectiveStatus(t as any, 'custom', dayRange);
                       return (
                         <div
                           key={t.id}
                           title={t.name}
                           className={cn(
                             "h-2 w-2 rounded-full flex-shrink-0",
-                            t.status === 'done'
+                            es === 'done'
                               ? "bg-status-done"
-                              : t.status === 'in_progress'
+                              : es === 'in_progress'
                                 ? "bg-status-in-progress"
-                                : isRecurring
-                                  ? "bg-primary"
-                                  : "bg-muted-foreground/60"
+                                : es === 'skipped'
+                                  ? "bg-muted-foreground/30"
+                                  : parseRecurrence((t as any).recurrence_config).type !== 'none'
+                                    ? "bg-primary"
+                                    : "bg-muted-foreground/60"
                           )}
                         />
                       );
@@ -168,7 +169,10 @@ export default function CalendarPage() {
             </p>
           ) : (
             <div className="space-y-2">
-              {selectedTasks.map((t) => (
+              {selectedTasks.map((t) => {
+                const dayRange = selectedDate ? { from: selectedDate, to: selectedDate } : null;
+                const es = dayRange ? getEffectiveStatus(t as any, 'custom', dayRange) : (t.status || 'todo');
+                return (
                 <div
                   key={t.id}
                   onClick={() => { setEditTask(t); setModalKey(k => k + 1); setModalOpen(true); }}
@@ -177,11 +181,11 @@ export default function CalendarPage() {
                   <div className="flex items-center justify-between mb-1">
                     <span className={cn(
                       "text-sm font-medium truncate",
-                      t.status === 'done' && "line-through text-muted-foreground"
+                      es === 'done' && "line-through text-muted-foreground"
                     )}>
                       {t.name}
                     </span>
-                    <StatusBadge status={t.status || 'todo'} />
+                    <StatusBadge status={es} />
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {t.area === 'personal' && <span className="text-personal">Pessoal</span>}
@@ -191,7 +195,8 @@ export default function CalendarPage() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
