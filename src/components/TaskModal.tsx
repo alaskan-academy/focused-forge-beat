@@ -150,12 +150,14 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
   const handleSkipOccurrence = async () => {
     if (!task) return;
     try {
-      // Priority: if there is an overdue (missed) occurrence, always clear it first.
-      // Only fall back to today if there is no missed date.
-      // This fixes the case where a task is BOTH overdue (missed last week) AND
-      // scheduled for today — the old logic would skip today and leave the overdue
-      // occurrence uncleared, making it appear as if "Pular" did nothing.
-      const dateKey = getMissedDateKey(task) ?? toLocalDateKey(new Date());
+      // Daily tasks are never "overdue" — they restart each day automatically.
+      // So for daily, always skip TODAY.
+      // For weekly/monthly: clear the overdue (missed) occurrence first; if none,
+      // fall back to today.
+      const recConfig = parseRecurrence(task.recurrence_config);
+      const dateKey = recConfig.type === 'daily'
+        ? toLocalDateKey(new Date())
+        : (getMissedDateKey(task) ?? toLocalDateKey(new Date()));
 
       await updateTask.mutateAsync({
         id: task.id,
