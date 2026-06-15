@@ -85,9 +85,9 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
       if (isEdit) {
         await updateTask.mutateAsync({ id: task.id, ...payload });
 
-        // If the user typed minutes to add, insert a timer_session for that amount.
+        // If the user typed minutes to add (or a negative value to correct), insert a timer_session.
         const mins = parseInt(addMinutes, 10);
-        if (!isNaN(mins) && mins > 0) {
+        if (!isNaN(mins) && mins !== 0) {
           const now = new Date().toISOString();
           await supabase.from('timer_sessions').insert({
             task_id: task.id,
@@ -285,17 +285,16 @@ export default function TaskModal({ open, onClose, task }: TaskModalProps) {
               {/* Actual minutes (edit only) */}
               {isEdit && (
                 <div>
-                  <Label>Adicionar Tempo (min)</Label>
+                  <Label>Ajustar Tempo (min)</Label>
                   <Input
                     type="number"
-                    min={1}
                     placeholder="0"
                     value={addMinutes}
                     onChange={(e) => setAddMinutes(e.target.value)}
                     className="bg-secondary border-border"
                   />
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    Total registrado: <strong>{formatMinutes(Number(task?.total_tracked_minutes ?? task?.actual_minutes ?? 0))}</strong> — digite quantos minutos adicionar
+                    Total registrado: <strong>{formatMinutes(Number(task?.total_tracked_minutes ?? task?.actual_minutes ?? 0))}</strong> — use positivo para adicionar, negativo para remover (ex: -30)
                   </p>
                 </div>
               )}

@@ -29,9 +29,9 @@ export default function EditableActualMinutes({ taskId, value, recurrenceConfig 
 
   const save = async () => {
     setEditing(false);
-    const mins = Math.max(0, parseInt(input, 10));
-    // Input is how many minutes to ADD — empty or zero means no change.
-    if (!input.trim() || isNaN(mins) || mins <= 0) return;
+    const mins = parseInt(input, 10);
+    // Input is minutes to add (positive) or remove (negative) — zero or empty means no change.
+    if (!input.trim() || isNaN(mins) || mins === 0) return;
     try {
       const now = new Date().toISOString();
       const { error } = await supabase.from('timer_sessions').insert({
@@ -52,7 +52,6 @@ export default function EditableActualMinutes({ taskId, value, recurrenceConfig 
       <Input
         ref={inputRef}
         type="number"
-        min={1}
         placeholder="min"
         value={input}
         onChange={(e) => setInput(e.target.value)}
