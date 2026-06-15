@@ -313,6 +313,13 @@ export default function DashboardPage() {
     };
   }, [blockTasks]);
 
+  // Memoized — isOverdueTask is expensive (scans 7 days per task).
+  // Without this, it ran on every render (every second due to timer polling).
+  const overdueTasks = useMemo(
+    () => (tasks || []).filter((t) => isOverdueTask(t)),
+    [tasks],
+  );
+
   const openTask = (t: any) => {
     setEditTask(t);
     setModalKey((k) => k + 1);
@@ -359,21 +366,25 @@ export default function DashboardPage() {
   };
 
   const renderTaskList = (taskList: typeof effectiveFiltered) => (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {taskList.map((t) => {
         const es = t._effectiveStatus;
         return (
         <div
           key={t.id}
-          className="flex items-center justify-between cursor-pointer hover:bg-secondary/50 rounded-lg px-3 py-2 transition-colors"
+          className="flex items-center gap-3 cursor-pointer hover:bg-secondary/50 rounded-lg px-3 py-2 transition-colors"
           onClick={() => openTask(t)}
         >
-          <span className="text-sm text-foreground truncate flex-1">{t.name}</span>
-          <div className="flex items-center gap-2 ml-2 shrink-0">
-            {t.estimated_minutes ? (
-              <span className="text-xs text-muted-foreground">{formatMinutes(t.estimated_minutes)}</span>
-            ) : null}
-            <PriorityBadge priority={t.priority || 'medium'} />
+          <div className="flex-1 min-w-0">
+            <span className="text-sm text-foreground truncate block">{t.name}</span>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <PriorityBadge priority={t.priority || 'medium'} />
+              {t.estimated_minutes ? (
+                <span className="text-xs text-muted-foreground">{formatMinutes(t.estimated_minutes)} est.</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             <span className={`text-xs px-2 py-0.5 rounded-full ${
               es === 'done' ? 'bg-status-done/15 text-status-done' :
               es === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
@@ -465,84 +476,81 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Overdue tasks */}
-      {(() => {
-        const overdueTasks = (tasks || []).filter((t) => isOverdueTask(t));
-        if (overdueTasks.length === 0) return null;
-        return (
-          <div className="bg-card border border-destructive/40 rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-              <h2 className="font-semibold text-foreground">Atrasadas</h2>
-              <span className="text-xs bg-destructive/15 text-destructive px-2 py-0.5 rounded-full font-medium">{overdueTasks.length}</span>
-            </div>
-            <div className="space-y-2">
-              {overdueTasks.map((t) => {
-                const recConfig = parseRecurrence((t as any).recurrence_config);
-                const isRecurring = recConfig.type !== 'none';
-                const missedDateKey = isRecurring ? getMissedDateKey(t) : null;
-                return (
-                <div
-                  key={t.id}
-                  className="flex items-center gap-3 cursor-pointer hover:bg-destructive/10 rounded-lg px-3 py-2 transition-colors"
-                  onClick={() => openTask(t)}
-                >
-                  <Checkbox
-                    checked={false}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        if (isRecurring) {
-                          const dateKey = missedDateKey || toLocalDateKey(new Date());
-                          handleStatusChange(t, 'done', undefined, dateKey);
-                        } else {
-                          setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
-                        }
+      {/* Overdue tasks — uses memoized list to avoid re-computing on every render */}
+      {overdueTasks.length > 0 && (
+        <div className="bg-card border border-destructive/40 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <h2 className="font-semibold text-foreground">Atrasadas</h2>
+            <span className="text-xs bg-destructive/15 text-destructive px-2 py-0.5 rounded-full font-medium">{overdueTasks.length}</span>
+          </div>
+          <div className="space-y-2">
+            {overdueTasks.map((t) => {
+              const recConfig = parseRecurrence((t as any).recurrence_config);
+              const isRecurring = recConfig.type !== 'none';
+              const missedDateKey = isRecurring ? getMissedDateKey(t) : null;
+              return (
+              <div
+                key={t.id}
+                className="flex items-center gap-3 cursor-pointer hover:bg-destructive/10 rounded-lg px-3 py-2 transition-colors"
+                onClick={() => openTask(t)}
+              >
+                <Checkbox
+                  checked={false}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      if (isRecurring) {
+                        const dateKey = missedDateKey || toLocalDateKey(new Date());
+                        handleStatusChange(t, 'done', undefined, dateKey);
+                      } else {
+                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
                       }
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-5 w-5 rounded-full border-2 border-destructive"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm text-foreground truncate">{t.name}</span>
-                    <div className="flex flex-nowrap items-center gap-2 text-xs text-muted-foreground mt-1 overflow-x-auto scrollbar-none">
-                      {missedDateKey && (
-                        <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
-                          Perdida: {new Date(missedDateKey + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                        </span>
-                      )}
-                      {!isRecurring && t.due_date && (
-                        <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
-                          Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                        </span>
-                      )}
-                      <span className="whitespace-nowrap shrink-0 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatMinutes(t.estimated_minutes)} est.
-                      </span>
-                      <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} recurrenceConfig={(t as any).recurrence_config} /></span>
-                      <span className="whitespace-nowrap shrink-0">real</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 ml-2 shrink-0">
-                    {isRecurring ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary/70">Recorrente</span>
-                    ) : (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
-                        'bg-status-todo/15 text-status-todo'
-                      }`}>
-                        {t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-5 w-5 rounded-full border-2 border-destructive"
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-foreground truncate block">{t.name}</span>
+                  <div className="flex flex-nowrap items-center gap-2 text-xs text-muted-foreground mt-1 overflow-x-auto scrollbar-none">
+                    {missedDateKey && (
+                      <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
+                        Perdida: {new Date(missedDateKey + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                       </span>
                     )}
-                    <TimerButton taskId={t.id!} />
+                    {!isRecurring && t.due_date && (
+                      <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
+                        Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                      </span>
+                    )}
+                    <span className="whitespace-nowrap shrink-0 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatMinutes(t.estimated_minutes)} est.
+                    </span>
+                    <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} recurrenceConfig={(t as any).recurrence_config} /></span>
+                    <span className="whitespace-nowrap shrink-0">real</span>
                   </div>
                 </div>
-                );
-              })}
-            </div>
+                <div className="flex items-center gap-2 ml-2 shrink-0">
+                  <PriorityBadge priority={(t as any).priority || 'medium'} />
+                  {isRecurring ? (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary/70">Recorrente</span>
+                  ) : (
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
+                      'bg-status-todo/15 text-status-todo'
+                    }`}>
+                      {t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
+                    </span>
+                  )}
+                  <TimerButton taskId={t.id!} />
+                </div>
+              </div>
+              );
+            })}
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
