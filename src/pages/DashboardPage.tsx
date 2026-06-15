@@ -23,6 +23,7 @@ import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDat
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import TimerButton from '@/components/TimerButton';
+import PriorityBadge from '@/components/PriorityBadge';
 
 function ColorPicker({ value, onChange }: { value: ReminderColor; onChange: (c: ReminderColor) => void }) {
   return (
@@ -289,13 +290,16 @@ export default function DashboardPage() {
   }, [effectiveFiltered, dateFilter, customRange]);
 
   const blockTasks = useMemo(() => {
+    const PRIORITY_ORDER: Record<string, number> = { high: 1, medium: 2, low: 3 };
+    const byPriority = (a: any, b: any) =>
+      (PRIORITY_ORDER[a.priority ?? 'medium'] ?? 2) - (PRIORITY_ORDER[b.priority ?? 'medium'] ?? 2);
     const getBlock = (t: any) => {
       const rc = t.recurrence_config;
       const wb = rc?.work_block || t.work_block;
       return wb || 'none';
     };
-    const morning = effectiveFiltered.filter((t) => getBlock(t) === 'morning');
-    const afternoon = effectiveFiltered.filter((t) => getBlock(t) === 'afternoon');
+    const morning = effectiveFiltered.filter((t) => getBlock(t) === 'morning').sort(byPriority);
+    const afternoon = effectiveFiltered.filter((t) => getBlock(t) === 'afternoon').sort(byPriority);
     const none = effectiveFiltered.filter((t) => getBlock(t) === 'none');
     return { morning, afternoon, none };
   }, [effectiveFiltered]);
@@ -369,6 +373,7 @@ export default function DashboardPage() {
             {t.estimated_minutes ? (
               <span className="text-xs text-muted-foreground">{formatMinutes(t.estimated_minutes)}</span>
             ) : null}
+            <PriorityBadge priority={t.priority || 'medium'} />
             <span className={`text-xs px-2 py-0.5 rounded-full ${
               es === 'done' ? 'bg-status-done/15 text-status-done' :
               es === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
