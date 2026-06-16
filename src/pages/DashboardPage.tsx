@@ -591,7 +591,7 @@ export default function DashboardPage() {
           const config = BLOCK_CONFIG[block];
           const BlockIcon = config.icon;
           const taskList = blockTasks[block];
-          const totalEst = blockTasks[block].filter(t => t.status !== 'done').reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+          const totalEst = blockMinutes[block];
           const capacity = config.hours * 60;
 
           return (
