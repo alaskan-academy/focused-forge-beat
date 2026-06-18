@@ -18,8 +18,13 @@ export function useTasks() {
 
       const todayKey = new Date().toLocaleDateString('sv-SE'); // 'YYYY-MM-DD' in local tz
 
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const userId = authSession?.user?.id;
+
       const [{ data, error }, { data: sessions }] = await Promise.all([
-        supabase.from('tasks_with_time').select('*').order('created_at', { ascending: false }),
+        supabase.from('tasks_with_time').select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false }),
         supabase
           .from('timer_sessions')
           .select('task_id, duration_minutes, started_at')
