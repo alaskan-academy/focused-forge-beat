@@ -330,25 +330,21 @@ export default function TasksPage() {
                          : Number((t as any).total_tracked_minutes || 0);
                        const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
                        return (
-                         <div className="grid grid-cols-4 gap-1 mt-1.5 pt-1.5 border-t border-border/30 text-[10px]" onClick={(e) => e.stopPropagation()}>
-                           <div className="space-y-0.5">
-                             <div className="text-muted-foreground/60">Est total</div>
-                             <div className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</div>
-                           </div>
-                           <div className="space-y-0.5">
-                             <div className="text-muted-foreground/60">Est {filterLabel}</div>
-                             <div className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</div>
-                           </div>
-                           <div className="space-y-0.5">
-                             <div className="text-muted-foreground/60">Real total</div>
-                             <div className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</div>
-                           </div>
-                           <div className="space-y-0.5">
-                             <div className="text-muted-foreground/60">Real {filterLabel}</div>
-                             <div className="font-medium text-foreground/70">
-                               <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
-                             </div>
-                           </div>
+                         <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 pt-1.5 border-t border-border/20 text-[10px] text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                           <span className="whitespace-nowrap">
+                             <span className="opacity-60">Est: </span>
+                             <span className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</span>
+                             <span className="opacity-40"> · </span>
+                             <span className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</span>
+                             <span className="opacity-60"> {filterLabel}</span>
+                           </span>
+                           <span className="whitespace-nowrap inline-flex items-center gap-0.5">
+                             <span className="opacity-60">Real: </span>
+                             <span className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</span>
+                             <span className="opacity-40"> · </span>
+                             <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
+                             <span className="opacity-60"> {filterLabel}</span>
+                           </span>
                          </div>
                        );
                      })()}
@@ -433,25 +429,21 @@ export default function TasksPage() {
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-4 gap-1 mt-2 pt-1.5 border-t border-border/30 text-[10px]" onClick={(e) => e.stopPropagation()}>
-                  <div className="space-y-0.5">
-                    <div className="text-muted-foreground/60">Est total</div>
-                    <div className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</div>
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="text-muted-foreground/60">Est {filterLabel}</div>
-                    <div className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</div>
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="text-muted-foreground/60">Real total</div>
-                    <div className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</div>
-                  </div>
-                  <div className="space-y-0.5">
-                    <div className="text-muted-foreground/60">Real {filterLabel}</div>
-                    <div className="font-medium text-foreground/70">
-                      <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
-                    </div>
-                  </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 pt-1.5 border-t border-border/20 text-[10px] text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                  <span className="whitespace-nowrap">
+                    <span className="opacity-60">Est: </span>
+                    <span className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</span>
+                    <span className="opacity-40"> · </span>
+                    <span className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</span>
+                    <span className="opacity-60"> {filterLabel}</span>
+                  </span>
+                  <span className="whitespace-nowrap inline-flex items-center gap-0.5">
+                    <span className="opacity-60">Real: </span>
+                    <span className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</span>
+                    <span className="opacity-40"> · </span>
+                    <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
+                    <span className="opacity-60"> {filterLabel}</span>
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
