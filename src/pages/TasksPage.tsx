@@ -19,7 +19,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { DateFilter, AreaFilter, StatusFilter, PriorityFilter } from '@/lib/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes, getDailyEstimatedMinutes } from '@/lib/dateUtils';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { useUserPreferences, useUpdateUserPreferences } from '@/hooks/useUserPreferences';
 
@@ -318,9 +318,9 @@ export default function TasksPage() {
                        )}
                        <span className="whitespace-nowrap shrink-0 flex items-center gap-1">
                          <Clock className="h-3 w-3" />
-                         {formatMinutes(t.estimated_minutes)} est.
+                         {formatMinutes(getDailyEstimatedMinutes(t as any, dateFilter, customRange))} est.
                        </span>
-                       <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} recurrenceConfig={(t as any).recurrence_config} /></span>
+                       <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={getTaskDisplayMinutes(t as any, dateFilter, customRange)} recurrenceConfig={(t as any).recurrence_config} /></span>
                        <span className="whitespace-nowrap shrink-0">real</span>
                      </div>
                    </div>
@@ -379,7 +379,7 @@ export default function TasksPage() {
                   {(t.estimated_minutes || 0) > 0 && (
                     <span className="whitespace-nowrap shrink-0 flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {formatMinutes(t.estimated_minutes)} est.
+                      {formatMinutes(getDailyEstimatedMinutes(t as any, dateFilter, customRange))} est.
                     </span>
                   )}
                   {(() => {

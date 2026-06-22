@@ -112,21 +112,31 @@ export function completedAtMatchesFilter(
 /**
  * Returns the minutes to display for a task given the active date filter.
  *
- * For recurring tasks, reads per-date session data from session_minutes_by_date
- * (populated by useTasks from the last 30 days of timer_sessions).
- * For non-recurring tasks, returns total_tracked_minutes (accumulated total).
+ * For recurring tasks: reads per-date session data from session_minutes_by_date.
+ * For non-recurring tasks with a multi-day date range (start_date + due_date spanning
+ * more than one day): also reads per-date sessions, so today's view only shows today's work.
+ * For simple non-recurring tasks: returns total_tracked_minutes (all-time total).
  */
 export function getTaskDisplayMinutes(
   task: {
     total_tracked_minutes?: number | null;
     session_minutes_by_date?: Record<string, number>;
     recurrence_config?: unknown;
+    start_date?: string | null;
+    due_date?: string | null;
   },
   dateFilter: DateFilter,
   customRange?: { from: Date; to: Date } | null,
 ): number {
   const recConfig = parseRecurrence(task.recurrence_config);
-  if (recConfig.type === 'none') return Number(task.total_tracked_minutes ?? 0);
+
+  if (recConfig.type === 'none') {
+    const s = parseLocalDate(task.start_date);
+    const e = parseLocalDate(task.due_date);
+    const isMultiDay = s && e && startOfLocalDay(e).getTime() > startOfLocalDay(s).getTime();
+    if (!isMultiDay) return Number(task.total_tracked_minutes ?? 0);
+    // Multi-day non-recurring: fall through to per-period logic below
+  }
 
   const sessionsByDate = task.session_minutes_by_date || {};
 
@@ -172,6 +182,77 @@ export function getTaskDisplayMinutes(
     return total;
   }
   return 0;
+}
+
+/**
+ * Returns the estimated minutes to display for a task given the active date filter.
+ *
+ * For non-recurring tasks that span multiple days (start_date to due_date), the total
+ * estimated_minutes is divided evenly across the range and only the portion that falls
+ * within the current filter period is returned. This lets you see "how much estimated
+ * work is scheduled for today" instead of the full project total.
+ *
+ * Recurring tasks and single-day tasks always return estimated_minutes as-is.
+ */
+export function getDailyEstimatedMinutes(
+  task: {
+    estimated_minutes?: number | null;
+    start_date?: string | null;
+    due_date?: string | null;
+    recurrence_config?: unknown;
+  },
+  dateFilter: DateFilter,
+  customRange?: { from: Date; to: Date } | null,
+): number {
+  const total = Number(task.estimated_minutes ?? 0);
+  if (!total) return 0;
+
+  const recConfig = parseRecurrence(task.recurrence_config);
+  if (recConfig.type !== 'none') return total; // recurring: estimate is per occurrence, keep as-is
+
+  const start = parseLocalDate(task.start_date);
+  const end = parseLocalDate(task.due_date);
+  if (!start || !end) return total;
+
+  const taskStart = startOfLocalDay(start);
+  const taskEnd = startOfLocalDay(end);
+  if (taskEnd.getTime() <= taskStart.getTime()) return total; // same-day or invalid
+
+  const totalDays = Math.round((taskEnd.getTime() - taskStart.getTime()) / 86400000) + 1;
+  const perDay = total / totalDays;
+
+  const overlapDays = (fStart: Date, fEnd: Date): number => {
+    const oStart = taskStart > fStart ? taskStart : fStart;
+    const oEnd = taskEnd < fEnd ? taskEnd : fEnd;
+    if (oEnd.getTime() < oStart.getTime()) return 0;
+    return Math.round((oEnd.getTime() - oStart.getTime()) / 86400000) + 1;
+  };
+
+  if (dateFilter === 'today') {
+    const today = startOfLocalDay(new Date());
+    return Math.round(perDay * overlapDays(today, today));
+  }
+  if (dateFilter === 'yesterday') {
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const yd = startOfLocalDay(y);
+    return Math.round(perDay * overlapDays(yd, yd));
+  }
+  if (dateFilter === 'tomorrow') {
+    const tm = new Date(); tm.setDate(tm.getDate() + 1);
+    const tmd = startOfLocalDay(tm);
+    return Math.round(perDay * overlapDays(tmd, tmd));
+  }
+  if (dateFilter === 'week') {
+    const now = new Date();
+    const ws = new Date(now); ws.setDate(now.getDate() - now.getDay());
+    const we = new Date(ws); we.setDate(ws.getDate() + 6);
+    return Math.round(perDay * overlapDays(startOfLocalDay(ws), startOfLocalDay(we)));
+  }
+  if (dateFilter === 'custom' && customRange) {
+    return Math.round(perDay * overlapDays(startOfLocalDay(customRange.from), startOfLocalDay(customRange.to)));
+  }
+
+  return total;
 }
 
 /**

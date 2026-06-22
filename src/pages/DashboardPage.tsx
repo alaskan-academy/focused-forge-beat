@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
-import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes } from '@/lib/dateUtils';
+import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes, getDailyEstimatedMinutes } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import TimerButton from '@/components/TimerButton';
@@ -280,7 +280,7 @@ export default function DashboardPage() {
     const done = effectiveFiltered.filter((t) => t._effectiveStatus === 'done').length;
     const inProgress = effectiveFiltered.filter((t) => t._effectiveStatus === 'in_progress').length;
     const pending = effectiveFiltered.filter((t) => t._effectiveStatus === 'todo').length;
-    const estTotal = effectiveFiltered.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+    const estTotal = effectiveFiltered.reduce((s, t) => s + getDailyEstimatedMinutes(t as any, dateFilter, customRange), 0);
     // Use getTaskDisplayMinutes so recurring tasks contribute the correct period's time
     const realTotal = effectiveFiltered.reduce(
       (s, t) => s + getTaskDisplayMinutes(t as any, dateFilter, customRange),
@@ -306,12 +306,12 @@ export default function DashboardPage() {
 
   const blockMinutes = useMemo(() => {
     const calc = (tasks: typeof effectiveFiltered) =>
-      tasks.filter((t) => t._effectiveStatus !== 'done').reduce((s, t) => s + (t.estimated_minutes || 0), 0);
+      tasks.filter((t) => t._effectiveStatus !== 'done').reduce((s, t) => s + getDailyEstimatedMinutes(t as any, dateFilter, customRange), 0);
     return {
       morning: calc(blockTasks.morning),
       afternoon: calc(blockTasks.afternoon),
     };
-  }, [blockTasks]);
+  }, [blockTasks, dateFilter, customRange]);
 
   // Memoized — isOverdueTask is expensive (scans 7 days per task).
   // Without this, it ran on every render (every second due to timer polling).
@@ -380,7 +380,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <PriorityBadge priority={t.priority || 'medium'} />
               {t.estimated_minutes ? (
-                <span className="text-xs text-muted-foreground">{formatMinutes(t.estimated_minutes)} est.</span>
+                <span className="text-xs text-muted-foreground">{formatMinutes(getDailyEstimatedMinutes(t as any, dateFilter, customRange))} est.</span>
               ) : null}
             </div>
           </div>
