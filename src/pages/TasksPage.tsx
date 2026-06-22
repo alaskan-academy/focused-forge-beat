@@ -19,7 +19,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { DateFilter, AreaFilter, StatusFilter, PriorityFilter } from '@/lib/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes, getDailyEstimatedMinutes } from '@/lib/dateUtils';
+import { parseLocalDate, startOfLocalDay, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes, getDailyEstimatedMinutes } from '@/lib/dateUtils';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { useUserPreferences, useUpdateUserPreferences } from '@/hooks/useUserPreferences';
 
@@ -347,6 +347,17 @@ export default function TasksPage() {
         <div className="space-y-2">
           {sortedFiltered.map((t) => {
             const es = getEffectiveStatus(t as any, dateFilter, customRange);
+            const recCfg = parseRecurrence((t as any).recurrence_config);
+            const _s = parseLocalDate((t as any).start_date);
+            const _e = parseLocalDate(t.due_date);
+            const isMultiDayProject = !!(
+              _s && _e && recCfg.type === 'none' &&
+              startOfLocalDay(_e).getTime() > startOfLocalDay(_s).getTime()
+            );
+            const filterLabel = dateFilter === 'today' ? 'hoje'
+              : dateFilter === 'yesterday' ? 'ontem'
+              : dateFilter === 'tomorrow' ? 'amanhã'
+              : dateFilter === 'week' ? 'semana' : 'período';
             return (
             <div
               key={t.id}
@@ -376,16 +387,15 @@ export default function TasksPage() {
                   )}
                 </div>
                 <div className="flex flex-nowrap items-center gap-2 text-xs text-muted-foreground overflow-x-auto scrollbar-none">
-                  {(t.estimated_minutes || 0) > 0 && (
+                  {!isMultiDayProject && (t.estimated_minutes || 0) > 0 && (
                     <span className="whitespace-nowrap shrink-0 flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {formatMinutes(getDailyEstimatedMinutes(t as any, dateFilter, customRange))} est.
                     </span>
                   )}
-                  {(() => {
-                    const isRecurring = (t as any).recurrence_config?.type && (t as any).recurrence_config.type !== 'none';
+                  {!isMultiDayProject && (() => {
+                    const isRecurring = recCfg.type !== 'none';
                     const displayMins = getTaskDisplayMinutes(t as any, dateFilter, customRange);
-                    // Always show for recurring tasks (allows manual entry even when 0)
                     return (displayMins > 0 || isRecurring) ? (
                       <>
                         <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={displayMins} recurrenceConfig={(t as any).recurrence_config} /></span>
@@ -403,12 +413,40 @@ export default function TasksPage() {
                       ✓ {new Date(t.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} {new Date(t.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   )}
-                  {(t as any).recurrence_config && (t as any).recurrence_config?.type !== 'none' && (
+                  {recCfg.type !== 'none' && (
                     <span className="whitespace-nowrap shrink-0 flex items-center gap-1 text-primary/70">
                       <Repeat className="h-3 w-3" /> Recorrente
                     </span>
                   )}
                 </div>
+                {isMultiDayProject && (() => {
+                  const estTotal = t.estimated_minutes || 0;
+                  const estDay = getDailyEstimatedMinutes(t as any, dateFilter, customRange);
+                  const realTotal = Number((t as any).total_tracked_minutes || 0);
+                  const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
+                  return (
+                    <div className="grid grid-cols-4 gap-1 mt-2 pt-1.5 border-t border-border/30 text-[10px]" onClick={(e) => e.stopPropagation()}>
+                      <div className="space-y-0.5">
+                        <div className="text-muted-foreground/60">Est total</div>
+                        <div className="font-medium text-foreground/70">{formatMinutes(estTotal)}</div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="text-muted-foreground/60">Est {filterLabel}</div>
+                        <div className="font-medium text-foreground/70">{formatMinutes(estDay)}</div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="text-muted-foreground/60">Real total</div>
+                        <div className="font-medium text-foreground/70">{formatMinutes(realTotal)}</div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="text-muted-foreground/60">Real {filterLabel}</div>
+                        <div className="font-medium text-foreground/70">
+                          <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge status={es || 'todo'} onChange={(s) => handleStatusChange(t.id!, s)} />
