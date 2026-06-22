@@ -378,7 +378,7 @@ export default function DashboardPage() {
         const estDay = getDailyEstimatedMinutes(t as any, dateFilter, customRange);
         const sessionsByDate = (t as any).session_minutes_by_date || {};
         const realTotal = recCfg.type !== 'none'
-          ? Object.values(sessionsByDate).reduce((acc: number, v: unknown) => acc + Number(v), 0)
+          ? 0
           : Number((t as any).total_tracked_minutes || 0);
         const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
         return (
@@ -560,7 +560,7 @@ export default function DashboardPage() {
                     const estDay = getDailyEstimatedMinutes(t as any, dateFilter, customRange);
                     const sessionsByDate = (t as any).session_minutes_by_date || {};
                     const realTotal = isRecurring
-                      ? Object.values(sessionsByDate).reduce((acc: number, v: unknown) => acc + Number(v), 0)
+                      ? 0
                       : Number((t as any).total_tracked_minutes || 0);
                     const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
                     return (
