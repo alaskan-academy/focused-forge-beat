@@ -369,30 +369,61 @@ export default function DashboardPage() {
     <div className="space-y-1">
       {taskList.map((t) => {
         const es = t._effectiveStatus;
+        const recCfg = parseRecurrence((t as any).recurrence_config);
+        const filterLabel = dateFilter === 'today' ? 'hoje'
+          : dateFilter === 'yesterday' ? 'ontem'
+          : dateFilter === 'tomorrow' ? 'amanhã'
+          : dateFilter === 'week' ? 'semana' : 'período';
+        const estTotal = (t as any).estimated_minutes || 0;
+        const estDay = getDailyEstimatedMinutes(t as any, dateFilter, customRange);
+        const sessionsByDate = (t as any).session_minutes_by_date || {};
+        const realTotal = recCfg.type !== 'none'
+          ? Object.values(sessionsByDate).reduce((acc: number, v: unknown) => acc + Number(v), 0)
+          : Number((t as any).total_tracked_minutes || 0);
+        const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
         return (
         <div
           key={t.id}
-          className="flex items-center gap-3 cursor-pointer hover:bg-secondary/50 rounded-lg px-3 py-2 transition-colors"
+          className="cursor-pointer hover:bg-secondary/50 rounded-lg px-3 py-2 transition-colors"
           onClick={() => openTask(t)}
         >
-          <div className="flex-1 min-w-0">
-            <span className="text-sm text-foreground truncate block">{t.name}</span>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <PriorityBadge priority={t.priority || 'medium'} />
-              {t.estimated_minutes ? (
-                <span className="text-xs text-muted-foreground">{formatMinutes(getDailyEstimatedMinutes(t as any, dateFilter, customRange))} est.</span>
-              ) : null}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <span className="text-sm text-foreground truncate block">{t.name}</span>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <PriorityBadge priority={t.priority || 'medium'} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                es === 'done' ? 'bg-status-done/15 text-status-done' :
+                es === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
+                'bg-status-todo/15 text-status-todo'
+              }`}>
+                {es === 'done' ? 'Concluída' : es === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
+              </span>
+              {es !== 'done' && <TimerButton taskId={t.id!} />}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
-              es === 'done' ? 'bg-status-done/15 text-status-done' :
-              es === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
-              'bg-status-todo/15 text-status-todo'
-            }`}>
-              {es === 'done' ? 'Concluída' : es === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
-            </span>
-            {es !== 'done' && <TimerButton taskId={t.id!} />}
+          <div className="grid grid-cols-4 gap-1 mt-1.5 pt-1.5 border-t border-border/20 text-[10px]" onClick={(e) => e.stopPropagation()}>
+            <div className="space-y-0.5">
+              <div className="text-muted-foreground/60">Est total</div>
+              <div className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</div>
+            </div>
+            <div className="space-y-0.5">
+              <div className="text-muted-foreground/60">Est {filterLabel}</div>
+              <div className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</div>
+            </div>
+            <div className="space-y-0.5">
+              <div className="text-muted-foreground/60">Real total</div>
+              <div className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</div>
+            </div>
+            <div className="space-y-0.5">
+              <div className="text-muted-foreground/60">Real {filterLabel}</div>
+              <div className="font-medium text-foreground/70">
+                <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
+              </div>
+            </div>
           </div>
         </div>
         );
@@ -523,13 +554,42 @@ export default function DashboardPage() {
                         Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                       </span>
                     )}
-                    <span className="whitespace-nowrap shrink-0 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatMinutes(t.estimated_minutes)} est.
-                    </span>
-                    <span className="shrink-0"><EditableActualMinutes taskId={t.id!} value={t.total_tracked_minutes || 0} recurrenceConfig={(t as any).recurrence_config} /></span>
-                    <span className="whitespace-nowrap shrink-0">real</span>
                   </div>
+                  {(() => {
+                    const filterLabel = dateFilter === 'today' ? 'hoje'
+                      : dateFilter === 'yesterday' ? 'ontem'
+                      : dateFilter === 'tomorrow' ? 'amanhã'
+                      : dateFilter === 'week' ? 'semana' : 'período';
+                    const estTotal = (t as any).estimated_minutes || 0;
+                    const estDay = getDailyEstimatedMinutes(t as any, dateFilter, customRange);
+                    const sessionsByDate = (t as any).session_minutes_by_date || {};
+                    const realTotal = isRecurring
+                      ? Object.values(sessionsByDate).reduce((acc: number, v: unknown) => acc + Number(v), 0)
+                      : Number((t as any).total_tracked_minutes || 0);
+                    const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
+                    return (
+                      <div className="grid grid-cols-4 gap-1 mt-1.5 pt-1.5 border-t border-border/20 text-[10px]" onClick={(e) => e.stopPropagation()}>
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground/60">Est total</div>
+                          <div className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground/60">Est {filterLabel}</div>
+                          <div className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground/60">Real total</div>
+                          <div className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</div>
+                        </div>
+                        <div className="space-y-0.5">
+                          <div className="text-muted-foreground/60">Real {filterLabel}</div>
+                          <div className="font-medium text-foreground/70">
+                            <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-2 ml-2 shrink-0">
                   <PriorityBadge priority={(t as any).priority || 'medium'} />
