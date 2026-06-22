@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
 import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
-import { parseLocalDate, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes, getDailyEstimatedMinutes } from '@/lib/dateUtils';
+import { parseLocalDate, startOfLocalDay, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes, getDailyEstimatedMinutes } from '@/lib/dateUtils';
 import { getEffectiveStatus } from '@/lib/effectiveStatus';
 import EditableActualMinutes from '@/components/EditableActualMinutes';
 import TimerButton from '@/components/TimerButton';
@@ -370,16 +370,18 @@ export default function DashboardPage() {
       {taskList.map((t) => {
         const es = t._effectiveStatus;
         const recCfg = parseRecurrence((t as any).recurrence_config);
+        const isRecurring = recCfg.type !== 'none';
+        const _s = parseLocalDate((t as any).start_date);
+        const _e = parseLocalDate((t as any).due_date);
+        const isMultiDay = !!(recCfg.type === 'none' && _s && _e &&
+          startOfLocalDay(_e).getTime() > startOfLocalDay(_s).getTime());
         const filterLabel = dateFilter === 'today' ? 'hoje'
           : dateFilter === 'yesterday' ? 'ontem'
           : dateFilter === 'tomorrow' ? 'amanhã'
           : dateFilter === 'week' ? 'semana' : 'período';
         const estTotal = (t as any).estimated_minutes || 0;
         const estDay = getDailyEstimatedMinutes(t as any, dateFilter, customRange);
-        const sessionsByDate = (t as any).session_minutes_by_date || {};
-        const realTotal = recCfg.type !== 'none'
-          ? 0
-          : Number((t as any).total_tracked_minutes || 0);
+        const realTotal = isRecurring ? 0 : Number((t as any).total_tracked_minutes || 0);
         const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
         return (
         <div
@@ -409,16 +411,13 @@ export default function DashboardPage() {
             <span className="whitespace-nowrap">
               <span className="opacity-60">Est: </span>
               <span className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</span>
-              <span className="opacity-40"> · </span>
-              <span className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</span>
-              <span className="opacity-60"> {filterLabel}</span>
+              {isMultiDay && <><span className="opacity-40"> · </span><span className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</span><span className="opacity-60"> {filterLabel}</span></>}
             </span>
             <span className="whitespace-nowrap inline-flex items-center gap-0.5">
               <span className="opacity-60">Real: </span>
-              <span className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</span>
-              <span className="opacity-40"> · </span>
+              {isMultiDay && <><span className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</span><span className="opacity-40"> · </span></>}
               <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
-              <span className="opacity-60"> {filterLabel}</span>
+              {(isMultiDay || isRecurring) && <span className="opacity-60"> {filterLabel}</span>}
             </span>
           </div>
         </div>
@@ -552,32 +551,30 @@ export default function DashboardPage() {
                     )}
                   </div>
                   {(() => {
+                    const _s2 = parseLocalDate((t as any).start_date);
+                    const _e2 = parseLocalDate((t as any).due_date);
+                    const isMultiDay2 = !!(recConfig.type === 'none' && _s2 && _e2 &&
+                      startOfLocalDay(_e2).getTime() > startOfLocalDay(_s2).getTime());
                     const filterLabel = dateFilter === 'today' ? 'hoje'
                       : dateFilter === 'yesterday' ? 'ontem'
                       : dateFilter === 'tomorrow' ? 'amanhã'
                       : dateFilter === 'week' ? 'semana' : 'período';
                     const estTotal = (t as any).estimated_minutes || 0;
                     const estDay = getDailyEstimatedMinutes(t as any, dateFilter, customRange);
-                    const sessionsByDate = (t as any).session_minutes_by_date || {};
-                    const realTotal = isRecurring
-                      ? 0
-                      : Number((t as any).total_tracked_minutes || 0);
+                    const realTotal = isRecurring ? 0 : Number((t as any).total_tracked_minutes || 0);
                     const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
                     return (
                       <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 pt-1.5 border-t border-border/20 text-[10px] text-muted-foreground" onClick={(e) => e.stopPropagation()}>
                         <span className="whitespace-nowrap">
                           <span className="opacity-60">Est: </span>
                           <span className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</span>
-                          <span className="opacity-40"> · </span>
-                          <span className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</span>
-                          <span className="opacity-60"> {filterLabel}</span>
+                          {isMultiDay2 && <><span className="opacity-40"> · </span><span className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</span><span className="opacity-60"> {filterLabel}</span></>}
                         </span>
                         <span className="whitespace-nowrap inline-flex items-center gap-0.5">
                           <span className="opacity-60">Real: </span>
-                          <span className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</span>
-                          <span className="opacity-40"> · </span>
+                          {isMultiDay2 && <><span className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</span><span className="opacity-40"> · </span></>}
                           <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
-                          <span className="opacity-60"> {filterLabel}</span>
+                          {(isMultiDay2 || isRecurring) && <span className="opacity-60"> {filterLabel}</span>}
                         </span>
                       </div>
                     );
