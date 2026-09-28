@@ -24,6 +24,7 @@ export function useTasks() {
       const [{ data, error }, { data: sessions }] = await Promise.all([
         supabase.from('tasks_with_time').select('*')
           .eq('user_id', userId)
+          .is('deleted_at', null)
           .order('created_at', { ascending: false }),
         supabase
           .from('timer_sessions')
@@ -179,7 +180,10 @@ export function useDeleteTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      const { error } = await supabase
+        .from('tasks')
+        .update({ deleted_at: new Date().toISOString() } as any)
+        .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks_with_time'] }),
