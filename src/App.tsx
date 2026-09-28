@@ -14,6 +14,7 @@ import ProjectsPage from "@/pages/ProjectsPage";
 import ProductivityPage from "@/pages/ProductivityPage";
 import InboxPage from "@/pages/InboxPage";
 import RemindersPage from "@/pages/RemindersPage";
+import TrashPage from "@/pages/TrashPage";
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -43,6 +44,7 @@ function ProtectedLayout() {
           <Route path="/productivity" element={<ProductivityPage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/reminders" element={<RemindersPage />} />
+          <Route path="/trash" element={<TrashPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

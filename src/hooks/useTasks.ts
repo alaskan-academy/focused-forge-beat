@@ -186,6 +186,45 @@ export function useDeleteTask() {
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks_with_time'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks_with_time'] });
+      qc.invalidateQueries({ queryKey: ['deleted_tasks'] });
+    },
+  });
+}
+
+export function useDeletedTasks() {
+  return useQuery({
+    queryKey: ['deleted_tasks'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      // Reads the base table: the tasks_with_time view hides soft-deleted tasks
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('id, name, area, project_id, status, due_date, recurrence_config, deleted_at')
+        .eq('user_id', userId)
+        .not('deleted_at', 'is', null)
+        .order('deleted_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
+export function useRestoreTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ deleted_at: null } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks_with_time'] });
+      qc.invalidateQueries({ queryKey: ['deleted_tasks'] });
+    },
   });
 }

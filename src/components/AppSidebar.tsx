@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, FolderKanban, BarChart3, Repeat, CalendarDays, Inbox, MoreHorizontal, X, LogOut, StickyNote } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, FolderKanban, BarChart3, Repeat, CalendarDays, Inbox, MoreHorizontal, X, LogOut, StickyNote, Trash2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,10 +13,11 @@ const allNavItems = [
   { title: 'Recorrências', path: '/recurrences', icon: Repeat },
   { title: 'Projetos', path: '/projects', icon: FolderKanban },
   { title: 'Produtividade', path: '/productivity', icon: BarChart3 },
+  { title: 'Lixeira', path: '/trash', icon: Trash2 },
 ];
 
 const bottomPrimary = allNavItems.slice(0, 4); // Dashboard, Tarefas, Inbox, Calendário
-const bottomOverflow = allNavItems.slice(4);   // Lembretes, Recorrências, Projetos, Produtividade
+const bottomOverflow = allNavItems.slice(4);   // Lembretes, Recorrências, Projetos, Produtividade, Lixeira
 
 export default function AppSidebar() {
   const [moreOpen, setMoreOpen] = useState(false);
