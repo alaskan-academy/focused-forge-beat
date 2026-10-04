@@ -13,7 +13,7 @@ export default function TrashPage() {
 
   const projectNames = useMemo(() => {
     const map: Record<string, string> = {};
-    (projects || []).forEach((p: any) => { map[p.id] = p.name; });
+    (projects || []).forEach((p) => { map[p.id] = p.name; });
     return map;
   }, [projects]);
 
@@ -43,7 +43,7 @@ export default function TrashPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {tasks.map((t: any) => {
+          {tasks.map((t) => {
             const isRecurring = parseRecurrence(t.recurrence_config).type !== 'none';
             const deletedAt = new Date(t.deleted_at);
             return (

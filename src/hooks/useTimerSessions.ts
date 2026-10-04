@@ -1,29 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
 import { externalSupabase as supabase } from '@/integrations/supabase/externalClient';
-import { format, subDays, startOfDay } from 'date-fns';
+import { subDays, startOfDay } from 'date-fns';
+import { toLocalDateKey } from '@/lib/recurrence';
+
+/** Tracked minutes per local day and task: { 'yyyy-MM-dd': { taskId: minutes } }. */
+export type WorkByDay = Record<string, Record<string, number>>;
 
 /**
- * Returns daily work time in minutes, keyed by 'yyyy-MM-dd'.
- * Each entry = sum of duration_minutes for timer sessions that STARTED on that day.
- * This correctly tracks how many hours were worked each day, even for multi-day tasks.
+ * Tracked time from timer sessions (including manual adjustments), grouped by the day each
+ * session started and by task. `days` limits it to the last N days; null loads all history.
  */
-export function useDailyWorkTime(days = 7) {
-  return useQuery<Record<string, number>>({
+export function useDailyWorkTime(days: number | null = 7) {
+  return useQuery<WorkByDay>({
     queryKey: ['daily_work_time', days],
     staleTime: 30_000,
     queryFn: async () => {
-      const since = startOfDay(subDays(new Date(), days - 1)).toISOString();
-      const { data, error } = await supabase
+      let query = supabase
         .from('timer_sessions')
         .select('started_at, duration_minutes, task_id')
-        .not('ended_at', 'is', null)
-        .gte('started_at', since);
+        .not('ended_at', 'is', null);
+      if (days !== null) query = query.gte('started_at', startOfDay(subDays(new Date(), days - 1)).toISOString());
+      const { data, error } = await query;
       if (error) throw error;
 
-      const byDay: Record<string, number> = {};
+      const byDay: WorkByDay = {};
       (data || []).forEach((s) => {
-        const day = format(new Date(s.started_at), 'yyyy-MM-dd');
-        byDay[day] = (byDay[day] || 0) + Number(s.duration_minutes || 0);
+        const minutes = Number(s.duration_minutes || 0);
+        if (!minutes || !s.task_id) return;
+        const day = toLocalDateKey(new Date(s.started_at));
+        byDay[day] = byDay[day] || {};
+        byDay[day][s.task_id] = (byDay[day][s.task_id] || 0) + minutes;
       });
       return byDay;
     },

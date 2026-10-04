@@ -1,22 +1,30 @@
-import { useMemo, useState } from 'react';
-import { useTasks } from '@/hooks/useTasks';
-import { useDailyWorkTime } from '@/hooks/useTimerSessions';
+import { useCallback, useMemo, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import {
-  subDays, format, isWithinInterval, startOfDay, endOfDay,
-} from 'date-fns';
+import { format } from 'date-fns';
+import { CheckCircle2, Clock, AlertTriangle, Target } from 'lucide-react';
+import { useTasks } from '@/hooks/useTasks';
+import { useDailyWorkTime } from '@/hooks/useTimerSessions';
 import { isOverdueTask } from '@/lib/overdueUtils';
-import { ptBR } from 'date-fns/locale';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { parseLocalDate } from '@/lib/dateUtils';
-import { CheckCircle2, Clock, AlertTriangle, ListTodo, TrendingUp, Activity } from 'lucide-react';
+import { WEEKDAY_LABELS, toLocalDateKey } from '@/lib/recurrence';
+import { addLocalDays, eachDayOfRange, startOfLocalDay } from '@/lib/dateUtils';
+import { getCompletions, getEarliestActivity, getPlannedItems, getPlannedMinutesForDay } from '@/lib/productivity';
 import { formatMinutes } from '@/lib/formatters';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const STATUS_COLORS = ['hsl(215,20%,55%)', 'hsl(38,92%,50%)', 'hsl(142,71%,45%)'];
-const PRIORITY_COLORS = ['hsl(0,72%,51%)', 'hsl(45,93%,47%)', 'hsl(142,71%,45%)'];
+// Colors are tied to the category name, so hiding an empty category never shifts them
+const OUTCOME_COLORS: Record<string, string> = {
+  Concluídas: 'hsl(142,71%,45%)',
+  'Não feitas': 'hsl(0,72%,51%)',
+  Puladas: 'hsl(215,20%,55%)',
+};
+const PRIORITY_COLORS: Record<string, string> = {
+  Alta: 'hsl(0,72%,51%)',
+  Média: 'hsl(45,93%,47%)',
+  Baixa: 'hsl(142,71%,45%)',
+};
 
 const TOOLTIP_STYLE = {
   background: 'hsl(222,47%,9%)',
@@ -26,9 +34,17 @@ const TOOLTIP_STYLE = {
   fontSize: 12,
 };
 
-function timeFormatter(v: number) {
-  if (!v) return '0m';
-  return v >= 60 ? `${Math.round(v / 60)}h${v % 60 ? ` ${v % 60}m` : ''}` : `${v}m`;
+// Day-by-day charts never show more than this many days, even for "Tudo"
+const MAX_CHART_DAYS = 30;
+
+/** "ter" for a week of bars, "06/10" for longer periods. */
+function dayAxisLabel(day: Date, short: boolean) {
+  return short ? WEEKDAY_LABELS[day.getDay()].toLowerCase() : format(day, 'dd/MM');
+}
+
+/** Compact axis ticks: "45min", "2h", "7.5h". */
+function axisHours(minutes: number) {
+  return minutes >= 60 ? `${+(minutes / 60).toFixed(1)}h` : `${minutes}min`;
 }
 
 function EmptyChart({ message = 'Sem dados no período' }: { message?: string }) {
@@ -39,119 +55,108 @@ function EmptyChart({ message = 'Sem dados no período' }: { message?: string })
   );
 }
 
+function StatCard({ icon: Icon, label, value, hint, tone }: {
+  icon: typeof Clock; label: string; value: string | number; hint?: string; tone: string;
+}) {
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
+      <div className={`p-2 rounded-lg shrink-0 ${tone}`}><Icon className="h-5 w-5" /></div>
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-lg font-bold text-foreground leading-tight">{value}</p>
+        {hint && <p className="text-[11px] text-muted-foreground truncate">{hint}</p>}
+      </div>
+    </div>
+  );
+}
+
 type PeriodFilter = '7d' | '30d' | 'all';
 
 export default function ProductivityPage() {
-  const { data: tasks } = useTasks();
-  const { data: dailyWork7 } = useDailyWorkTime(7);
-  const { data: dailyWork30 } = useDailyWorkTime(30);
+  const { data: allTasks } = useTasks();
   const [period, setPeriod] = useState<PeriodFilter>('7d');
   const [areaFilter, setAreaFilter] = useState<'all' | 'work' | 'personal'>('all');
+  const { data: workByDay } = useDailyWorkTime(period === '7d' ? 7 : period === '30d' ? 30 : null);
 
-  const days = period === '7d' ? 7 : period === '30d' ? 30 : null;
-  const dailyWork = period === '30d' ? dailyWork30 : dailyWork7;
+  const tasks = useMemo(
+    () => (allTasks || []).filter((t) => areaFilter === 'all' || t.area === areaFilter),
+    [allTasks, areaFilter],
+  );
+  const taskIds = useMemo(() => new Set(tasks.map((t) => t.id)), [tasks]);
 
-  // Tasks filtered by area + period (by due_date or completed_at)
-  const filteredTasks = useMemo(() => {
-    if (!tasks) return [];
-    return tasks.filter((t) => {
-      if (areaFilter !== 'all' && t.area !== areaFilter) return false;
-      if (period === 'all') return true;
-      const n = days!;
-      const since = startOfDay(subDays(new Date(), n - 1));
-      const dueDate = parseLocalDate(t.due_date);
-      const completedDate = t.completed_at ? new Date(t.completed_at) : null;
-      if (dueDate && dueDate >= since) return true;
-      if (completedDate && completedDate >= since) return true;
-      if (!dueDate && !completedDate) return true; // tasks without dates always count
-      return false;
-    });
-  }, [tasks, areaFilter, period, days]);
+  const range = useMemo(() => {
+    const today = startOfLocalDay(new Date());
+    if (period === 'all') return { from: getEarliestActivity(allTasks || []), to: today };
+    return { from: addLocalDays(today, period === '7d' ? -6 : -29), to: today };
+  }, [period, allTasks]);
 
-  // Stats
+  /** Minutes tracked on a day for the tasks in the area filter. */
+  const workedOn = useCallback((dateKey: string) => {
+    const day = workByDay?.[dateKey] || {};
+    return Object.entries(day).reduce((s, [taskId, m]) => (areaFilter === 'all' || taskIds.has(taskId) ? s + m : s), 0);
+  }, [workByDay, areaFilter, taskIds]);
+
   const stats = useMemo(() => {
-    const total = filteredTasks.length;
-    const done = filteredTasks.filter((t) => t.status === 'done').length;
-    const inProgress = filteredTasks.filter((t) => t.status === 'in_progress').length;
-    const todo = filteredTasks.filter((t) => t.status === 'todo').length;
-    const overdue = filteredTasks.filter((t) => isOverdueTask(t)).length;
-    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-    const totalEstimated = filteredTasks.reduce((s, t) => s + (t.estimated_minutes || 0), 0);
-    const totalTracked = Object.values(dailyWork || {}).reduce((s, v) => s + v, 0);
-    return { total, done, inProgress, todo, overdue, pct, totalEstimated, totalTracked };
-  }, [filteredTasks, dailyWork]);
+    const planned = getPlannedItems(tasks, range);
+    const past = planned.filter((p) => p.outcome !== 'upcoming');
+    const done = past.filter((p) => p.outcome === 'done').length;
+    const missed = past.filter((p) => p.outcome === 'missed').length;
+    const skipped = past.filter((p) => p.outcome === 'skipped').length;
+    const considered = done + missed;
+    const worked = eachDayOfRange(range).reduce((s, d) => s + workedOn(toLocalDateKey(d)), 0);
+    return {
+      completions: getCompletions(tasks, range).length,
+      rate: considered ? Math.round((done / considered) * 100) : null,
+      done, missed, skipped,
+      overdueNow: tasks.filter((t) => isOverdueTask(t)).length,
+      worked,
+      planned,
+    };
+  }, [tasks, range, workedOn]);
 
-  // Daily work time chart — last 7 or 30 days
-  const timeChartData = useMemo(() => {
-    const n = days ?? 30;
-    const result = [];
-    for (let i = n - 1; i >= 0; i--) {
-      const day = subDays(new Date(), i);
-      const dateKey = format(day, 'yyyy-MM-dd');
-      const dayTasks = filteredTasks.filter((t) => {
-        const dueDate = parseLocalDate(t.due_date);
-        if (!dueDate) return false;
-        return isWithinInterval(dueDate, { start: startOfDay(day), end: endOfDay(day) });
-      });
-      result.push({
-        day: format(day, n <= 7 ? 'EEE' : 'dd/MM', { locale: ptBR }),
-        estimado: dayTasks.reduce((s, t) => s + (t.estimated_minutes || 0), 0),
-        real: dailyWork?.[dateKey] ?? 0,
-      });
-    }
-    return result;
-  }, [filteredTasks, dailyWork, days]);
+  const chartDays = useMemo(() => {
+    const days = eachDayOfRange(range);
+    return days.slice(-MAX_CHART_DAYS);
+  }, [range]);
+  const shortLabels = chartDays.length <= 7;
 
+  const timeChartData = useMemo(() => chartDays.map((day) => ({
+    day: dayAxisLabel(day, shortLabels),
+    estimado: Math.round(getPlannedMinutesForDay(tasks, day)),
+    real: Math.round(workedOn(toLocalDateKey(day))),
+  })), [chartDays, tasks, workedOn, shortLabels]);
   const hasTimeData = timeChartData.some((d) => d.estimado > 0 || d.real > 0);
 
-  // Completed per day (uses ALL tasks, not filtered — shows real completion history)
   const completedData = useMemo(() => {
-    if (!tasks) return [];
-    const n = days ?? 30;
-    const result = [];
-    for (let i = n - 1; i >= 0; i--) {
-      const day = subDays(new Date(), i);
-      const count = tasks.filter((t) => {
-        if (!t.completed_at) return false;
-        if (areaFilter !== 'all' && t.area !== areaFilter) return false;
-        return isWithinInterval(new Date(t.completed_at), { start: startOfDay(day), end: endOfDay(day) });
-      }).length;
-      result.push({
-        day: format(day, n <= 7 ? 'EEE' : 'dd/MM', { locale: ptBR }),
-        concluidas: count,
-      });
-    }
-    return result;
-  }, [tasks, areaFilter, days]);
-
+    const chartRange = { from: chartDays[0], to: chartDays[chartDays.length - 1] };
+    const perDay: Record<string, number> = {};
+    getCompletions(tasks, chartRange).forEach((c) => { perDay[c.dateKey] = (perDay[c.dateKey] || 0) + 1; });
+    return chartDays.map((day) => ({
+      day: dayAxisLabel(day, shortLabels),
+      concluidas: perDay[toLocalDateKey(day)] || 0,
+    }));
+  }, [chartDays, tasks, shortLabels]);
   const hasCompletedData = completedData.some((d) => d.concluidas > 0);
 
-  // Status distribution (filter out zero values to avoid Pie crash)
-  const statusData = useMemo(() => {
-    const raw = [
-      { name: 'A Fazer', value: stats.todo },
-      { name: 'Em Andamento', value: stats.inProgress },
-      { name: 'Concluída', value: stats.done },
-    ];
-    return raw.filter((d) => d.value > 0);
-  }, [stats]);
+  const outcomeData = [
+    { name: 'Concluídas', value: stats.done },
+    { name: 'Não feitas', value: stats.missed },
+    { name: 'Puladas', value: stats.skipped },
+  ].filter((d) => d.value > 0);
 
   const priorityData = useMemo(() => {
-    const counts = { high: 0, medium: 0, low: 0 };
-    filteredTasks.forEach((t) => {
-      if (t.priority && t.priority in counts) counts[t.priority as keyof typeof counts]++;
-    });
-    const raw = [
-      { name: 'Alta', value: counts.high },
-      { name: 'Média', value: counts.medium },
-      { name: 'Baixa', value: counts.low },
-    ];
-    return raw.filter((d) => d.value > 0);
-  }, [filteredTasks]);
+    const counts: Record<string, number> = { Alta: 0, Média: 0, Baixa: 0 };
+    const label: Record<string, string> = { high: 'Alta', medium: 'Média', low: 'Baixa' };
+    stats.planned.forEach((p) => { counts[label[p.task.priority] ?? 'Média']++; });
+    return Object.entries(counts).map(([name, value]) => ({ name, value })).filter((d) => d.value > 0);
+  }, [stats.planned]);
+
+  const periodHint = period === 'all'
+    ? `desde ${format(range.from, 'dd/MM/yyyy')}`
+    : period === '7d' ? 'últimos 7 dias' : 'últimos 30 dias';
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-foreground">Produtividade</h1>
         <div className="flex items-center gap-2">
@@ -174,75 +179,46 @@ export default function ProductivityPage() {
         </div>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/15 text-primary shrink-0"><ListTodo className="h-5 w-5" /></div>
-          <div><p className="text-xs text-muted-foreground">Total</p><p className="text-lg font-bold text-foreground">{stats.total}</p></div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-status-done/15 text-status-done shrink-0"><CheckCircle2 className="h-5 w-5" /></div>
-          <div><p className="text-xs text-muted-foreground">Concluídas</p><p className="text-lg font-bold text-foreground">{stats.done}</p></div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-destructive/15 text-destructive shrink-0"><AlertTriangle className="h-5 w-5" /></div>
-          <div><p className="text-xs text-muted-foreground">Atrasadas</p><p className="text-lg font-bold text-foreground">{stats.overdue}</p></div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-status-in-progress/15 text-status-in-progress shrink-0"><Activity className="h-5 w-5" /></div>
-          <div><p className="text-xs text-muted-foreground">Em Andamento</p><p className="text-lg font-bold text-foreground">{stats.inProgress}</p></div>
-        </div>
-      </div>
-
-      {/* Progress bar + time totals */}
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-foreground">Progresso</h2>
-          <span className="text-sm font-bold text-primary">{stats.pct}%</span>
-        </div>
-        <div className="h-3 bg-secondary rounded-full overflow-hidden">
-          <div className="h-full bg-status-done rounded-full transition-all" style={{ width: `${stats.pct}%` }} />
-        </div>
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <div className="flex items-center gap-2 text-sm">
-            <Clock className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-muted-foreground">Estimado:</span>
-            <span className="font-medium text-foreground">{formatMinutes(stats.totalEstimated)}</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <TrendingUp className="h-4 w-4 text-status-done shrink-0" />
-            <span className="text-muted-foreground">Trabalhado:</span>
-            <span className="font-medium text-foreground">{formatMinutes(stats.totalTracked)}</span>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard icon={CheckCircle2} label="Concluídas" value={stats.completions} hint={periodHint} tone="bg-status-done/15 text-status-done" />
+        <StatCard
+          icon={Target}
+          label="Taxa de conclusão"
+          value={stats.rate === null ? '—' : `${stats.rate}%`}
+          hint={`${stats.done} de ${stats.done + stats.missed} planejadas até hoje`}
+          tone="bg-primary/15 text-primary"
+        />
+        <StatCard icon={Clock} label="Trabalhado" value={formatMinutes(stats.worked)} hint={periodHint} tone="bg-status-in-progress/15 text-status-in-progress" />
+        <StatCard icon={AlertTriangle} label="Atrasadas agora" value={stats.overdueNow} tone="bg-destructive/15 text-destructive" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Tempo trabalhado por dia */}
         <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-1">Tempo Trabalhado por Dia</h2>
-          <p className="text-xs text-muted-foreground mb-4">Estimado (por prazo) vs. real (por sessão de timer)</p>
+          <h2 className="font-semibold text-foreground mb-1">Tempo por dia</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Estimado do que estava planejado no dia vs. tempo registrado
+            {chartDays.length < eachDayOfRange(range).length && ` (últimos ${MAX_CHART_DAYS} dias)`}
+          </p>
           {!hasTimeData ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={timeChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(222,30%,16%)" />
                 <XAxis dataKey="day" stroke="hsl(215,20%,55%)" fontSize={11} />
-                <YAxis stroke="hsl(215,20%,55%)" fontSize={11} tickFormatter={timeFormatter} />
+                <YAxis stroke="hsl(215,20%,55%)" fontSize={11} tickFormatter={axisHours} width={40} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE}
-                  formatter={(v: number, name: string) => [timeFormatter(v), name === 'estimado' ? 'Estimado' : 'Real']}
+                  formatter={(v: number, name: string) => [formatMinutes(v), name === 'estimado' ? 'Estimado' : 'Real']}
                 />
-                <Bar dataKey="estimado" fill="hsl(238,84%,67%)" radius={[4,4,0,0]} name="Estimado" />
-                <Bar dataKey="real" fill="hsl(160,84%,39%)" radius={[4,4,0,0]} name="Real" />
+                <Bar dataKey="estimado" fill="hsl(238,84%,67%)" radius={[4, 4, 0, 0]} name="estimado" />
+                <Bar dataKey="real" fill="hsl(160,84%,39%)" radius={[4, 4, 0, 0]} name="real" />
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        {/* Concluídas por dia */}
         <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-1">Concluídas por Dia</h2>
-          <p className="text-xs text-muted-foreground mb-4">Data real de conclusão de cada tarefa</p>
+          <h2 className="font-semibold text-foreground mb-1">Concluídas por dia</h2>
+          <p className="text-xs text-muted-foreground mb-4">Tarefas e ocorrências de recorrentes marcadas como feitas</p>
           {!hasCompletedData ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={completedData}>
@@ -250,22 +226,20 @@ export default function ProductivityPage() {
                 <XAxis dataKey="day" stroke="hsl(215,20%,55%)" fontSize={11} />
                 <YAxis stroke="hsl(215,20%,55%)" fontSize={11} allowDecimals={false} />
                 <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [v, 'Concluídas']} />
-                <Bar dataKey="concluidas" fill="hsl(142,71%,45%)" radius={[4,4,0,0]} name="Concluídas" />
+                <Bar dataKey="concluidas" fill="hsl(142,71%,45%)" radius={[4, 4, 0, 0]} name="Concluídas" />
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
 
-        {/* Status distribution */}
         <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-4">Distribuição por Status</h2>
-          {statusData.length === 0 ? <EmptyChart /> : (
+          <h2 className="font-semibold text-foreground mb-1">O que foi planejado</h2>
+          <p className="text-xs text-muted-foreground mb-4">Tarefas com prazo e ocorrências até hoje, no período</p>
+          {outcomeData.length === 0 ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
-                <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" paddingAngle={2}>
-                  {statusData.map((_, i) => (
-                    <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
-                  ))}
+                <Pie data={outcomeData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" paddingAngle={2}>
+                  {outcomeData.map((d) => <Cell key={d.name} fill={OUTCOME_COLORS[d.name]} />)}
                 </Pie>
                 <Legend />
                 <Tooltip contentStyle={TOOLTIP_STYLE} />
@@ -274,16 +248,14 @@ export default function ProductivityPage() {
           )}
         </div>
 
-        {/* Priority distribution */}
         <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-4">Distribuição por Prioridade</h2>
+          <h2 className="font-semibold text-foreground mb-1">Planejado por prioridade</h2>
+          <p className="text-xs text-muted-foreground mb-4">Inclui o que ainda vem pela frente no período</p>
           {priorityData.length === 0 ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie data={priorityData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" paddingAngle={2}>
-                  {priorityData.map((_, i) => (
-                    <Cell key={i} fill={PRIORITY_COLORS[i % PRIORITY_COLORS.length]} />
-                  ))}
+                  {priorityData.map((d) => <Cell key={d.name} fill={PRIORITY_COLORS[d.name]} />)}
                 </Pie>
                 <Legend />
                 <Tooltip contentStyle={TOOLTIP_STYLE} />

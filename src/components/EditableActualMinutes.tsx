@@ -1,24 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Input } from '@/components/ui/input';
-import { externalSupabase as supabase } from '@/integrations/supabase/externalClient';
-import { formatMinutes } from '@/lib/formatters';
-import { Clock } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { formatMinutes, parseDuration } from '@/lib/formatters';
+import { toLocalDateKey } from '@/lib/recurrence';
+import { useAddManualTime, manualTimeDayLabel } from '@/hooks/useManualTime';
 
 interface EditableActualMinutesProps {
   taskId: string;
   value: number;
-  /** Pass the task's recurrence_config so manual edits are saved as per-date overrides
-   *  (time_by_date_manual[today]) without affecting timer_sessions history. */
-  recurrenceConfig?: unknown;
+  /** Day the adjustment is recorded on (yyyy-MM-dd). Defaults to today; future days fall back to today. */
+  dateKey?: string;
 }
 
-export default function EditableActualMinutes({ taskId, value, recurrenceConfig }: EditableActualMinutesProps) {
+/** Shows tracked time; click to add (or remove, with a minus sign) minutes on the viewed day. */
+export default function EditableActualMinutes({ taskId, value, dateKey }: EditableActualMinutesProps) {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const qc = useQueryClient();
+  const addTime = useAddManualTime();
+
+  const todayKey = toLocalDateKey(new Date());
+  const targetKey = dateKey && dateKey < todayKey ? dateKey : todayKey;
 
   useEffect(() => {
     if (editing) {
@@ -27,50 +30,62 @@ export default function EditableActualMinutes({ taskId, value, recurrenceConfig 
     }
   }, [editing]);
 
-  const save = async () => {
+  const minutes = parseDuration(input);
+
+  const save = () => {
+    if (minutes === null || minutes === 0) { setEditing(false); return; }
     setEditing(false);
-    const mins = parseInt(input, 10);
-    // Input is minutes to add (positive) or remove (negative) — zero or empty means no change.
-    if (!input.trim() || isNaN(mins) || mins === 0) return;
-    try {
-      const now = new Date().toISOString();
-      const { error } = await supabase.from('timer_sessions').insert({
-        task_id: taskId,
-        started_at: now,
-        ended_at: now,
-        duration_minutes: mins,
-      });
-      if (error) throw error;
-      qc.invalidateQueries({ queryKey: ['tasks_with_time'] });
-    } catch {
-      toast.error('Erro ao salvar tempo real');
-    }
+    addTime.mutate(
+      { taskId, minutes, dateKey: targetKey },
+      {
+        onSuccess: () => toast.success(`${minutes > 0 ? '+' : ''}${formatMinutes(minutes)} em ${manualTimeDayLabel(targetKey)}`),
+        onError: () => toast.error('Erro ao registrar o tempo'),
+      },
+    );
   };
 
   if (editing) {
     return (
-      <Input
-        ref={inputRef}
-        type="number"
-        placeholder="min"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onBlur={save}
-        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-16 h-6 text-xs px-1 py-0"
-      />
+      <span className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <Input
+          ref={inputRef}
+          inputMode="text"
+          enterKeyHint="done"
+          placeholder="+30 / -15"
+          aria-label={`Adicionar tempo em ${manualTimeDayLabel(targetKey)} (use - para remover)`}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onBlur={() => setEditing(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); save(); }
+            if (e.key === 'Escape') setEditing(false);
+          }}
+          className="w-20 h-6 text-xs px-1.5 py-0"
+        />
+        <button
+          type="button"
+          // Keep focus in the input so blur doesn't cancel before the click lands
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={save}
+          disabled={minutes === null || minutes === 0}
+          className="p-1 rounded bg-primary/15 text-primary disabled:opacity-40"
+          aria-label="Confirmar tempo"
+        >
+          <Check className="h-3 w-3" />
+        </button>
+      </span>
     );
   }
 
   return (
-    <span
-      className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 rounded hover:text-foreground transition-colors"
       onClick={(e) => { e.stopPropagation(); setEditing(true); }}
-      title="Clique para adicionar tempo (min)"
+      title={`Adicionar ou remover tempo em ${manualTimeDayLabel(targetKey)}`}
     >
       <Clock className="h-3 w-3" />
       {formatMinutes(value)}
-    </span>
+    </button>
   );
 }

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useProjects, useCreateProject, useUpdateProject } from '@/hooks/useProjects';
 import { useTasks } from '@/hooks/useTasks';
-import { Plus, Pencil } from 'lucide-react';
-import TaskModal from '@/components/TaskModal';
+import { useTaskModal } from '@/hooks/useTaskModal';
+import { isRecurring } from '@/lib/recurrence';
+import { Plus, Pencil, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -28,9 +29,7 @@ export default function ProjectsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectFormState | null>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [taskModalKey, setTaskModalKey] = useState(0);
-  const [editTaskData, setEditTaskData] = useState<any>(null);
+  const { openTask, modal } = useTaskModal();
   const [statusFilter, setStatusFilter] = useState<'active' | 'paused' | 'done' | 'all'>('active');
 
   const filteredProjects = projects?.filter((p) => statusFilter === 'all' ? true : p.status === statusFilter);
@@ -65,15 +64,16 @@ export default function ProjectsPage() {
     }
   };
 
-  const getProjectProgress = (projectId: string) => {
+  // Progress counts one-off tasks only: recurring tasks are never "finished" as a whole
+  const getProjectSummary = (projectId: string) => {
     const projectTasks = tasks?.filter((t) => t.project_id === projectId) || [];
-    if (projectTasks.length === 0) return 0;
-    const done = projectTasks.filter((t) => t.status === 'done').length;
-    return Math.round((done / projectTasks.length) * 100);
-  };
-
-  const getProjectTaskCount = (projectId: string) => {
-    return tasks?.filter((t) => t.project_id === projectId).length || 0;
+    const oneOff = projectTasks.filter((t) => !isRecurring(t.recurrence_config));
+    const done = oneOff.filter((t) => t.status === 'done').length;
+    return {
+      oneOff: oneOff.length,
+      recurring: projectTasks.length - oneOff.length,
+      progress: oneOff.length ? Math.round((done / oneOff.length) * 100) : 0,
+    };
   };
 
   const selectedTasks = selectedProject ? tasks?.filter((t) => t.project_id === selectedProject) : null;
@@ -83,7 +83,7 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-foreground">Projetos</h1>
         <div className="flex items-center gap-3">
-          <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
             <SelectTrigger className="w-32 h-9 bg-secondary border-border">
               <SelectValue />
             </SelectTrigger>
@@ -105,8 +105,7 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredProjects?.map((p) => {
-            const progress = getProjectProgress(p.id);
-            const taskCount = getProjectTaskCount(p.id);
+            const { oneOff, recurring, progress } = getProjectSummary(p.id);
             return (
               <div
                 key={p.id}
@@ -118,7 +117,9 @@ export default function ProjectsPage() {
                   <h3 className="font-semibold text-foreground flex-1">{p.name}</h3>
                   <button
                     onClick={(e) => { e.stopPropagation(); openEdit(p); }}
-                    className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity bg-secondary text-muted-foreground hover:text-foreground"
+                    className="p-1.5 rounded-md md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity bg-secondary text-muted-foreground hover:text-foreground"
+                    title="Editar projeto"
+                    aria-label={`Editar ${p.name}`}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -137,7 +138,10 @@ export default function ProjectsPage() {
                   </Select>
                 </div>
                 <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-                  <span>{taskCount} tarefas</span>
+                  <span>
+                    {oneOff} tarefa{oneOff === 1 ? '' : 's'}
+                    {recurring > 0 && <> · {recurring} recorrente{recurring === 1 ? '' : 's'}</>}
+                  </span>
                   <span>{progress}% concluído</span>
                 </div>
                 <div className="h-2 bg-secondary rounded-full overflow-hidden">
@@ -159,14 +163,19 @@ export default function ProjectsPage() {
           ) : (
             <div className="space-y-2">
               {selectedTasks.map((t) => (
-                <div
+                <button
+                  type="button"
                   key={t.id}
-                  onClick={() => { setEditTaskData(t); setTaskModalKey(k => k + 1); setTaskModalOpen(true); }}
-                  className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary transition-colors"
+                  onClick={() => openTask(t)}
+                  className="w-full text-left flex items-center justify-between gap-2 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
                 >
-                  <span className="text-sm text-foreground">{t.name}</span>
-                  <StatusBadge status={t.status || 'todo'} />
-                </div>
+                  <span className="text-sm text-foreground truncate">{t.name}</span>
+                  {isRecurring(t.recurrence_config) ? (
+                    <span className="inline-flex items-center gap-1 text-xs text-primary shrink-0"><Repeat className="h-3 w-3" /> Recorrente</span>
+                  ) : (
+                    <StatusBadge status={t.status || 'todo'} />
+                  )}
+                </button>
               ))}
             </div>
           )}
@@ -208,8 +217,10 @@ export default function ProjectsPage() {
                       key={c}
                       type="button"
                       onClick={() => setEditProject({ ...editProject, color: c })}
-                      className="w-8 h-8 rounded-full border-2 transition-all"
-                      style={{ backgroundColor: c, borderColor: editProject.color === c ? 'white' : 'transparent' }}
+                      className={`w-8 h-8 rounded-full transition-all ${editProject.color === c ? 'ring-2 ring-offset-2 ring-offset-card ring-foreground' : ''}`}
+                      style={{ backgroundColor: c }}
+                      aria-label={`Cor ${c}`}
+                      aria-pressed={editProject.color === c}
                     />
                   ))}
                 </div>
@@ -222,12 +233,7 @@ export default function ProjectsPage() {
         </DialogContent>
       </Dialog>
 
-      <TaskModal
-        key={taskModalKey}
-        open={taskModalOpen}
-        onClose={() => { setTaskModalOpen(false); setEditTaskData(null); }}
-        task={editTaskData}
-      />
+      {modal}
     </div>
   );
 }

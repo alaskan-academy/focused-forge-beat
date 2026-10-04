@@ -3,6 +3,7 @@ import { LayoutDashboard, CheckSquare, FolderKanban, BarChart3, Repeat, Calendar
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import ActiveTimerBar from '@/components/ActiveTimerBar';
 
 const allNavItems = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -58,6 +59,7 @@ export default function AppSidebar() {
             </NavLink>
           ))}
         </nav>
+        <ActiveTimerBar variant="sidebar" />
         {/* User / logout */}
         <div className="p-3 border-t border-sidebar-border">
           <div className="flex items-center gap-2 px-2 py-1.5 mb-1">

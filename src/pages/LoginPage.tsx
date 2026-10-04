@@ -19,8 +19,8 @@ export default function LoginPage() {
     try {
       await signInWithEmail(email.trim());
       setSent(true);
-    } catch (err: any) {
-      setError(err?.message || 'Erro ao enviar o link. Tente novamente.');
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'Erro ao enviar o link. Tente novamente.');
     } finally {
       setLoading(false);
     }

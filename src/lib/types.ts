@@ -1,4 +1,5 @@
-export interface TaskWithTime {
+/** A task as loaded by useTasks: the tasks_with_time row plus per-day tracked minutes. */
+export interface Task {
   id: string;
   name: string;
   area: string;
@@ -11,12 +12,16 @@ export interface TaskWithTime {
   actual_minutes: number | null;
   recurrence_config: unknown;
   notes: string | null;
-  work_block: string;
   created_at: string;
   completed_at: string | null;
-  project_name: string | null;
-  project_color: string | null;
-  total_tracked_minutes: number | null;
+  deleted_at?: string | null;
+  user_id?: string | null;
+  project_name?: string | null;
+  project_color?: string | null;
+  /** Non-recurring: all-time tracked minutes. Recurring: today's tracked minutes. */
+  total_tracked_minutes: number;
+  /** Tracked minutes per local day (yyyy-MM-dd), from timer sessions. */
+  session_minutes_by_date: Record<string, number>;
 }
 
 export interface Project {

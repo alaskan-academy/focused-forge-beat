@@ -2,53 +2,82 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { externalSupabase as supabase } from '@/integrations/supabase/externalClient';
 
-// Sessions longer than this are considered stale (browser left open, etc.)
-const MAX_SESSION_MINUTES = 480; // 8 hours
+// Sessions longer than this were probably left running by accident (browser left open, etc.)
+export const MAX_SESSION_MINUTES = 480; // 8 hours
 
+export interface ActiveTimerSession {
+  id: string;
+  task_id: string;
+  started_at: string;
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export function minutesSince(startedAt: string, until: number = Date.now()): number {
+  return (until - new Date(startedAt).getTime()) / 60000;
+}
+
+function invalidateTimerQueries(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['active_timer'] });
+  qc.invalidateQueries({ queryKey: ['tasks_with_time'] });
+  qc.invalidateQueries({ queryKey: ['daily_work_time'] });
+}
+
+/**
+ * Closes a session. `minutes` overrides the counted duration; `null` keeps the session
+ * in history without counting it (used for timers forgotten running for hours).
+ */
+async function closeSession(session: { id: string; started_at: string }, minutes?: number | null) {
+  const duration = minutes === undefined ? round2(minutesSince(session.started_at)) : minutes;
+  const { error } = await supabase
+    .from('timer_sessions')
+    .update({ ended_at: new Date().toISOString(), duration_minutes: duration })
+    .eq('id', session.id);
+  if (error) throw error;
+}
+
+/**
+ * The running timer, if any. The elapsed time ticks locally (useElapsedTime), so this only
+ * needs to catch timers started or stopped elsewhere (another tab or device).
+ */
 export function useActiveTimer() {
-  return useQuery({
+  return useQuery<ActiveTimerSession | null>({
     queryKey: ['active_timer'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('timer_sessions')
-        .select('*')
+        .select('id, task_id, started_at')
         .is('ended_at', null)
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as ActiveTimerSession | null;
     },
-    refetchInterval: 1000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 }
 
+/** Starts a timer on a task, first closing any timer still running. */
 export function useStartTimer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (taskId: string) => {
-      // Stop any active timer first
-      const { data: active } = await supabase
+    mutationFn: async (taskId: string): Promise<{ closedStale: boolean }> => {
+      const { data: running, error: runningError } = await supabase
         .from('timer_sessions')
-        .select('*')
-        .is('ended_at', null)
-        .limit(1)
-        .maybeSingle();
+        .select('id, started_at')
+        .is('ended_at', null);
+      if (runningError) throw runningError;
 
-      if (active) {
-        const durationMinutes = (Date.now() - new Date(active.started_at).getTime()) / 60000;
-
-        if (durationMinutes > MAX_SESSION_MINUTES) {
-          // Stale session — discard silently instead of saving inflated time
-          await supabase.from('timer_sessions').delete().eq('id', active.id);
+      let closedStale = false;
+      for (const session of running || []) {
+        if (minutesSince(session.started_at) > MAX_SESSION_MINUTES) {
+          // Forgotten timer: keep the session but don't count the inflated time
+          await closeSession(session, null);
+          closedStale = true;
         } else {
-          await supabase
-            .from('timer_sessions')
-            .update({
-              ended_at: new Date().toISOString(),
-              duration_minutes: Math.round(durationMinutes * 100) / 100,
-            })
-            .eq('id', active.id);
+          await closeSession(session);
         }
       }
 
@@ -56,86 +85,22 @@ export function useStartTimer() {
         .from('timer_sessions')
         .insert({ task_id: taskId, started_at: new Date().toISOString() });
       if (error) throw error;
+      return { closedStale };
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['active_timer'] });
-      qc.invalidateQueries({ queryKey: ['tasks_with_time'] });
-    },
+    onSuccess: () => invalidateTimerQueries(qc),
   });
 }
 
-export function useSaveTimer() {
+/** Stops the timer and saves the session. Pass `minutes` to save a corrected duration. */
+export function useStopTimer() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ sessionId, pausedAt }: { sessionId: string; pausedAt: number }) => {
-      const { data: session } = await supabase
-        .from('timer_sessions')
-        .select('started_at')
-        .eq('id', sessionId)
-        .single();
-
-      if (!session) return;
-
-      const duration = Math.round(((pausedAt - new Date(session.started_at).getTime()) / 60000) * 100) / 100;
-
-      if (duration > MAX_SESSION_MINUTES) {
-        throw new Error(
-          `Esta sessão tem ${Math.round(duration / 60)}h — parece que o timer ficou aberto. Use "Descartar" e reinicie o timer.`
-        );
-      }
-
-      const { data: sessionFull } = await supabase
-        .from('timer_sessions')
-        .select('task_id')
-        .eq('id', sessionId)
-        .single();
-
-      const { error } = await supabase
-        .from('timer_sessions')
-        .update({ ended_at: new Date(pausedAt).toISOString(), duration_minutes: duration })
-        .eq('id', sessionId);
-      if (error) throw error;
-
-      // Update actual_minutes (and time_by_date for recurring tasks).
-      // For recurring tasks: accumulate within the same day via time_by_date[today],
-      // so each new occurrence date starts at zero automatically.
-      // For non-recurring tasks: always accumulate in actual_minutes directly.
-      // Full session history is always preserved in timer_sessions.
-      if (sessionFull?.task_id) {
-        const { data: currentTask } = await supabase
-          .from('tasks')
-          .select('actual_minutes, recurrence_config')
-          .eq('id', sessionFull.task_id)
-          .single();
-
-        const recConfig = currentTask?.recurrence_config as any;
-        const isRecurring = recConfig?.type && recConfig.type !== 'none';
-        const today = new Date().toISOString().split('T')[0]; // 'yyyy-MM-dd'
-
-        const taskUpdates: Record<string, unknown> = {};
-
-        if (isRecurring) {
-          // Accumulate within today's occurrence; other dates are untouched
-          const timeByDate: Record<string, number> = { ...(recConfig?.time_by_date || {}) };
-          timeByDate[today] = Math.round(((timeByDate[today] ?? 0) + duration) * 100) / 100;
-          taskUpdates.recurrence_config = { ...recConfig, time_by_date: timeByDate };
-          taskUpdates.actual_minutes = timeByDate[today];
-        } else {
-          const previous = Number(currentTask?.actual_minutes ?? 0);
-          taskUpdates.actual_minutes = Math.round((previous + duration) * 100) / 100;
-        }
-
-        await supabase
-          .from('tasks')
-          .update(taskUpdates)
-          .eq('id', sessionFull.task_id);
-      }
+    mutationFn: async ({ session, minutes }: { session: ActiveTimerSession; minutes?: number }) => {
+      const duration = minutes ?? round2(minutesSince(session.started_at));
+      await closeSession(session, duration);
+      return duration;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['active_timer'] });
-      qc.invalidateQueries({ queryKey: ['tasks_with_time'] });
-      qc.invalidateQueries({ queryKey: ['daily_work_time'] });
-    },
+    onSuccess: () => invalidateTimerQueries(qc),
   });
 }
 
@@ -149,24 +114,21 @@ export function useDiscardTimer() {
         .eq('id', sessionId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['active_timer'] });
-      qc.invalidateQueries({ queryKey: ['tasks_with_time'] });
-    },
+    onSuccess: () => invalidateTimerQueries(qc),
   });
 }
 
-export function useElapsedTime(startedAt: string | null, frozen: boolean) {
+/** Seconds elapsed since `startedAt`, updated every second. */
+export function useElapsedTime(startedAt: string | null) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     if (!startedAt) { setElapsed(0); return; }
-    if (frozen) return;
     const update = () => setElapsed((Date.now() - new Date(startedAt).getTime()) / 1000);
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [startedAt, frozen]);
+  }, [startedAt]);
 
   return elapsed;
 }

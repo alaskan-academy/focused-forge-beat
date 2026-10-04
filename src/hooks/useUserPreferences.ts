@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { externalSupabase as supabase } from '@/integrations/supabase/externalClient';
 import { useAuth } from '@/contexts/AuthContext';
+import type { Json } from '@/integrations/supabase/externalTypes';
 
 export interface UserPreferences {
   tasks_sort_key?: string; // e.g. 'created_desc' | 'priority_asc' | 'due_date_asc' | 'name_asc'
@@ -34,7 +35,7 @@ export function useUpdateUserPreferences() {
       const { error } = await supabase
         .from('user_preferences')
         .upsert(
-          { user_id: user.id, preferences, updated_at: new Date().toISOString() },
+          { user_id: user.id, preferences: preferences as Json, updated_at: new Date().toISOString() },
           { onConflict: 'user_id' }
         );
       if (error) throw error;

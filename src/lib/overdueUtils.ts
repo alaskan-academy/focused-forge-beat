@@ -1,12 +1,12 @@
 import { isBefore, startOfToday } from 'date-fns';
 import { parseRecurrence, toLocalDateKey } from './recurrence';
-import { doesRecurrenceMatchDate } from './recurrenceExpander';
+import { doesRecurrenceMatchDate, getRecurrenceAnchor } from './recurrenceExpander';
 import { parseLocalDate } from './dateUtils';
-import { getEffectiveStatus } from './effectiveStatus';
 
 /**
  * For recurring tasks: finds the most recently missed occurrence in the
- * past 7 days (not completed, not skipped).
+ * past 7 days (not completed, not skipped). Occurrences moved to another
+ * day count on their new date.
  * Returns the date key (YYYY-MM-DD) or null if none found.
  */
 export function getMissedDateKey(task: {
@@ -19,14 +19,14 @@ export function getMissedDateKey(task: {
 
   const completedDates = new Set(recConfig.completed_dates || []);
   const skippedDates = new Set(recConfig.skipped_dates || []);
-  const createdAt = (task.due_date || task.created_at) ?? '';
+  const anchor = getRecurrenceAnchor(task);
 
   for (let i = 1; i <= 7; i++) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const key = toLocalDateKey(d);
     if (
-      doesRecurrenceMatchDate(recConfig, createdAt, d) &&
+      doesRecurrenceMatchDate(recConfig, anchor, d) &&
       !completedDates.has(key) &&
       !skippedDates.has(key)
     ) {
@@ -44,13 +44,17 @@ export function getMissedDateKey(task: {
  *   next occurrence is today — no overdue state needed.
  * - Weekly / monthly recurring tasks: any occurrence in the past 7 days that
  *   was not completed and not skipped counts as overdue.
- * - Non-recurring: has a due_date in the past and is not done/skipped.
+ * - Non-recurring: has a due_date in the past and is not done.
  */
-export function isOverdueTask(task: any): boolean {
+export function isOverdueTask(task: {
+  status?: string;
+  due_date?: string | null;
+  created_at?: string;
+  recurrence_config?: unknown;
+}): boolean {
   const recConfig = parseRecurrence(task.recurrence_config);
-  const isRecurring = recConfig.type !== 'none';
 
-  if (isRecurring) {
+  if (recConfig.type !== 'none') {
     // Daily tasks restart automatically each day — never mark as overdue
     if (recConfig.type === 'daily') return false;
     return getMissedDateKey(task) !== null;
@@ -59,9 +63,5 @@ export function isOverdueTask(task: any): boolean {
   const dueDate = parseLocalDate(task.due_date);
   if (!dueDate) return false;
   if (task.status === 'done') return false;
-
-  const effStatus = getEffectiveStatus(task, 'custom', { from: dueDate, to: dueDate });
-  if (effStatus === 'done' || effStatus === 'skipped') return false;
-
   return isBefore(dueDate, startOfToday());
 }

@@ -1,29 +1,24 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useTasks, useUpdateTask } from '@/hooks/useTasks';
-import { DateFilter } from '@/lib/types';
+import { toast } from 'sonner';
+import { AlertCircle, Archive, Check, Clock, Plus, StickyNote, Sun, Sunset, Trash2, X } from 'lucide-react';
+import { useTasks } from '@/hooks/useTasks';
 import { useReminders, useUpdateReminder, useArchiveReminder, useDeleteReminder, Reminder } from '@/hooks/useReminders';
+import { useTaskActions } from '@/hooks/useTaskActions';
+import { useTaskModal } from '@/hooks/useTaskModal';
 import { REMINDER_COLORS, REMINDER_COLOR_KEYS, ReminderColor } from '@/lib/reminderColors';
 import { formatMinutes } from '@/lib/formatters';
+import { DateFilter, Task } from '@/lib/types';
+import { DayRange, getDailyEstimatedMinutes, getFilterRange, getFilterSingleDay, getTaskDisplayMinutes } from '@/lib/dateUtils';
+import { getTasksForPeriod, TaskInPeriod } from '@/lib/taskFilter';
+import { getMissedDateKey, isOverdueTask } from '@/lib/overdueUtils';
+import { parseRecurrence, toLocalDateKey, fromLocalDateKey } from '@/lib/recurrence';
 import DateFilterBar from '@/components/DateFilterBar';
-import TaskModal from '@/components/TaskModal';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import CompletionDateDialog from '@/components/CompletionDateDialog';
+import TaskRow from '@/components/TaskRow';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckCircle2, Clock, ListTodo, Loader2, TrendingUp, AlertTriangle, AlertOctagon, Sun, Sunset, AlertCircle, StickyNote, Archive, Trash2, Check, X } from 'lucide-react';
-import { getMissedDateKey, isOverdueTask } from '@/lib/overdueUtils';
-import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { doesRecurrenceMatchDate } from '@/lib/recurrenceExpander';
-import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
-import { parseLocalDate, startOfLocalDay, completedAtMatchesFilter, recurringCompletedOnFilterDate, taskDateRangeMatchesFilter, getTaskDisplayMinutes, getDailyEstimatedMinutes } from '@/lib/dateUtils';
-import { getEffectiveStatus } from '@/lib/effectiveStatus';
-import EditableActualMinutes from '@/components/EditableActualMinutes';
-import TimerButton from '@/components/TimerButton';
-import PriorityBadge from '@/components/PriorityBadge';
 
 function ColorPicker({ value, onChange }: { value: ReminderColor; onChange: (c: ReminderColor) => void }) {
   return (
@@ -33,6 +28,7 @@ function ColorPicker({ value, onChange }: { value: ReminderColor; onChange: (c: 
           key={c}
           type="button"
           title={REMINDER_COLORS[c].label}
+          aria-label={REMINDER_COLORS[c].label}
           onClick={() => onChange(c)}
           className={cn(
             'h-5 w-5 rounded-full transition-all shrink-0',
@@ -119,7 +115,7 @@ function ReminderEditDialog({ reminder, open, onClose }: { reminder: Reminder; o
             </Button>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={onClose} className="h-8 px-2">
+            <Button size="sm" variant="ghost" onClick={onClose} className="h-8 px-2" aria-label="Fechar">
               <X className="h-3.5 w-3.5" />
             </Button>
             <Button size="sm" onClick={handleSave} disabled={!content.trim() || updateReminder.isPending} className="h-8 px-3 gap-1">
@@ -132,314 +128,125 @@ function ReminderEditDialog({ reminder, open, onClose }: { reminder: Reminder; o
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
-  return (
-    <div className="bg-card border border-border rounded-xl p-5">
-      <div className="flex items-center gap-3 mb-2">
-        <div className={`p-2 rounded-lg ${color}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <span className="text-sm text-muted-foreground">{label}</span>
-      </div>
-      <span className="text-2xl font-bold text-foreground">{value}</span>
-    </div>
-  );
-}
-
 const BLOCK_CONFIG = {
-  morning: { label: 'Manhã (9h–12h)', hours: 3, icon: Sun },
-  afternoon: { label: 'Tarde (14h–18h)', hours: 4, icon: Sunset },
+  morning: { label: 'Manhã', hoursLabel: '9h–12h', hours: 3, icon: Sun },
+  afternoon: { label: 'Tarde', hoursLabel: '14h–18h', hours: 4, icon: Sunset },
 } as const;
 
 type BlockKey = keyof typeof BLOCK_CONFIG;
 
-function BlockAlert({ blockKey, totalMinutes, periodDays }: { blockKey: BlockKey; totalMinutes: number; periodDays: number }) {
-  const config = BLOCK_CONFIG[blockKey];
-  const avgHours = totalMinutes / 60 / periodDays;
-  const maxHours = config.hours;
+const PRIORITY_ORDER: Record<string, number> = { high: 1, medium: 2, low: 3 };
 
-  if (avgHours <= maxHours * 0.8) return null; // no alert below 80%
+/** Open tasks first (by priority), finished ones at the bottom. */
+function sortForBlock(a: TaskInPeriod, b: TaskInPeriod) {
+  const doneA = a.status === 'done' ? 1 : 0;
+  const doneB = b.status === 'done' ? 1 : 0;
+  if (doneA !== doneB) return doneA - doneB;
+  return (PRIORITY_ORDER[a.task.priority] ?? 2) - (PRIORITY_ORDER[b.task.priority] ?? 2);
+}
 
-  const level = avgHours >= maxHours ? 'critical' : 'warning';
-  const Icon = level === 'critical' ? AlertOctagon : AlertTriangle;
-
-  return (
-    <Alert
-      variant={level === 'critical' ? 'destructive' : 'default'}
-      className={level === 'warning' ? 'border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-400' : ''}
-    >
-      <Icon className="h-4 w-4" />
-      <AlertTitle>
-        {level === 'critical' ? `${config.label} — Bloco Lotado!` : `${config.label} — Quase Cheio`}
-      </AlertTitle>
-      <AlertDescription>
-        <strong>{avgHours.toFixed(1)}h estimadas{periodDays > 1 ? '/dia (média)' : ''}</strong> de {maxHours}h disponíveis.{' '}
-        {level === 'critical'
-          ? 'Redistribua tarefas para outro bloco ou dia.'
-          : 'O bloco está ficando cheio. Priorize o mais importante.'}
-      </AlertDescription>
-    </Alert>
-  );
+function getBlock(task: Task): BlockKey | 'none' {
+  const wb = parseRecurrence(task.recurrence_config).work_block;
+  return wb === 'morning' || wb === 'afternoon' ? wb : 'none';
 }
 
 export default function DashboardPage() {
-  const { data: tasks } = useTasks();
+  const { data: tasks, isLoading } = useTasks();
   const { data: reminders } = useReminders();
-  const updateTask = useUpdateTask();
+  const { toggleDone, toggleInProgress, dialogs } = useTaskActions();
+  const { openTask, openNew, modal } = useTaskModal();
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
-  const [customRange, setCustomRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [customRange, setCustomRange] = useState<DayRange | null>(null);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
-  const [editTask, setEditTask] = useState<any>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalKey, setModalKey] = useState(0);
-  const [completionDialog, setCompletionDialog] = useState<{ id: string; name: string; initialDate?: Date } | null>(null);
 
-  const getCompletionInitialDate = () => {
-    const now = new Date();
-    if (dateFilter === 'yesterday') {
-      const yesterday = new Date(now);
-      yesterday.setDate(yesterday.getDate() - 1);
-      return yesterday;
-    }
-    if (dateFilter === 'custom' && customRange) {
-      return customRange.to > now ? now : customRange.to;
-    }
-    return now;
-  };
+  const viewedDay = getFilterSingleDay(dateFilter, customRange);
 
-  const filtered = useMemo(() => {
-    if (!tasks) return [];
-    return tasks.filter((t) => {
-      if (dateFilter === 'custom') {
-        if (!customRange) return true;
-        let dateMatches = taskDateRangeMatchesFilter(t as any, 'custom', customRange);
-        if (!dateMatches) dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
-        if (!dateMatches) dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
-        return dateMatches;
-      }
-
-      const recConfig = parseRecurrence((t as any).recurrence_config);
-      const isRecurring = recConfig.type !== 'none';
-      let dateMatches = taskDateRangeMatchesFilter(t as any, dateFilter, customRange);
-
-      if (!dateMatches && !t.due_date && !isRecurring) {
-        dateMatches = dateFilter === 'today';
-      }
-
-      if (!dateMatches && isRecurring) {
-        const createdAt = t.due_date || t.created_at;
-        if (dateFilter === 'today') {
-          dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, new Date());
-        } else if (dateFilter === 'yesterday') {
-          const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-          dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, yesterday);
-        } else if (dateFilter === 'tomorrow') {
-          const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-          dateMatches = doesRecurrenceMatchDate(recConfig, createdAt, tomorrow);
-        } else if (dateFilter === 'week') {
-          const now = new Date();
-          const startOfWeek = new Date(now);
-          startOfWeek.setDate(now.getDate() - now.getDay());
-          for (let i = 0; i < 7; i++) {
-            const day = new Date(startOfWeek);
-            day.setDate(startOfWeek.getDate() + i);
-            if (doesRecurrenceMatchDate(recConfig, createdAt, day)) {
-              dateMatches = true;
-              break;
-            }
-          }
-        }
-      }
-
-      if (!dateMatches) dateMatches = completedAtMatchesFilter(t.completed_at, dateFilter, customRange);
-      if (!dateMatches) dateMatches = recurringCompletedOnFilterDate((t as any).recurrence_config, dateFilter, customRange);
-      return dateMatches;
-    });
-  }, [tasks, dateFilter, customRange]);
+  const inPeriod = useMemo(
+    () => getTasksForPeriod(tasks || [], dateFilter, customRange),
+    [tasks, dateFilter, customRange],
+  );
 
   const periodDays = useMemo(() => {
-    if (dateFilter === 'week') return 7;
-    if (dateFilter === 'custom' && customRange) {
-      const diffTime = customRange.to.getTime() - customRange.from.getTime();
-      return Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
-    }
-    return 1;
+    const range = getFilterRange(dateFilter, customRange);
+    if (!range) return 1;
+    return Math.max(1, Math.round((range.to.getTime() - range.from.getTime()) / 86400000) + 1);
   }, [dateFilter, customRange]);
 
-  const effectiveFiltered = useMemo(() => {
-    return filtered
-      .map((t) => ({
-        ...t,
-        _effectiveStatus: getEffectiveStatus(t as any, dateFilter, customRange),
-      }))
-      .filter((t) => t._effectiveStatus !== 'skipped');
-  }, [filtered, dateFilter, customRange]);
-
   const stats = useMemo(() => {
-    const total = effectiveFiltered.length;
-    const done = effectiveFiltered.filter((t) => t._effectiveStatus === 'done').length;
-    const inProgress = effectiveFiltered.filter((t) => t._effectiveStatus === 'in_progress').length;
-    const pending = effectiveFiltered.filter((t) => t._effectiveStatus === 'todo').length;
-    const estTotal = effectiveFiltered.reduce((s, t) => s + getDailyEstimatedMinutes(t as any, dateFilter, customRange), 0);
-    // Use getTaskDisplayMinutes so recurring tasks contribute the correct period's time
-    const realTotal = effectiveFiltered.reduce(
-      (s, t) => s + getTaskDisplayMinutes(t as any, dateFilter, customRange),
-      0,
-    );
-    return { total, done, inProgress, pending, estTotal, realTotal };
-  }, [effectiveFiltered, dateFilter, customRange]);
-
-  const blockTasks = useMemo(() => {
-    const PRIORITY_ORDER: Record<string, number> = { high: 1, medium: 2, low: 3 };
-    const byPriority = (a: any, b: any) =>
-      (PRIORITY_ORDER[a.priority ?? 'medium'] ?? 2) - (PRIORITY_ORDER[b.priority ?? 'medium'] ?? 2);
-    const getBlock = (t: any) => {
-      const rc = t.recurrence_config;
-      const wb = rc?.work_block || t.work_block;
-      return wb || 'none';
-    };
-    const morning = effectiveFiltered.filter((t) => getBlock(t) === 'morning').sort(byPriority);
-    const afternoon = effectiveFiltered.filter((t) => getBlock(t) === 'afternoon').sort(byPriority);
-    const none = effectiveFiltered.filter((t) => getBlock(t) === 'none');
-    return { morning, afternoon, none };
-  }, [effectiveFiltered]);
-
-  const blockMinutes = useMemo(() => {
-    const calc = (tasks: typeof effectiveFiltered) =>
-      tasks.filter((t) => t._effectiveStatus !== 'done').reduce((s, t) => s + getDailyEstimatedMinutes(t as any, dateFilter, customRange), 0);
+    const count = (s: string) => inPeriod.filter((t) => t.status === s).length;
     return {
-      morning: calc(blockTasks.morning),
-      afternoon: calc(blockTasks.afternoon),
+      total: inPeriod.length,
+      done: count('done'),
+      inProgress: count('in_progress'),
+      pending: count('todo'),
+      estTotal: inPeriod.reduce((s, t) => s + getDailyEstimatedMinutes(t.task, dateFilter, customRange), 0),
+      realTotal: inPeriod.reduce((s, t) => s + getTaskDisplayMinutes(t.task, dateFilter, customRange), 0),
     };
-  }, [blockTasks, dateFilter, customRange]);
+  }, [inPeriod, dateFilter, customRange]);
 
-  // Memoized — isOverdueTask is expensive (scans 7 days per task).
-  // Without this, it ran on every render (every second due to timer polling).
-  const overdueTasks = useMemo(
-    () => (tasks || []).filter((t) => isOverdueTask(t)),
+  const blocks = useMemo(() => {
+    const by = (b: BlockKey | 'none') => inPeriod.filter((t) => getBlock(t.task) === b).sort(sortForBlock);
+    return { morning: by('morning'), afternoon: by('afternoon'), none: by('none') };
+  }, [inPeriod]);
+
+  const blockMinutes = (list: TaskInPeriod[]) =>
+    list.filter((t) => t.status !== 'done').reduce((s, t) => s + getDailyEstimatedMinutes(t.task, dateFilter, customRange), 0);
+
+  const overdue = useMemo(
+    () => (tasks || []).filter((t) => isOverdueTask(t)).map((task) => ({ task, missedKey: getMissedDateKey(task) })),
     [tasks],
   );
 
-  const openTask = (t: any) => {
-    setEditTask(t);
-    setModalKey((k) => k + 1);
-    setModalOpen(true);
-  };
+  const openRow = (task: Task) => openTask(task, viewedDay);
+  const completeRow = (task: Task, done: boolean, occurrenceKey: string | null) =>
+    toggleDone(task, done, { occurrenceKey, viewedDay });
 
-  const handleStatusChange = async (task: any, status: string, completedAt?: string, occurrenceDateKey?: string) => {
-    const recConfig = parseRecurrence(task.recurrence_config);
-
-    // For recurring tasks, skip CompletionDateDialog — use the occurrence date directly
-    if (recConfig.type !== 'none') {
-      try {
-        const dateKey = occurrenceDateKey || toLocalDateKey(completedAt ? new Date(completedAt) : getCompletionInitialDate());
-        await updateTask.mutateAsync({
-          id: task.id,
-          status: 'todo',
-          completed_at: null,
-          recurrence_config: status === 'done'
-            ? addCompletedDate(task.recurrence_config, dateKey)
-            : removeCompletedDate(task.recurrence_config, dateKey),
-        });
-        toast.success(status === 'done' ? 'Ocorrência concluída!' : 'Conclusão removida!');
-      } catch {
-        toast.error('Erro ao atualizar status');
-      }
-      return;
-    }
-
-    // Non-recurring: show CompletionDateDialog
-    if (status === 'done' && !completedAt) {
-      setCompletionDialog({ id: task.id, name: task.name, initialDate: getCompletionInitialDate() });
-      return;
-    }
-
-    try {
-      await updateTask.mutateAsync({
-        id: task.id,
-        status,
-        completed_at: status === 'done' ? (completedAt || new Date().toISOString()) : null,
-      });
-    } catch {
-      toast.error('Erro ao atualizar status');
-    }
-  };
-
-  const renderTaskList = (taskList: typeof effectiveFiltered) => (
-    <div className="space-y-1">
-      {taskList.map((t) => {
-        const es = t._effectiveStatus;
-        const recCfg = parseRecurrence((t as any).recurrence_config);
-        const isRecurring = recCfg.type !== 'none';
-        const _s = parseLocalDate((t as any).start_date);
-        const _e = parseLocalDate((t as any).due_date);
-        const isMultiDay = !!(recCfg.type === 'none' && _s && _e &&
-          startOfLocalDay(_e).getTime() > startOfLocalDay(_s).getTime());
-        const filterLabel = dateFilter === 'today' ? 'hoje'
-          : dateFilter === 'yesterday' ? 'ontem'
-          : dateFilter === 'tomorrow' ? 'amanhã'
-          : dateFilter === 'week' ? 'semana' : 'período';
-        const estTotal = (t as any).estimated_minutes || 0;
-        const estDay = getDailyEstimatedMinutes(t as any, dateFilter, customRange);
-        const realTotal = isRecurring ? 0 : Number((t as any).total_tracked_minutes || 0);
-        const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
-        return (
-        <div
-          key={t.id}
-          className="cursor-pointer hover:bg-secondary/50 rounded-lg px-3 py-2 transition-colors"
-          onClick={() => openTask(t)}
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground truncate block">{t.name}</span>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <PriorityBadge priority={t.priority || 'medium'} />
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                es === 'done' ? 'bg-status-done/15 text-status-done' :
-                es === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
-                'bg-status-todo/15 text-status-todo'
-              }`}>
-                {es === 'done' ? 'Concluída' : es === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
-              </span>
-              {es !== 'done' && <TimerButton taskId={t.id!} />}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 pt-1.5 border-t border-border/20 text-[10px] text-muted-foreground" onClick={(e) => e.stopPropagation()}>
-            <span className="whitespace-nowrap">
-              <span className="opacity-60">Est: </span>
-              <span className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</span>
-              {isMultiDay && <><span className="opacity-40"> · </span><span className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</span><span className="opacity-60"> {filterLabel}</span></>}
-            </span>
-            <span className="whitespace-nowrap inline-flex items-center gap-0.5">
-              <span className="opacity-60">Real: </span>
-              {isMultiDay && <><span className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</span><span className="opacity-40"> · </span></>}
-              <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
-              {(isMultiDay || isRecurring) && <span className="opacity-60"> {filterLabel}</span>}
-            </span>
-          </div>
-        </div>
-        );
-      })}
-      {taskList.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-3">Nenhuma tarefa neste bloco</p>
-      )}
+  const renderRows = (list: TaskInPeriod[], emptyText: string) => (
+    <div className="space-y-1.5">
+      {list.map(({ task, status, occurrenceKey }) => (
+        <TaskRow
+          key={task.id}
+          task={task}
+          status={status}
+          occurrenceKey={occurrenceKey}
+          dateFilter={dateFilter}
+          customRange={customRange}
+          showContext={false}
+          onOpen={openRow}
+          onToggleDone={completeRow}
+          onToggleInProgress={toggleInProgress}
+        />
+      ))}
+      {list.length === 0 && <p className="text-sm text-muted-foreground text-center py-3">{emptyText}</p>}
     </div>
   );
+
+  const pct = stats.total ? Math.round((stats.done / stats.total) * 100) : 0;
+  const newTaskDefaults = viewedDay && toLocalDateKey(viewedDay) !== toLocalDateKey(new Date())
+    ? { due_date: toLocalDateKey(viewedDay) }
+    : undefined;
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
-        <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
+          <Button size="sm" onClick={() => openNew(newTaskDefaults)} className="gap-1.5 sm:hidden">
+            <Plus className="h-4 w-4" /> Nova
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 max-w-full">
+          <DateFilterBar value={dateFilter} onChange={setDateFilter} customRange={customRange} onCustomRangeChange={setCustomRange} />
+          <Button size="sm" onClick={() => openNew(newTaskDefaults)} className="gap-1.5 hidden sm:inline-flex">
+            <Plus className="h-4 w-4" /> Nova tarefa
+          </Button>
+        </div>
       </div>
 
-      {/* Reminders mural — post-it style */}
+      {/* Reminders — post-it style, one scrollable row on mobile */}
       {(reminders || []).length > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5">
               <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-xs font-medium text-muted-foreground">Lembretes</span>
@@ -448,7 +255,7 @@ export default function DashboardPage() {
               Gerenciar →
             </Link>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-wrap sm:overflow-visible scrollbar-none">
             {(reminders || []).map((r) => {
               const c = REMINDER_COLORS[r.color] ?? REMINDER_COLORS.yellow;
               return (
@@ -456,12 +263,12 @@ export default function DashboardPage() {
                   key={r.id}
                   onClick={() => setEditingReminder(r)}
                   className={cn(
-                    'w-[160px] sm:w-[180px] min-h-[100px] p-3 rounded-sm border text-left flex flex-col justify-between transition-transform hover:scale-[1.02] active:scale-[0.98]',
+                    'w-[150px] sm:w-[180px] shrink-0 min-h-[88px] p-3 rounded-sm border text-left flex flex-col justify-between transition-transform hover:scale-[1.02] active:scale-[0.98]',
                     c.bg, c.border
                   )}
                   style={{ boxShadow: '2px 3px 8px rgba(0,0,0,0.25)' }}
                 >
-                  <p className={cn('text-xs leading-relaxed whitespace-pre-wrap break-words', c.text)}>
+                  <p className={cn('text-xs leading-relaxed whitespace-pre-wrap break-words line-clamp-5', c.text)}>
                     {r.content}
                   </p>
                   <div className={cn('mt-2 h-0.5 w-5 rounded-full opacity-40', c.dot)} />
@@ -472,237 +279,109 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Per-block alerts */}
-      <div className="space-y-2">
-        <BlockAlert blockKey="morning" totalMinutes={blockMinutes.morning} periodDays={periodDays} />
-        <BlockAlert blockKey="afternoon" totalMinutes={blockMinutes.afternoon} periodDays={periodDays} />
+      {/* Period summary */}
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+          <p className="text-sm text-foreground">
+            <strong className="text-lg">{stats.done}</strong>
+            <span className="text-muted-foreground"> de {stats.total} concluídas</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {stats.inProgress > 0 && <><span className="text-status-in-progress font-medium">{stats.inProgress} em andamento</span> · </>}
+            {stats.pending} pendente{stats.pending === 1 ? '' : 's'}
+          </p>
+        </div>
+        <div className="h-2 bg-secondary rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          <div className="h-full bg-status-done rounded-full transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="flex gap-6 text-sm">
+          <span className="text-muted-foreground">Estimado <strong className="text-foreground">{formatMinutes(stats.estTotal)}</strong></span>
+          <span className="text-muted-foreground">Trabalhado <strong className="text-foreground">{formatMinutes(stats.realTotal)}</strong></span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={ListTodo} label="Total" value={stats.total} color="bg-primary/15 text-primary" />
-        <StatCard icon={CheckCircle2} label="Concluídas" value={stats.done} color="bg-status-done/15 text-status-done" />
-        <StatCard icon={Loader2} label="Em Andamento" value={stats.inProgress} color="bg-status-in-progress/15 text-status-in-progress" />
-        <StatCard icon={Clock} label="Pendentes" value={stats.pending} color="bg-status-todo/15 text-status-todo" />
-      </div>
-
-      {/* Progress bar */}
-      {stats.total > 0 && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-foreground">Progresso do Período</span>
-            <span className="text-sm font-bold text-foreground">{Math.round((stats.done / stats.total) * 100)}%</span>
+      {/* Overdue */}
+      {overdue.length > 0 && (
+        <div className="bg-card border border-destructive/40 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <h2 className="font-semibold text-foreground">Atrasadas</h2>
+            <span className="text-xs bg-destructive/15 text-destructive px-2 py-0.5 rounded-full font-medium">{overdue.length}</span>
           </div>
-          <div className="h-3 bg-secondary rounded-full overflow-hidden">
-            <div
-              className="h-full bg-status-done rounded-full transition-all"
-              style={{ width: `${(stats.done / stats.total) * 100}%` }}
-            />
+          <div className="space-y-1.5">
+            {overdue.map(({ task, missedKey }) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                status={task.status}
+                occurrenceKey={missedKey}
+                dateFilter={dateFilter}
+                customRange={customRange}
+                overdue
+                onOpen={(t) => openTask(t, missedKey ? fromLocalDateKey(missedKey) : null)}
+                onToggleDone={(t, done, key) => toggleDone(t, done, { occurrenceKey: key })}
+              />
+            ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">{stats.done} de {stats.total} tarefas concluídas</p>
         </div>
       )}
 
-      {/* Overdue tasks — uses memoized list to avoid re-computing on every render */}
-      {overdueTasks.length > 0 && (
-        <div className="bg-card border border-destructive/40 rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertCircle className="h-4 w-4 text-destructive" />
-            <h2 className="font-semibold text-foreground">Atrasadas</h2>
-            <span className="text-xs bg-destructive/15 text-destructive px-2 py-0.5 rounded-full font-medium">{overdueTasks.length}</span>
-          </div>
-          <div className="space-y-2">
-            {overdueTasks.map((t) => {
-              const recConfig = parseRecurrence((t as any).recurrence_config);
-              const isRecurring = recConfig.type !== 'none';
-              const missedDateKey = isRecurring ? getMissedDateKey(t) : null;
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+      ) : (
+        <>
+          {/* Tasks by work block */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {(['morning', 'afternoon'] as const).map((block) => {
+              const config = BLOCK_CONFIG[block];
+              const BlockIcon = config.icon;
+              const list = blocks[block];
+              const totalEst = blockMinutes(list);
+              const capacity = config.hours * 60 * periodDays;
+              const ratio = capacity ? totalEst / capacity : 0;
               return (
-              <div
-                key={t.id}
-                className="flex items-center gap-3 cursor-pointer hover:bg-destructive/10 rounded-lg px-3 py-2 transition-colors"
-                onClick={() => openTask(t)}
-              >
-                <Checkbox
-                  checked={false}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      if (isRecurring) {
-                        const dateKey = missedDateKey || toLocalDateKey(new Date());
-                        handleStatusChange(t, 'done', undefined, dateKey);
-                      } else {
-                        setCompletionDialog({ id: t.id!, name: t.name, initialDate: parseLocalDate(t.due_date) || getCompletionInitialDate() });
-                      }
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="h-5 w-5 rounded-full border-2 border-destructive"
-                />
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm text-foreground truncate block">{t.name}</span>
-                  <div className="flex flex-nowrap items-center gap-2 text-xs text-muted-foreground mt-1 overflow-x-auto scrollbar-none">
-                    {missedDateKey && (
-                      <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
-                        Perdida: {new Date(missedDateKey + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                      </span>
-                    )}
-                    {!isRecurring && t.due_date && (
-                      <span className="whitespace-nowrap shrink-0 text-destructive font-medium">
-                        Prazo: {new Date(t.due_date + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                      </span>
-                    )}
-                  </div>
-                  {(() => {
-                    const _s2 = parseLocalDate((t as any).start_date);
-                    const _e2 = parseLocalDate((t as any).due_date);
-                    const isMultiDay2 = !!(recConfig.type === 'none' && _s2 && _e2 &&
-                      startOfLocalDay(_e2).getTime() > startOfLocalDay(_s2).getTime());
-                    const filterLabel = dateFilter === 'today' ? 'hoje'
-                      : dateFilter === 'yesterday' ? 'ontem'
-                      : dateFilter === 'tomorrow' ? 'amanhã'
-                      : dateFilter === 'week' ? 'semana' : 'período';
-                    const estTotal = (t as any).estimated_minutes || 0;
-                    const estDay = getDailyEstimatedMinutes(t as any, dateFilter, customRange);
-                    const realTotal = isRecurring ? 0 : Number((t as any).total_tracked_minutes || 0);
-                    const realDay = getTaskDisplayMinutes(t as any, dateFilter, customRange);
-                    return (
-                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 pt-1.5 border-t border-border/20 text-[10px] text-muted-foreground" onClick={(e) => e.stopPropagation()}>
-                        <span className="whitespace-nowrap">
-                          <span className="opacity-60">Est: </span>
-                          <span className="font-medium text-foreground/70">{estTotal ? formatMinutes(estTotal) : '—'}</span>
-                          {isMultiDay2 && <><span className="opacity-40"> · </span><span className="font-medium text-foreground/70">{estDay ? formatMinutes(estDay) : '—'}</span><span className="opacity-60"> {filterLabel}</span></>}
-                        </span>
-                        <span className="whitespace-nowrap inline-flex items-center gap-0.5">
-                          <span className="opacity-60">Real: </span>
-                          {isMultiDay2 && <><span className="font-medium text-foreground/70">{realTotal ? formatMinutes(realTotal) : '—'}</span><span className="opacity-40"> · </span></>}
-                          <EditableActualMinutes taskId={t.id!} value={realDay} recurrenceConfig={(t as any).recurrence_config} />
-                          {(isMultiDay2 || isRecurring) && <span className="opacity-60"> {filterLabel}</span>}
-                        </span>
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div className="flex items-center gap-2 ml-2 shrink-0">
-                  <PriorityBadge priority={(t as any).priority || 'medium'} />
-                  {isRecurring ? (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary/70">Recorrente</span>
-                  ) : (
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      t.status === 'in_progress' ? 'bg-status-in-progress/15 text-status-in-progress' :
-                      'bg-status-todo/15 text-status-todo'
-                    }`}>
-                      {t.status === 'in_progress' ? 'Em Andamento' : 'A Fazer'}
+                <div key={block} className="bg-card border border-border rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <BlockIcon className="h-5 w-5 text-primary" />
+                      <h2 className="font-semibold text-foreground">{config.label}</h2>
+                      <span className="text-xs text-muted-foreground">{config.hoursLabel}</span>
+                    </div>
+                    <span className={cn('text-xs', ratio > 1 ? 'text-destructive font-medium' : 'text-muted-foreground')}>
+                      {formatMinutes(totalEst)} / {formatMinutes(capacity)}
                     </span>
-                  )}
-                  <TimerButton taskId={t.id!} />
+                  </div>
+                  <div className="h-1.5 bg-secondary rounded-full overflow-hidden mb-1">
+                    <div
+                      className={cn('h-full rounded-full transition-all', ratio > 1 ? 'bg-destructive' : ratio > 0.8 ? 'bg-yellow-500' : 'bg-primary')}
+                      style={{ width: `${Math.min(100, ratio * 100)}%` }}
+                    />
+                  </div>
+                  {ratio > 1 ? (
+                    <p className="text-xs text-destructive mb-2">Bloco lotado — passe algo para outro bloco ou dia.</p>
+                  ) : ratio > 0.8 ? (
+                    <p className="text-xs text-yellow-500 mb-2">Quase cheio — priorize o mais importante.</p>
+                  ) : <div className="mb-2" />}
+                  {renderRows(list, 'Nenhuma tarefa neste bloco')}
                 </div>
-              </div>
               );
             })}
           </div>
-        </div>
-      )}
 
-      <div className="grid grid-cols-1 gap-4">
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            <h2 className="font-semibold text-foreground">Tempo do Período</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-muted-foreground">Estimado</p>
-              <p className="text-xl font-bold text-foreground">{formatMinutes(stats.estTotal)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Real</p>
-              <p className="text-xl font-bold text-foreground">{formatMinutes(stats.realTotal)}</p>
-            </div>
-          </div>
-          {stats.estTotal > 0 && (
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Progresso</span>
-                <span>{Math.min(100, Math.round((stats.realTotal / stats.estTotal) * 100))}%</span>
+          {blocks.none.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <h2 className="font-semibold text-foreground">Sem bloco definido</h2>
               </div>
-              <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (stats.realTotal / stats.estTotal) * 100)}%` }}
-                />
-              </div>
+              {renderRows(blocks.none, '')}
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Tasks by block */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {(['morning', 'afternoon'] as const).map((block) => {
-          const config = BLOCK_CONFIG[block];
-          const BlockIcon = config.icon;
-          const taskList = blockTasks[block];
-          const totalEst = blockMinutes[block];
-          const capacity = config.hours * 60;
-
-          return (
-            <div key={block} className="bg-card border border-border rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <BlockIcon className="h-5 w-5 text-primary" />
-                  <h2 className="font-semibold text-foreground">{config.label}</h2>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatMinutes(totalEst)} / {formatMinutes(capacity)}
-                </div>
-              </div>
-              {capacity > 0 && (
-                <div className="mb-3">
-                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        totalEst > capacity ? 'bg-destructive' : totalEst > capacity * 0.8 ? 'bg-yellow-500' : 'bg-primary'
-                      }`}
-                      style={{ width: `${Math.min(100, (totalEst / capacity) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-              {renderTaskList(taskList)}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Tasks without block */}
-      {blockTasks.none.length > 0 && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-            <h2 className="font-semibold text-foreground">Sem Bloco Definido</h2>
-          </div>
-          {renderTaskList(blockTasks.none)}
-        </div>
+        </>
       )}
 
-      <TaskModal
-        key={modalKey}
-        open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditTask(null); }}
-        task={editTask}
-      />
-
-      <CompletionDateDialog
-        open={!!completionDialog}
-        taskName={completionDialog?.name || ''}
-        initialDate={completionDialog?.initialDate}
-        onConfirm={async (completedAt) => {
-          if (completionDialog) {
-            const task = (tasks || []).find((t) => t.id === completionDialog.id);
-            if (task) await handleStatusChange(task, 'done', completedAt);
-          }
-          setCompletionDialog(null);
-        }}
-        onCancel={() => setCompletionDialog(null)}
-      />
+      {modal}
+      {dialogs}
 
       {editingReminder && (
         <ReminderEditDialog

@@ -64,7 +64,7 @@ export function useCreateReminder() {
         .order('position', { ascending: false })
         .limit(1)
         .maybeSingle();
-      const position = ((existing as any)?.position ?? -1) + 1;
+      const position = (existing?.position ?? -1) + 1;
       const { data, error } = await supabase
         .from('reminders')
         .insert({ ...reminder, user_id: user.id, position })
