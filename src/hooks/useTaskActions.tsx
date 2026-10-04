@@ -5,6 +5,7 @@ import CompletionDateDialog from '@/components/CompletionDateDialog';
 import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
 import { formatDayLabel } from '@/lib/occurrences';
 import { Task } from '@/lib/types';
+import { UNDO_TOAST_DURATION } from '@/lib/utils';
 
 /** When a task completed while viewing `day` is recorded: now for today, end of that day for past days. */
 function completionTimeFor(day: Date | null): string {
@@ -43,6 +44,7 @@ export function useTaskActions() {
         if (done) {
           toast.success(`Concluída · ${formatDayLabel(key)}`, {
             description: task.name,
+            duration: UNDO_TOAST_DURATION,
             action: {
               label: 'Desfazer',
               onClick: () => updateTaskRecurrence(task.id, (cfg) => removeCompletedDate(cfg, key))
@@ -63,6 +65,7 @@ export function useTaskActions() {
         await setDone(task, completedAt);
         toast.success('Tarefa concluída', {
           description: task.name,
+          duration: UNDO_TOAST_DURATION,
           action: {
             label: 'Alterar data',
             onClick: () => setDateDialog({ task, initialDate: new Date(completedAt) }),

@@ -11,7 +11,8 @@ import {
 } from './recurrence';
 import { doesRecurrenceMatchDate, listOccurrenceKeys } from './recurrenceExpander';
 import { getMissedDateKey, isOverdueTask } from './overdueUtils';
-import { fromLocalDateKey } from './recurrence';
+import { addSkippedDate, fromLocalDateKey } from './recurrence';
+import { resolveOccurrenceKey } from './occurrences';
 
 const day = (key: string) => fromLocalDateKey(key);
 
@@ -147,6 +148,12 @@ describe('overdue with moves', () => {
   it('an ended recurrence is not overdue after its end date', () => {
     const cfg = endRecurrence(addCompletedDate(weeklyWed, '2026-09-30'), '2026-10-06');
     expect(isOverdueTask({ due_date: ANCHOR, recurrence_config: cfg, status: 'todo' })).toBe(false);
+  });
+
+  it('without a viewed day, actions go to the next occurrence that was not skipped', () => {
+    // Thu 2026-10-08: next Wednesdays are 14/10 (skipped) and 21/10
+    const cfg = addSkippedDate(addCompletedDate(weeklyWed, '2026-10-07'), '2026-10-14');
+    expect(resolveOccurrenceKey({ due_date: ANCHOR, recurrence_config: cfg })).toBe('2026-10-21');
   });
 
   it('non-recurring with a past due date is overdue until done', () => {

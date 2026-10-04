@@ -35,7 +35,7 @@ export default function TimerControls({ session, className }: TimerControlsProps
       {
         onSuccess: (saved) => {
           setStaleOpen(false);
-          toast.success(`Tempo salvo: ${formatMinutes(saved)}`);
+          toast.success(`Tempo salvo: ${saved < 1 ? 'menos de 1min' : formatMinutes(saved)}`);
         },
         onError: () => toast.error('Erro ao salvar o tempo'),
       },

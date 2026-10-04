@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import TaskModal from '@/components/TaskModal';
 import PriorityBadge from '@/components/PriorityBadge';
-import { cn } from '@/lib/utils';
+import { cn, UNDO_TOAST_DURATION } from '@/lib/utils';
 
 export default function RecurrencesPage() {
   const { data: tasks, isLoading } = useTasks();
@@ -42,6 +42,7 @@ export default function RecurrencesPage() {
       await updateTaskRecurrence(task.id, (rc) => endRecurrence(rc, lastKey));
       toast.success('Recorrência encerrada — o histórico foi mantido', {
         description: task.name,
+        duration: UNDO_TOAST_DURATION,
         action: {
           label: 'Desfazer',
           onClick: () => updateTaskRecurrence(task.id, resumeRecurrence).catch(() => toast.error('Erro ao desfazer')),

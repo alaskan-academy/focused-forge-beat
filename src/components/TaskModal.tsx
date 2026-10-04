@@ -29,6 +29,7 @@ import { addLocalDays } from '@/lib/dateUtils';
 import { formatDayLabel, resolveOccurrenceKey } from '@/lib/occurrences';
 import { formatDurationInput, formatMinutes, parseDuration } from '@/lib/formatters';
 import { Task } from '@/lib/types';
+import { UNDO_TOAST_DURATION } from '@/lib/utils';
 
 interface TaskModalProps {
   open: boolean;
@@ -143,6 +144,7 @@ export default function TaskModal({ open, onClose, task, contextDate, defaults, 
       const taskId = task.id;
       toast.success(message, {
         description: task.name,
+        duration: undo ? UNDO_TOAST_DURATION : undefined,
         action: undo ? {
           label: 'Desfazer',
           onClick: () => updateTaskRecurrence(taskId, undo).catch(() => toast.error('Erro ao desfazer')),
@@ -204,6 +206,7 @@ export default function TaskModal({ open, onClose, task, contextDate, defaults, 
       onClose();
       toast.success('Tarefa movida para a Lixeira', {
         description: task.name,
+        duration: UNDO_TOAST_DURATION,
         action: {
           label: 'Desfazer',
           onClick: () => restoreTask(taskId)

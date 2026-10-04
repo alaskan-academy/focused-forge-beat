@@ -129,7 +129,7 @@ export default function CalendarPage() {
 
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-foreground capitalize">
+            <h2 className="font-semibold text-foreground first-letter:uppercase">
               {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
             </h2>
             <Button size="sm" variant="outline" onClick={addForSelectedDay}>

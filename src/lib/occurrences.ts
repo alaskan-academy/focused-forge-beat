@@ -19,7 +19,7 @@ export function formatDayLabel(dateKey: string): string {
 /**
  * Which occurrence of a recurring task an action (complete, skip, move) applies to:
  * the viewed day if the task occurs (or was completed) then, otherwise the most recent
- * missed occurrence, otherwise the next upcoming one.
+ * missed occurrence, otherwise the next upcoming one that wasn't skipped.
  */
 export function resolveOccurrenceKey(task: RecurringTaskLike, contextDate?: Date | null): string | null {
   const rc = parseRecurrence(task.recurrence_config);
@@ -33,7 +33,8 @@ export function resolveOccurrenceKey(task: RecurringTaskLike, contextDate?: Date
   const missed = getMissedDateKey(task);
   if (missed) return missed;
   const today = startOfLocalDay(new Date());
-  return listOccurrenceKeys(rc, anchor, today, addLocalDays(today, 60))[0] ?? null;
+  const skipped = new Set(rc.skipped_dates || []);
+  return listOccurrenceKeys(rc, anchor, today, addLocalDays(today, 60)).find((k) => !skipped.has(k)) ?? null;
 }
 
 /** Occurrences that can still be moved: from a week ago to two months ahead, not done or skipped. */

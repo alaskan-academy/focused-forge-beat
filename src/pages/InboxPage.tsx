@@ -7,6 +7,7 @@ import { useInboxItems, useCreateInboxItem, useToggleInboxItem, useDeleteInboxIt
 import { useTaskModal } from '@/hooks/useTaskModal';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
+import { UNDO_TOAST_DURATION } from '@/lib/utils';
 
 const iconButton = 'p-1.5 rounded text-muted-foreground transition-opacity md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100';
 
@@ -52,6 +53,7 @@ export default function InboxPage() {
       await deleteItem.mutateAsync(item.id);
       toast.success('Item excluído', {
         description: item.content,
+        duration: UNDO_TOAST_DURATION,
         action: {
           label: 'Desfazer',
           onClick: () => createItem.mutateAsync(item.content)
