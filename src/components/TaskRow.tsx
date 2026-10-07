@@ -44,9 +44,10 @@ export default function TaskRow({
   const realTotal = isRecurring ? 0 : Number(task.total_tracked_minutes || 0);
   const realPeriod = getTaskDisplayMinutes(task, dateFilter, customRange);
 
-  // Manual time goes to the viewed day (or the missed occurrence for overdue rows)
+  // Manual time counts on the day on screen (today for week views) — also for overdue rows,
+  // since the work is happening now, not on the missed day
   const singleDay = getFilterSingleDay(dateFilter, customRange);
-  const timeDayKey = overdue && occurrenceKey ? occurrenceKey : singleDay ? toLocalDateKey(singleDay) : undefined;
+  const timeDayKey = singleDay ? toLocalDateKey(singleDay) : undefined;
 
   const movedFrom = occurrenceKey ? getRescheduledFrom(task.recurrence_config, occurrenceKey) : null;
 

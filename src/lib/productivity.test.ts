@@ -55,6 +55,17 @@ describe('productivity', () => {
     expect(getCompletions([daily, oneOffDone, oneOffLate], week)).toHaveLength(3);
   });
 
+  it('late completions count on the day they were done', () => {
+    const weekly = task({
+      due_date: '2026-09-07',
+      recurrence_config: { type: 'weekly', interval: 1, days_of_week: [1], completed_dates: ['2026-09-28', '2026-10-05'], completed_on: { '2026-09-28': '2026-10-05' } },
+    });
+    const completions = getCompletions([weekly], { from: d('2026-09-28'), to: d('2026-10-04') });
+    expect(completions).toHaveLength(0); // 28/09 was done on 05/10, outside this range
+    const next = getCompletions([weekly], { from: d('2026-10-05'), to: d('2026-10-05') });
+    expect(next.map((c) => c.dateKey)).toEqual(['2026-10-05', '2026-10-05']);
+  });
+
   it('plans estimated minutes per day, skipping skipped occurrences', () => {
     expect(getPlannedMinutesForDay([daily], d('2026-10-05'))).toBe(60);
     expect(getPlannedMinutesForDay([daily], d('2026-10-06'))).toBe(0);

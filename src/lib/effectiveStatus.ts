@@ -1,4 +1,4 @@
-import { parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
+import { getCompletionDays, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 import { doesRecurrenceMatchDate, getRecurrenceAnchor } from '@/lib/recurrenceExpander';
 import { DayRange, eachDayOfRange, getFilterRange } from '@/lib/dateUtils';
 import { DateFilter } from '@/lib/types';
@@ -9,7 +9,8 @@ export type EffectiveStatus = 'todo' | 'in_progress' | 'done' | 'skipped';
  * Status of a task within the viewed period.
  *
  * Non-recurring tasks keep their real status. Recurring tasks are judged by their occurrences:
- * - single day: done / skipped / todo for that day's occurrence;
+ * - single day: done / skipped / todo for that day's occurrence; a day without a pending
+ *   occurrence of its own shows done when another occurrence was done that day (late or early);
  * - several days (week, custom range): done when every occurrence in the period is done,
  *   in_progress when only some are, skipped when all were skipped.
  */
@@ -30,14 +31,16 @@ export function getEffectiveStatus(
   const completed = new Set(recConfig.completed_dates || []);
   const skipped = new Set(recConfig.skipped_dates || []);
   const days = eachDayOfRange(range!);
+  const anchor = getRecurrenceAnchor(task);
 
   if (days.length === 1) {
     const key = toLocalDateKey(days[0]);
-    if (skipped.has(key)) return 'skipped';
-    return completed.has(key) ? 'done' : 'todo';
+    if (completed.has(key)) return 'done';
+    if (doesRecurrenceMatchDate(recConfig, anchor, days[0]) && !skipped.has(key)) return 'todo';
+    if (getCompletionDays(recConfig).some((c) => c.doneOn === key)) return 'done';
+    return skipped.has(key) ? 'skipped' : 'todo';
   }
 
-  const anchor = getRecurrenceAnchor(task);
   const occurrenceKeys = days
     .filter((d) => doesRecurrenceMatchDate(recConfig, anchor, d) || completed.has(toLocalDateKey(d)))
     .map(toLocalDateKey);

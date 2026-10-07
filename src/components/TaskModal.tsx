@@ -21,7 +21,7 @@ import { useCreateTask, useUpdateTask, useDeleteTask, restoreTask, updateTaskRec
 import { useProjects } from '@/hooks/useProjects';
 import { useAddManualTime, manualTimeDayLabel } from '@/hooks/useManualTime';
 import {
-  RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey,
+  RecurrenceConfig, DEFAULT_RECURRENCE, parseRecurrence, toLocalDateKey, completionDayFor,
   addCompletedDate, removeCompletedDate, addSkippedDate, removeSkippedDate,
   endRecurrence, resumeRecurrence, moveOccurrence, undoMove,
 } from '@/lib/recurrence';
@@ -35,8 +35,11 @@ interface TaskModalProps {
   open: boolean;
   onClose: () => void;
   task?: Task | null;
-  /** Day being viewed: which occurrence of a recurring task the modal acts on, and where time adjustments land. */
+  /** Which occurrence of a recurring task the modal acts on (the viewed day, or a missed day for overdue rows). */
   contextDate?: Date | null;
+  /** Day on screen when the modal was opened. Completions and time adjustments count on it if it's
+   *  in the past (logging an earlier day), otherwise on today. Defaults to `contextDate`. */
+  viewedDate?: Date | null;
   /** Prefill for new tasks. */
   defaults?: { name?: string; due_date?: string | null };
   onCreated?: () => void;
@@ -57,7 +60,7 @@ interface FormState {
   workBlock: string;
 }
 
-export default function TaskModal({ open, onClose, task, contextDate, defaults, onCreated }: TaskModalProps) {
+export default function TaskModal({ open, onClose, task, contextDate, viewedDate = contextDate, defaults, onCreated }: TaskModalProps) {
   const isEdit = !!task;
   const todayKey = toLocalDateKey(new Date());
   const savedRecurrence = parseRecurrence(task?.recurrence_config);
@@ -107,9 +110,9 @@ export default function TaskModal({ open, onClose, task, contextDate, defaults, 
   const dirty = JSON.stringify(form) !== JSON.stringify(initial) || addMinutes.trim() !== '';
   const formIsRecurring = form.recurrence.type !== 'none';
 
-  // Where manual time adjustments land: the viewed day (if not in the future), else today
   const contextKey = contextDate ? toLocalDateKey(contextDate) : null;
-  const adjustDayKey = contextKey && contextKey < todayKey ? contextKey : todayKey;
+  // The day work counts on (completions, time adjustments): the viewed day if past, else today
+  const adjustDayKey = completionDayFor(viewedDate);
 
   // Validation
   const estimatedMinutes = form.estimated.trim() ? parseDuration(form.estimated) : 0;
@@ -245,7 +248,7 @@ export default function TaskModal({ open, onClose, task, contextDate, defaults, 
       let rc = form.recurrence;
       const key = occurrenceKey ?? contextKey ?? todayKey;
       const wasDone = (rc.completed_dates || []).includes(key);
-      if (form.status === 'done' && !wasDone) rc = addCompletedDate(rc, key);
+      if (form.status === 'done' && !wasDone) rc = addCompletedDate(rc, key, adjustDayKey);
       if (form.status !== 'done' && wasDone) rc = removeCompletedDate(rc, key);
       payload = { ...base, status: 'todo', completed_at: null, recurrence_config: rc };
     } else {

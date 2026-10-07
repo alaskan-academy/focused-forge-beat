@@ -4,6 +4,9 @@ export interface RecurrenceConfig {
   days_of_week?: number[]; // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sab
   days_of_month?: number[]; // 1-31
   completed_dates?: string[]; // yyyy-MM-dd, completion per recurring occurrence
+  /** Occurrences completed on a different day than their own (late or early):
+   *  occurrence date → day it was actually done. Daily productivity counts the actual day. */
+  completed_on?: Record<string, string>;
   skipped_dates?: string[]; // yyyy-MM-dd, skipped occurrences
   /** Occurrences moved to another day: original date → new date (yyyy-MM-dd). */
   rescheduled?: Record<string, string>;
@@ -48,6 +51,7 @@ export function parseRecurrence(val: unknown): RecurrenceConfig {
     days_of_week: Array.isArray(obj.days_of_week) ? obj.days_of_week : [],
     days_of_month: Array.isArray(obj.days_of_month) ? obj.days_of_month : [],
     completed_dates: Array.isArray(obj.completed_dates) ? obj.completed_dates.filter((d): d is string => typeof d === 'string') : [],
+    completed_on: parseDateKeyMap(obj.completed_on),
     skipped_dates: Array.isArray(obj.skipped_dates) ? obj.skipped_dates.filter((d): d is string => typeof d === 'string') : [],
     rescheduled: parseDateKeyMap(obj.rescheduled),
     end_date: typeof obj.end_date === 'string' && DATE_KEY.test(obj.end_date) ? obj.end_date : undefined,
@@ -97,20 +101,46 @@ export function removeSkippedDate(config: unknown, dateKey: string): RecurrenceC
   };
 }
 
-export function addCompletedDate(config: unknown, dateKey: string): RecurrenceConfig {
+/**
+ * Marks the occurrence of `dateKey` as done. `doneOnKey` is the day the work actually happened
+ * (e.g. today, for yesterday's missed occurrence); it is recorded only when it differs.
+ */
+export function addCompletedDate(config: unknown, dateKey: string, doneOnKey?: string): RecurrenceConfig {
   const parsed = parseRecurrence(config);
+  const completedOn = { ...(parsed.completed_on || {}) };
+  if (doneOnKey && doneOnKey !== dateKey) completedOn[dateKey] = doneOnKey;
+  else delete completedOn[dateKey];
   return {
     ...parsed,
     completed_dates: [...new Set([...(parsed.completed_dates || []), dateKey])].sort(),
+    completed_on: completedOn,
   };
 }
 
 export function removeCompletedDate(config: unknown, dateKey: string): RecurrenceConfig {
   const parsed = parseRecurrence(config);
+  const completedOn = { ...(parsed.completed_on || {}) };
+  delete completedOn[dateKey];
   return {
     ...parsed,
     completed_dates: (parsed.completed_dates || []).filter((d) => d !== dateKey),
+    completed_on: completedOn,
   };
+}
+
+/** Day each completed occurrence was actually done, keyed by occurrence date. */
+export function getCompletionDays(config: unknown): { occurrence: string; doneOn: string }[] {
+  const parsed = parseRecurrence(config);
+  const completedOn = parsed.completed_on || {};
+  return (parsed.completed_dates || []).map((occurrence) => ({ occurrence, doneOn: completedOn[occurrence] ?? occurrence }));
+}
+
+/** The day a completion counts on: the day being viewed if it's in the past, otherwise today. */
+export function completionDayFor(viewedDay?: Date | null): string {
+  const todayKey = toLocalDateKey(new Date());
+  if (!viewedDay) return todayKey;
+  const viewedKey = toLocalDateKey(viewedDay);
+  return viewedKey < todayKey ? viewedKey : todayKey;
 }
 
 /** Ends the recurrence after `lastDateKey`, keeping completions, skips and the work block. */

@@ -11,7 +11,7 @@ import {
 } from './recurrence';
 import { doesRecurrenceMatchDate, listOccurrenceKeys } from './recurrenceExpander';
 import { getMissedDateKey, isOverdueTask } from './overdueUtils';
-import { addSkippedDate, fromLocalDateKey } from './recurrence';
+import { addSkippedDate, completionDayFor, fromLocalDateKey, removeCompletedDate } from './recurrence';
 import { resolveOccurrenceKey } from './occurrences';
 
 const day = (key: string) => fromLocalDateKey(key);
@@ -148,6 +148,24 @@ describe('overdue with moves', () => {
   it('an ended recurrence is not overdue after its end date', () => {
     const cfg = endRecurrence(addCompletedDate(weeklyWed, '2026-09-30'), '2026-10-06');
     expect(isOverdueTask({ due_date: ANCHOR, recurrence_config: cfg, status: 'todo' })).toBe(false);
+  });
+
+  it('finishing a missed occurrence late clears the overdue and records the real day', () => {
+    // Wednesday 07/10 missed; done today, Thursday 08/10
+    const cfg = addCompletedDate(addCompletedDate(weeklyWed, '2026-09-30'), '2026-10-07', '2026-10-08');
+    expect(cfg.completed_dates).toContain('2026-10-07');
+    expect(cfg.completed_on).toEqual({ '2026-10-07': '2026-10-08' });
+    expect(isOverdueTask({ due_date: ANCHOR, recurrence_config: cfg, status: 'todo' })).toBe(false);
+    // Undoing removes both
+    const undone = removeCompletedDate(cfg, '2026-10-07');
+    expect(undone.completed_on).toEqual({});
+    expect(undone.completed_dates).not.toContain('2026-10-07');
+  });
+
+  it('completion day is the viewed past day, otherwise today', () => {
+    expect(completionDayFor(null)).toBe('2026-10-08');
+    expect(completionDayFor(fromLocalDateKey('2026-10-07'))).toBe('2026-10-07');
+    expect(completionDayFor(fromLocalDateKey('2026-10-09'))).toBe('2026-10-08');
   });
 
   it('without a viewed day, actions go to the next occurrence that was not skipped', () => {

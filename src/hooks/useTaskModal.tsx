@@ -5,6 +5,7 @@ import { Task } from '@/lib/types';
 interface ModalState {
   task: Task | null;
   contextDate: Date | null;
+  viewedDate: Date | null;
   defaults?: { name?: string; due_date?: string | null };
   onCreated?: () => void;
 }
@@ -13,7 +14,7 @@ interface ModalState {
 export function useTaskModal() {
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState(0);
-  const [state, setState] = useState<ModalState>({ task: null, contextDate: null });
+  const [state, setState] = useState<ModalState>({ task: null, contextDate: null, viewedDate: null });
 
   const show = (next: ModalState) => {
     setState(next);
@@ -21,9 +22,14 @@ export function useTaskModal() {
     setOpen(true);
   };
 
-  const openTask = (task: Task, contextDate: Date | null = null) => show({ task, contextDate });
+  /**
+   * `contextDate`: the occurrence to act on (viewed day, or the missed day of an overdue row).
+   * `viewedDate`: the day on screen, where completions and time count; defaults to `contextDate`.
+   */
+  const openTask = (task: Task, contextDate: Date | null = null, viewedDate: Date | null = contextDate) =>
+    show({ task, contextDate, viewedDate });
   const openNew = (defaults?: ModalState['defaults'], onCreated?: () => void) =>
-    show({ task: null, contextDate: null, defaults, onCreated });
+    show({ task: null, contextDate: null, viewedDate: null, defaults, onCreated });
 
   const modal = (
     <TaskModal
@@ -32,6 +38,7 @@ export function useTaskModal() {
       onClose={() => setOpen(false)}
       task={state.task}
       contextDate={state.contextDate}
+      viewedDate={state.viewedDate}
       defaults={state.defaults}
       onCreated={state.onCreated}
     />

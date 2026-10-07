@@ -1,5 +1,5 @@
 import { Task } from '@/lib/types';
-import { parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
+import { getCompletionDays, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 import { getRecurrenceAnchor, listOccurrenceKeys } from '@/lib/recurrenceExpander';
 import { DayRange, getDailyEstimatedMinutes, parseLocalDate, startOfLocalDay } from '@/lib/dateUtils';
 
@@ -11,7 +11,7 @@ export interface PlannedItem {
   outcome: 'done' | 'skipped' | 'missed' | 'upcoming';
 }
 
-/** A completion: a one-off task finished, or a recurring occurrence checked off. */
+/** A completion: a one-off task finished, or a recurring occurrence checked off — dated by when it was done. */
 export interface Completion {
   task: Task;
   dateKey: string;
@@ -58,8 +58,9 @@ export function getCompletions(tasks: Task[], range: DayRange): Completion[] {
       if (key >= fromKey && key <= toKey) out.push({ task, dateKey: key });
       continue;
     }
-    for (const key of rc.completed_dates || []) {
-      if (key >= fromKey && key <= toKey) out.push({ task, dateKey: key });
+    // Counted on the day the work was done, not the occurrence's own day
+    for (const { doneOn } of getCompletionDays(rc)) {
+      if (doneOn >= fromKey && doneOn <= toKey) out.push({ task, dateKey: doneOn });
     }
   }
   return out;

@@ -129,6 +129,17 @@ describe('pages render with data', () => {
     });
   });
 
+  it('finishing an overdue occurrence today counts it as today’s work', async () => {
+    render(wrap(<DashboardPage />));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Concluir Análise de Funil' }));
+    await waitFor(() => {
+      const update = fake.current!.calls.find((c) => c.op === 'update' && c.table === 'tasks');
+      const rc = (update?.payload as { recurrence_config: { completed_dates: string[]; completed_on: Record<string, string> } }).recurrence_config;
+      expect(rc.completed_dates).toContain('2026-10-01'); // the missed Thursday leaves "Atrasadas"
+      expect(rc.completed_on).toEqual({ '2026-10-01': '2026-10-05' }); // done today, Monday
+    });
+  });
+
   it('day navigation shows the Wednesday occurrence', async () => {
     render(wrap(<DashboardPage />));
     await screen.findByText('Subir novas pages');

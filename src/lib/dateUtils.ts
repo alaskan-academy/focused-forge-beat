@@ -1,5 +1,5 @@
 import { DateFilter } from '@/lib/types';
-import { parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
+import { getCompletionDays, parseRecurrence, toLocalDateKey } from '@/lib/recurrence';
 
 export interface DayRange {
   from: Date;
@@ -222,7 +222,8 @@ export function getDailyEstimatedMinutes(
 }
 
 /**
- * Check if a recurring task has a completed_dates entry within the filter period.
+ * Check if a recurring task has an occurrence completed within the filter period — either an
+ * occurrence of that period, or one done in that period (e.g. yesterday's, done late today).
  */
 export function recurringCompletedOnFilterDate(
   recurrenceConfig: unknown,
@@ -231,12 +232,13 @@ export function recurringCompletedOnFilterDate(
 ): boolean {
   const rc = parseRecurrence(recurrenceConfig);
   if (rc.type === 'none') return false;
-  const completedDates = rc.completed_dates || [];
-  if (completedDates.length === 0) return false;
+  const completions = getCompletionDays(rc);
+  if (completions.length === 0) return false;
   const range = getFilterRange(dateFilter, customRange);
   if (!range) return false;
 
   const fromKey = toLocalDateKey(range.from);
   const toKey = toLocalDateKey(range.to);
-  return completedDates.some((d) => d >= fromKey && d <= toKey);
+  const inRange = (d: string) => d >= fromKey && d <= toKey;
+  return completions.some((c) => inRange(c.occurrence) || inRange(c.doneOn));
 }

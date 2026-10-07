@@ -99,6 +99,28 @@ describe('getEffectiveStatus', () => {
     expect(getEffectiveStatus(daily(all), 'week')).toBe('done');
   });
 
+  it('a weekly occurrence done late shows as done on the day it was done', () => {
+    // Monday 05/10 occurrence done today (Wednesday 07/10)
+    const weekly = {
+      status: 'todo',
+      due_date: '2026-09-07',
+      recurrence_config: { type: 'weekly', interval: 1, days_of_week: [1], completed_dates: ['2026-10-05'], completed_on: { '2026-10-05': '2026-10-07' } },
+    };
+    expect(taskMatchesDateFilter(weekly, 'today')).toBe(true);
+    expect(getEffectiveStatus(weekly, 'today')).toBe('done');
+    // Its own day still counts as done too
+    expect(getEffectiveStatus(weekly, 'custom', { from: d('2026-10-05'), to: d('2026-10-05') })).toBe('done');
+  });
+
+  it('a pending occurrence of the day wins over a late completion', () => {
+    const daily = {
+      status: 'todo',
+      due_date: '2026-10-01',
+      recurrence_config: { type: 'daily', interval: 1, completed_dates: ['2026-10-06'], completed_on: { '2026-10-06': '2026-10-07' } },
+    };
+    expect(getEffectiveStatus(daily, 'today')).toBe('todo');
+  });
+
   it('non-recurring keeps its own status', () => {
     expect(getEffectiveStatus({ status: 'in_progress', recurrence_config: { type: 'none' } }, 'week')).toBe('in_progress');
   });

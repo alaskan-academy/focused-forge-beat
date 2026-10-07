@@ -184,8 +184,8 @@ export default function TasksPage() {
                 dateFilter={dateFilter}
                 customRange={customRange}
                 overdue
-                onOpen={(t) => openTask(t, missedKey ? fromLocalDateKey(missedKey) : null)}
-                onToggleDone={(t, done, key) => toggleDone(t, done, { occurrenceKey: key })}
+                onOpen={(t) => openTask(t, missedKey ? fromLocalDateKey(missedKey) : null, viewedDay)}
+                onToggleDone={(t, done, key) => toggleDone(t, done, { occurrenceKey: key, viewedDay })}
               />
             ))}
           </div>

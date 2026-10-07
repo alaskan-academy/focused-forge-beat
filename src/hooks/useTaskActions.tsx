@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useUpdateTask, updateTaskRecurrence } from '@/hooks/useTasks';
 import CompletionDateDialog from '@/components/CompletionDateDialog';
-import { addCompletedDate, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
+import { addCompletedDate, completionDayFor, parseRecurrence, removeCompletedDate, toLocalDateKey } from '@/lib/recurrence';
 import { formatDayLabel } from '@/lib/occurrences';
 import { Task } from '@/lib/types';
 import { UNDO_TOAST_DURATION } from '@/lib/utils';
@@ -29,20 +29,27 @@ export function useTaskActions() {
 
   /**
    * Marks a task done or not done.
-   * Recurring: `occurrenceKey` is the occurrence affected. Non-recurring: `viewedDay` sets the completion date.
+   * Recurring: `occurrenceKey` is the occurrence affected. `viewedDay` is the day on screen: completions
+   * count on it when it's in the past (logging yesterday), otherwise on today — so finishing yesterday's
+   * missed occurrence today counts as today's work.
    */
   const toggleDone = async (task: Task, done: boolean, opts: { occurrenceKey?: string | null; viewedDay?: Date | null } = {}) => {
     const rc = parseRecurrence(task.recurrence_config);
 
     if (rc.type !== 'none') {
       const key = opts.occurrenceKey ?? toLocalDateKey(opts.viewedDay ?? new Date());
+      const doneOn = completionDayFor(opts.viewedDay);
       try {
         await updateTask.mutateAsync({
           id: task.id,
-          recurrence_config: done ? addCompletedDate(task.recurrence_config, key) : removeCompletedDate(task.recurrence_config, key),
+          recurrence_config: done
+            ? addCompletedDate(task.recurrence_config, key, doneOn)
+            : removeCompletedDate(task.recurrence_config, key),
         });
         if (done) {
-          toast.success(`Concluída · ${formatDayLabel(key)}`, {
+          const late = doneOn !== key;
+          const doneLabel = doneOn === toLocalDateKey(new Date()) ? 'hoje' : `em ${formatDayLabel(doneOn)}`;
+          toast.success(late ? `Ocorrência de ${formatDayLabel(key)} concluída ${doneLabel}` : `Concluída · ${formatDayLabel(key)}`, {
             description: task.name,
             duration: UNDO_TOAST_DURATION,
             action: {
