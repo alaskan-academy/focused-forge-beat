@@ -91,10 +91,11 @@ const segunda: Linha[] = [
 
 const terca: Linha[] = [
   acordar, caminhada, cafe, suporteSemana,
-  { hora: '8:45–10:45', oque: 'Bloco 1, com 10 min revisando a aula anterior', agua: [1000, 700] },
-  { hora: '11:00–12:00', oque: 'Aula de inglês; logo depois, 5 min anotando palavras novas', tipo: 'aula', destaque: true },
-  almoco, casaPets,
-  { hora: '13:45–17:15', oque: 'Trabalho mais operacional; café da tarde às 15:30', agua: [1000, 700] },
+  { hora: '8:45–11:15', oque: 'Bloco 1, com 10 min revisando a aula anterior', agua: [1000, 700] },
+  { hora: '11:30–12:30', oque: 'Aula de inglês; logo depois, 5 min anotando palavras novas', tipo: 'aula', destaque: true },
+  { hora: '12:30–13:45', oque: 'Almoço: metade vegetais, proteína, carboidrato de verdade', agua: [300, 200] },
+  { hora: '13:45–14:15', oque: 'Casa e pets', papel: 'casa' },
+  { hora: '14:15–17:15', oque: 'Trabalho mais operacional; café da tarde às 15:30', agua: [1000, 700] },
   { hora: '17:30', oque: 'Caminhada rápida na praia, juntos', agua: [500, 500], tipo: 'cardio', destaque: true },
   prepJantar, banho, jantar,
   { hora: '20:30', oque: 'Noite livre e leve (cabeça cansada da aula)' },
