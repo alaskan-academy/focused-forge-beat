@@ -237,18 +237,18 @@ const segunda: Linha[] = [
 const terca: Linha[] = [
   acordar, caminhada, cafe, suporteSemana,
   {
-    hora: '8:45–11:15', oque: 'Bloco 1, com 10 min revisando a aula anterior', agua: [1000, 700],
+    hora: '8:45–9:50', oque: 'Bloco curto, com revisão da aula anterior', agua: [1000, 700],
     explica: [
-      'Bloco focado mais curto, que termina antes da aula.',
-      'Nos primeiros 10 min, revisar as anotações da aula anterior.',
+      'Bloco curto antes da aula das 10h.',
+      'Começar com 10 min revisando as anotações da aula de quarta.',
       'Garrafa de 1 L até o almoço (Jessica, 700 ml).',
     ],
   },
-  { hora: '11:30–12:30', oque: 'Aula de inglês; logo depois, 5 min anotando palavras novas', tipo: 'aula', destaque: true, explica: comoAula },
-  { ...almoco, hora: '12:30–13:45' },
-  { ...casaPets, hora: '13:45–14:15' },
+  { hora: '10:00–11:00', oque: 'Aula de inglês; logo depois, 5 min anotando palavras novas', tipo: 'aula', destaque: true, explica: comoAula },
+  { hora: '11:15–12:00', oque: 'Trabalho operacional', explica: comoOperacional },
+  almoco, casaPets,
   {
-    hora: '14:15–17:15', oque: 'Trabalho mais operacional; café da tarde às 15:30', agua: [1000, 700],
+    hora: '13:45–17:15', oque: 'Trabalho mais operacional; café da tarde às 15:30', agua: [1000, 700],
     explica: [...comoOperacional, 'Pausa para o café da tarde às 15:30: iogurte + fruta, ovo cozido ou castanhas.'],
   },
   {
@@ -272,17 +272,17 @@ const terca: Linha[] = [
 const quarta: Linha[] = [
   acordar, caminhada, cafe, suporteSemana,
   {
-    hora: '8:45–9:50', oque: 'Bloco curto, com revisão da aula anterior', agua: [1000, 700],
+    hora: '8:45–11:15', oque: 'Bloco 1, com 10 min revisando a aula anterior', agua: [1000, 700],
     explica: [
-      'Bloco curto antes da aula das 10h.',
-      'Começar com 10 min revisando as anotações da aula de terça.',
+      'Bloco focado mais curto, que termina antes da aula das 11:30.',
+      'Nos primeiros 10 min, revisar as anotações da aula de terça.',
       'Garrafa de 1 L até o almoço (Jessica, 700 ml).',
     ],
   },
-  { hora: '10:00–11:00', oque: 'Aula de inglês; logo depois, anotar palavras novas', tipo: 'aula', destaque: true, explica: comoAula },
-  { hora: '11:15–12:00', oque: 'Trabalho operacional', explica: comoOperacional },
-  almoco, casaPets,
-  { hora: '13:45–15:00', oque: 'Trabalho operacional', agua: [1000, 700], explica: [...comoOperacional, 'Garrafa: Lucas 1 L, Jessica 700 ml até o jantar.'] },
+  { hora: '11:30–12:30', oque: 'Aula de inglês; logo depois, anotar palavras novas', tipo: 'aula', destaque: true, explica: comoAula },
+  { ...almoco, hora: '12:30–13:45' },
+  { ...casaPets, hora: '13:45–14:15' },
+  { hora: '14:15–15:00', oque: 'Trabalho operacional', agua: [1000, 700], explica: [...comoOperacional, 'Garrafa: Lucas 1 L, Jessica 700 ml até o jantar.'] },
   { hora: '15:00', oque: 'Café da tarde', explica: comoCafeTarde },
   {
     hora: '15:15', oque: 'Compras juntos (Komprão ou Silveira)', destaque: true,
