@@ -3,38 +3,47 @@ import { diaDaSemana, fase, metaAgua, roteiroDoDia, treinoDoDia, TOTAL_DIAS } fr
 import { calcularPontos, calcularSequencia } from './progresso';
 
 describe('plano do Modo Caverna', () => {
-  it('dia 1 é segunda e os dias 29–30 seguem a fase 4', () => {
-    expect(diaDaSemana(1)).toBe(0);
-    expect(diaDaSemana(7)).toBe(6);
+  it('o dia da semana vem da data real e os dias 29–30 seguem a fase 4', () => {
+    expect(diaDaSemana(new Date(2026, 9, 26))).toBe(0); // segunda, 26/10/2026
+    expect(diaDaSemana(new Date(2026, 9, 29))).toBe(3); // quinta
+    expect(diaDaSemana(new Date(2026, 10, 1))).toBe(6); // domingo
     expect(fase(8)).toBe(2);
     expect(fase(29)).toBe(4);
   });
 
   it('a água do roteiro soma a meta de cada um, nos dois papéis', () => {
     for (let dia = 1; dia <= TOTAL_DIAS; dia++) {
-      const domingo = diaDaSemana(dia) === 6;
-      for (const papel of ['casa', 'suporte'] as const) {
-        expect(metaAgua(dia, papel, 'lucas')).toBe(domingo ? 3400 : 3900);
-        expect(metaAgua(dia, papel, 'jessica')).toBe(domingo ? 2500 : 3000);
+      for (let sem = 0; sem < 7; sem++) {
+        const domingo = sem === 6;
+        for (const papel of ['casa', 'suporte'] as const) {
+          expect(metaAgua(dia, papel, 'lucas', sem)).toBe(domingo ? 3400 : 3900);
+          expect(metaAgua(dia, papel, 'jessica', sem)).toBe(domingo ? 2500 : 3000);
+        }
       }
     }
   });
 
-  it('o horário de dormir acompanha a fase', () => {
-    expect(roteiroDoDia(1, 'casa').at(-1)?.hora).toBe('23:30');
-    expect(roteiroDoDia(15, 'casa').at(-1)?.hora).toBe('22:30');
+  it('o horário de dormir acompanha a fase, não o dia da semana', () => {
+    expect(roteiroDoDia(1, 'casa', 3).at(-1)?.hora).toBe('23:30');
+    expect(roteiroDoDia(15, 'casa', 3).at(-1)?.hora).toBe('22:30');
+  });
+
+  it('o roteiro segue o dia da semana real, mesmo começando fora da segunda', () => {
+    // Dia 1 numa quinta: roteiro de quinta (sessão de música), não de segunda.
+    expect(roteiroDoDia(1, 'casa', 3).some((l) => l.oque.startsWith('Sessão de música'))).toBe(true);
+    expect(roteiroDoDia(1, 'casa', 2).some((l) => l.oque.startsWith('Compras'))).toBe(true);
   });
 
   it('tarefas de casa só aparecem para quem está na casa', () => {
-    expect(roteiroDoDia(1, 'casa').some((l) => l.oque === 'Casa e pets')).toBe(true);
-    expect(roteiroDoDia(1, 'suporte').some((l) => l.oque === 'Casa e pets')).toBe(false);
+    expect(roteiroDoDia(1, 'casa', 0).some((l) => l.oque === 'Casa e pets')).toBe(true);
+    expect(roteiroDoDia(1, 'suporte', 0).some((l) => l.oque === 'Casa e pets')).toBe(false);
   });
 
   it('treinos alternam A/B/A e B/A/B entre semanas', () => {
-    expect([1, 4, 5].map((d) => treinoDoDia(d)?.letra)).toEqual(['A', 'B', 'A']);
-    expect([8, 11, 12].map((d) => treinoDoDia(d)?.letra)).toEqual(['B', 'A', 'B']);
-    expect(treinoDoDia(2)).toBeNull();
-    expect(treinoDoDia(5)?.lucasComecaComPuxadores).toBe(false);
+    expect([0, 3, 4].map((sem) => treinoDoDia(3, sem)?.letra)).toEqual(['A', 'B', 'A']);
+    expect([0, 3, 4].map((sem) => treinoDoDia(10, sem)?.letra)).toEqual(['B', 'A', 'B']);
+    expect(treinoDoDia(1, 1)).toBeNull();
+    expect(treinoDoDia(1, 4)?.lucasComecaComPuxadores).toBe(false);
   });
 });
 
@@ -52,10 +61,10 @@ describe('progresso', () => {
   });
 
   it('toda linha do roteiro tem explicação, nos dois papéis', () => {
-    for (let dia = 1; dia <= 7; dia++) {
+    for (let sem = 0; sem < 7; sem++) {
       for (const papel of ['casa', 'suporte'] as const) {
-        for (const l of roteiroDoDia(dia, papel)) {
-          expect(l.explica?.length, `${dia} ${papel} ${l.hora} ${l.oque}`).toBeGreaterThan(0);
+        for (const l of roteiroDoDia(1, papel, sem)) {
+          expect(l.explica?.length, `${sem} ${papel} ${l.hora} ${l.oque}`).toBeGreaterThan(0);
         }
       }
     }

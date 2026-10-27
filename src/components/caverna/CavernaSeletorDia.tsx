@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { DIAS_SEMANA, META_CHECKLIST, TOTAL_DIAS } from '@/lib/caverna/plano';
+import { META_CHECKLIST, TOTAL_DIAS } from '@/lib/caverna/plano';
 
 interface Props {
   dia: number;
@@ -40,11 +40,8 @@ export default function CavernaSeletorDia({ dia, pontosPorDia, onIrPara, onRecom
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-[272px] p-3">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Em que dia vocês estão?</p>
+          <p className="text-xs font-medium text-muted-foreground mb-2">Em que dia vocês estão? Cada linha é uma semana.</p>
           <div className="grid grid-cols-7 gap-1">
-            {DIAS_SEMANA.map((d) => (
-              <span key={d} className="text-center text-[10px] text-muted-foreground">{d.slice(0, 1)}</span>
-            ))}
             {Array.from({ length: TOTAL_DIAS }, (_, i) => i + 1).map((d) => {
               const p = pontosPorDia.get(d);
               return (

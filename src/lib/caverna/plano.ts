@@ -14,9 +14,12 @@ export const PESSOAS: Record<Pessoa, { nome: string; altura: string; peso: strin
 
 export const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
-/** O dia 1 é sempre uma segunda-feira. 0 = segunda … 6 = domingo. */
-export function diaDaSemana(dia: number) {
-  return (dia - 1) % 7;
+/**
+ * Dia da semana da data real (0 = segunda … 6 = domingo). O roteiro, o treino e o
+ * checklist seguem o calendário; a contagem de dias (1 a 30) só define a fase.
+ */
+export function diaDaSemana(data: Date = new Date()) {
+  return (data.getDay() + 6) % 7;
 }
 
 /** Semana corrida (1 a 5; os dias 29 e 30 caem na semana 5). */
@@ -459,16 +462,17 @@ const domingo: Linha[] = [
 
 const ROTEIRO: Linha[][] = [segunda, terca, quarta, quinta, sexta, sabado, domingo];
 
-export function roteiroDoDia(dia: number, papel: Papel): Linha[] {
+/** `sem` é o dia da semana real (0 = segunda … 6 = domingo); `dia` é a contagem, que define a fase. */
+export function roteiroDoDia(dia: number, papel: Papel, sem: number): Linha[] {
   const dormirHora = infoFase(dia).dormir;
-  return ROTEIRO[diaDaSemana(dia)]
+  return ROTEIRO[sem]
     .filter((l) => !l.papel || l.papel === papel)
     .map((l) => (l.hora === '{dormir}' ? { ...l, hora: dormirHora } : l));
 }
 
-export function metaAgua(dia: number, papel: Papel, pessoa: Pessoa): number {
+export function metaAgua(dia: number, papel: Papel, pessoa: Pessoa, sem: number): number {
   const i = pessoa === 'lucas' ? 0 : 1;
-  return roteiroDoDia(dia, papel).reduce((s, l) => s + (l.agua ? l.agua[i] : 0), 0);
+  return roteiroDoDia(dia, papel, sem).reduce((s, l) => s + (l.agua ? l.agua[i] : 0), 0);
 }
 
 // ── Treino ────────────────────────────────────────────────────────
@@ -522,8 +526,8 @@ export const TREINOS: Record<'A' | 'B', Par[]> = {
 };
 
 /** Treino de elásticos do dia, ou null. Semanas ímpares: A/B/A; pares: B/A/B (seg/qui/sex). */
-export function treinoDoDia(dia: number): { letra: 'A' | 'B'; lucasComecaComPuxadores: boolean } | null {
-  const d = diaDaSemana(dia);
+export function treinoDoDia(dia: number, sem: number): { letra: 'A' | 'B'; lucasComecaComPuxadores: boolean } | null {
+  const d = sem;
   const pos = d === 0 ? 0 : d === 3 ? 1 : d === 4 ? 2 : -1;
   if (pos < 0) return null;
   const impar = semanaCorrida(dia) % 2 === 1;
@@ -545,8 +549,8 @@ export function aquecimento(dia: number): string[] {
 
 export type ItemId = 'acordar' | 'movimento' | 'alimentacao' | 'trabalho' | 'ingles' | 'agua' | 'sono';
 
-export function checklistDoDia(dia: number): { id: ItemId; label: string }[] {
-  const d = diaDaSemana(dia);
+export function checklistDoDia(sem: number): { id: ItemId; label: string }[] {
+  const d = sem;
   const livre = d === 4 || d === 5;
   const trabalho = d === 5 ? 'Cobri o suporte ou descansei de verdade' : d === 6 ? 'Fiz o check-in do casal' : 'Fiz o trabalho focado do dia';
   const ingles =
@@ -617,7 +621,7 @@ export const PRINCIPIOS: { titulo: string; porque: string; pratica: string }[] =
   {
     titulo: 'Recomeçar é permitido',
     porque: 'Se a vida atropelou a semana, arrastar um desafio quebrado desanima mais do que começar de novo. O objetivo é sair com os hábitos, não com o número.',
-    pratica: 'Pode começar no dia que quiser e voltar ao dia 1 quando precisar. Melhor ainda se o novo dia 1 for uma segunda.',
+    pratica: 'Pode começar no dia que quiser e voltar ao dia 1 quando precisar. Pode ser em qualquer dia da semana: o roteiro segue o calendário e a fase segue a contagem.',
   },
 ];
 

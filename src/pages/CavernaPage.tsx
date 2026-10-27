@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, Headset, Home, Mountain } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,21 @@ import CavernaSeletorDia from '@/components/caverna/CavernaSeletorDia';
 import { useCavernaDias, useCavernaPerfil, useRecomecar, useSalvarDia, useSalvarPerfil } from '@/hooks/useCaverna';
 import { DIAS_SEMANA, PESSOAS, TOTAL_DIAS, diaDaSemana, metaAgua, semanaCorrida, type ItemId, type Papel, type Pessoa } from '@/lib/caverna/plano';
 import { calcularPontos, calcularSequencia } from '@/lib/caverna/progresso';
+
+// Data de hoje, atualizada quando o dia vira (checa a cada minuto e ao voltar para a aba).
+function useHoje() {
+  const [hoje, setHoje] = useState(() => new Date());
+  useEffect(() => {
+    const checar = () => setHoje((h) => (h.toDateString() === new Date().toDateString() ? h : new Date()));
+    const id = window.setInterval(checar, 60_000);
+    document.addEventListener('visibilitychange', checar);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', checar);
+    };
+  }, []);
+  return hoje;
+}
 
 function Spinner() {
   return (
@@ -57,6 +72,8 @@ export default function CavernaPage() {
   const salvarPerfil = useSalvarPerfil();
   const salvarDia = useSalvarDia();
   const recomecar = useRecomecar();
+  const hoje = useHoje();
+  const sem = diaDaSemana(hoje);
 
   const pontosPorDia = useMemo(() => new Map((dias ?? []).map((d) => [d.dia, d.pontos])), [dias]);
 
@@ -95,7 +112,7 @@ export default function CavernaPage() {
   };
 
   const salvarHoje = (novosItens: Partial<Record<ItemId, boolean>>, novaAgua: number) => {
-    const meta = metaAgua(dia, perfil.papel, perfil.pessoa);
+    const meta = metaAgua(dia, perfil.papel, perfil.pessoa, sem);
     salvarDia.mutate(
       { dia, itens: novosItens, agua_ml: novaAgua, pontos: calcularPontos(novosItens, novaAgua, meta) },
       { onError: () => toast.error('Erro ao salvar') },
@@ -112,7 +129,7 @@ export default function CavernaPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Modo Caverna</h1>
           <p className="text-sm text-muted-foreground">
-            {PESSOAS[perfil.pessoa].nome} · {DIAS_SEMANA[diaDaSemana(dia)]} · Semana {semanaCorrida(dia)}
+            {PESSOAS[perfil.pessoa].nome} · {DIAS_SEMANA[sem]}, {hoje.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} · Semana {semanaCorrida(dia)}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -177,6 +194,7 @@ export default function CavernaPage() {
         <TabsContent value="hoje" className="mt-0">
           <CavernaHoje
             dia={dia}
+            sem={sem}
             pessoa={perfil.pessoa}
             papel={perfil.papel}
             itens={itens}

@@ -1,6 +1,6 @@
 import { Flame, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { DIAS_SEMANA, FASES, META_CHECKLIST, TOTAL_DIAS, fase, infoFase, semanaCorrida } from '@/lib/caverna/plano';
+import { FASES, META_CHECKLIST, TOTAL_DIAS, fase, infoFase, semanaCorrida } from '@/lib/caverna/plano';
 
 interface Props {
   dia: number;
@@ -99,7 +99,7 @@ export default function CavernaDash({ dia, sequencia, pontosPorDia }: Props) {
                         d === dia && 'ring-2 ring-foreground/40 ring-offset-1 ring-offset-card',
                       )}
                     />
-                    <span className="text-[10px] text-muted-foreground">{DIAS_SEMANA[(d - 1) % 7].slice(0, 1)}</span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums">{d}</span>
                   </div>
                 );
               })}

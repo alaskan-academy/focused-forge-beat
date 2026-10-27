@@ -9,6 +9,8 @@ import {
 
 interface Props {
   dia: number;
+  /** Dia da semana real (0 = segunda … 6 = domingo). */
+  sem: number;
   pessoa: Pessoa;
   papel: Papel;
   itens: Partial<Record<ItemId, boolean>>;
@@ -24,8 +26,8 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
   return <div className={cn('bg-card border border-border rounded-xl p-4', className)}>{children}</div>;
 }
 
-function Checklist({ dia, itens, aguaMl, meta, onChange }: { dia: number; itens: Props['itens']; aguaMl: number; meta: number; onChange: Props['onChange'] }) {
-  const lista = checklistDoDia(dia);
+function Checklist({ sem, itens, aguaMl, meta, onChange }: { sem: number; itens: Props['itens']; aguaMl: number; meta: number; onChange: Props['onChange'] }) {
+  const lista = checklistDoDia(sem);
   const pontos = lista.filter((i) => (i.id === 'agua' ? aguaMl >= meta : itens[i.id])).length;
   return (
     <Card>
@@ -130,8 +132,8 @@ function CargaInput({ id, valor, onCarga }: { id: string; valor: string; onCarga
   );
 }
 
-function Treino({ dia, pessoa, cargas, onCarga }: { dia: number; pessoa: Pessoa; cargas: Props['cargas']; onCarga: Props['onCarga'] }) {
-  const treino = treinoDoDia(dia);
+function Treino({ dia, sem, pessoa, cargas, onCarga }: { dia: number; sem: number; pessoa: Pessoa; cargas: Props['cargas']; onCarga: Props['onCarga'] }) {
+  const treino = treinoDoDia(dia, sem);
   if (!treino) return null;
   const pares = TREINOS[treino.letra];
   const comecoPuxadores = pessoa === 'lucas' ? treino.lucasComecaComPuxadores : !treino.lucasComecaComPuxadores;
@@ -185,22 +187,22 @@ function Treino({ dia, pessoa, cargas, onCarga }: { dia: number; pessoa: Pessoa;
   );
 }
 
-function detalheDaFase(l: Linha, dia: number) {
+function detalheDaFase(l: Linha, dia: number, sem: number) {
   const info = infoFase(dia);
   if (l.tipo === 'cardio') return info.cardio;
   if (l.tipo === 'trilha') return info.trilha;
   if (l.tipo === 'treino') {
-    const t = treinoDoDia(dia);
+    const t = treinoDoDia(dia, sem);
     return t ? `Treino ${t.letra}` : undefined;
   }
   return undefined;
 }
 
-function Roteiro({ dia, pessoa, papel }: { dia: number; pessoa: Pessoa; papel: Papel }) {
-  const linhas = roteiroDoDia(dia, papel);
+function Roteiro({ dia, sem, pessoa, papel }: { dia: number; sem: number; pessoa: Pessoa; papel: Papel }) {
+  const linhas = roteiroDoDia(dia, papel, sem);
   const i = pessoa === 'lucas' ? 0 : 1;
   const [aberta, setAberta] = useState<number | null>(null);
-  useEffect(() => setAberta(null), [dia, papel]);
+  useEffect(() => setAberta(null), [dia, sem, papel]);
   return (
     <Card>
       <h2 className="font-semibold text-foreground flex items-center gap-2 mb-1">
@@ -209,7 +211,7 @@ function Roteiro({ dia, pessoa, papel }: { dia: number; pessoa: Pessoa; papel: P
       <p className="text-xs text-muted-foreground mb-3">Toque em um horário para ver o que fazer.</p>
       <div className="space-y-0.5">
         {linhas.map((l, idx) => {
-          const fase = detalheDaFase(l, dia);
+          const fase = detalheDaFase(l, dia, sem);
           const detalhe = l[pessoa];
           const expandida = aberta === idx;
           return (
@@ -256,16 +258,16 @@ function Roteiro({ dia, pessoa, papel }: { dia: number; pessoa: Pessoa; papel: P
 }
 
 export default function CavernaHoje(props: Props) {
-  const { dia, pessoa, papel, itens, aguaMl, cargas, onChange, onCarga } = props;
-  const meta = metaAgua(dia, papel, pessoa);
+  const { dia, sem, pessoa, papel, itens, aguaMl, cargas, onChange, onCarga } = props;
+  const meta = metaAgua(dia, papel, pessoa, sem);
   return (
     <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
       <div className="space-y-3 sm:space-y-4">
-        <Checklist dia={dia} itens={itens} aguaMl={aguaMl} meta={meta} onChange={onChange} />
+        <Checklist sem={sem} itens={itens} aguaMl={aguaMl} meta={meta} onChange={onChange} />
         <Agua aguaMl={aguaMl} meta={meta} onAgua={(ml) => onChange(itens, ml)} />
       </div>
-      <Roteiro dia={dia} pessoa={pessoa} papel={papel} />
-      <Treino dia={dia} pessoa={pessoa} cargas={cargas} onCarga={onCarga} />
+      <Roteiro dia={dia} sem={sem} pessoa={pessoa} papel={papel} />
+      <Treino dia={dia} sem={sem} pessoa={pessoa} cargas={cargas} onCarga={onCarga} />
     </div>
   );
 }
