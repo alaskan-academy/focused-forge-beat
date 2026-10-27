@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Clock, Droplets, Dumbbell, Minus, Plus } from 'lucide-react';
+import { Check, ChevronDown, Clock, Droplets, Dumbbell, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import {
@@ -199,31 +199,53 @@ function detalheDaFase(l: Linha, dia: number) {
 function Roteiro({ dia, pessoa, papel }: { dia: number; pessoa: Pessoa; papel: Papel }) {
   const linhas = roteiroDoDia(dia, papel);
   const i = pessoa === 'lucas' ? 0 : 1;
+  const [aberta, setAberta] = useState<number | null>(null);
+  useEffect(() => setAberta(null), [dia, papel]);
   return (
     <Card>
-      <h2 className="font-semibold text-foreground flex items-center gap-2 mb-3">
+      <h2 className="font-semibold text-foreground flex items-center gap-2 mb-1">
         <Clock className="h-4 w-4 text-muted-foreground" /> Roteiro do dia
       </h2>
+      <p className="text-xs text-muted-foreground mb-3">Toque em um horário para ver o que fazer.</p>
       <div className="space-y-0.5">
         {linhas.map((l, idx) => {
           const fase = detalheDaFase(l, dia);
           const detalhe = l[pessoa];
+          const expandida = aberta === idx;
           return (
             <div
               key={`${l.hora}-${idx}`}
-              className={cn('flex gap-3 rounded-lg px-2.5 py-2 border-l-2', l.destaque ? 'border-primary bg-primary/5' : 'border-transparent')}
+              className={cn('rounded-lg border-l-2', l.destaque ? 'border-primary bg-primary/5' : 'border-transparent', expandida && !l.destaque && 'bg-secondary/50')}
             >
-              <span className="w-[86px] shrink-0 text-xs font-medium text-muted-foreground tabular-nums pt-0.5">{l.hora}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground">{l.oque}</p>
-                {(fase || detalhe) && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{[fase, detalhe].filter(Boolean).join(' · ')}</p>
+              <button
+                type="button"
+                onClick={() => setAberta(expandida ? null : idx)}
+                aria-expanded={expandida}
+                className="w-full flex gap-3 px-2.5 py-2 text-left rounded-lg hover:bg-secondary/60 transition-colors"
+              >
+                <span className="w-[86px] shrink-0 text-xs font-medium text-muted-foreground tabular-nums pt-0.5">{l.hora}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground">{l.oque}</p>
+                  {(fase || detalhe) && (
+                    <p className="text-xs text-muted-foreground mt-0.5">{[fase, detalhe].filter(Boolean).join(' · ')}</p>
+                  )}
+                </div>
+                {l.agua && l.agua[i] > 0 && (
+                  <span className="shrink-0 self-start text-[11px] font-medium text-sky-300 bg-sky-500/10 rounded-full px-2 py-0.5 tabular-nums">
+                    {l.agua[i] >= 1000 ? litros(l.agua[i]) : `${l.agua[i]} ml`}
+                  </span>
                 )}
-              </div>
-              {l.agua && l.agua[i] > 0 && (
-                <span className="shrink-0 self-start text-[11px] font-medium text-sky-300 bg-sky-500/10 rounded-full px-2 py-0.5 tabular-nums">
-                  {l.agua[i] >= 1000 ? litros(l.agua[i]) : `${l.agua[i]} ml`}
-                </span>
+                <ChevronDown className={cn('h-4 w-4 shrink-0 self-start mt-0.5 text-muted-foreground transition-transform', expandida && 'rotate-180')} />
+              </button>
+              {expandida && l.explica && (
+                <ul className="space-y-1.5 pb-3 pr-3 pl-[110px] max-sm:pl-3">
+                  {l.explica.map((e) => (
+                    <li key={e} className="flex gap-2 text-sm text-muted-foreground">
+                      <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-primary" />
+                      <span>{e}</span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           );

@@ -50,4 +50,14 @@ describe('progresso', () => {
     p.set(6, 6);
     expect(calcularSequencia(p, 6)).toEqual({ atual: 3, recorde: 3 });
   });
+
+  it('toda linha do roteiro tem explicação, nos dois papéis', () => {
+    for (let dia = 1; dia <= 7; dia++) {
+      for (const papel of ['casa', 'suporte'] as const) {
+        for (const l of roteiroDoDia(dia, papel)) {
+          expect(l.explica?.length, `${dia} ${papel} ${l.hora} ${l.oque}`).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
 });
