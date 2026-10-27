@@ -135,6 +135,31 @@ export function useSalvarDia() {
   });
 }
 
+// Volta ao dia 1 apagando checklist, água e medidas. Pessoa, papel e cargas ficam.
+export function useRecomecar() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Not authenticated');
+      const dias = await db.from('caverna_dias').delete().eq('user_id', user.id);
+      if (dias.error) throw dias.error;
+      const medidas = await db.from('caverna_medidas').delete().eq('user_id', user.id);
+      if (medidas.error) throw medidas.error;
+      const perfil = await db
+        .from('caverna_perfil')
+        .update({ dia_atual: 1, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+      if (perfil.error) throw perfil.error;
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['caverna-perfil', user?.id] });
+      qc.invalidateQueries({ queryKey: ['caverna-dias', user?.id] });
+      qc.invalidateQueries({ queryKey: ['caverna-medidas', user?.id] });
+    },
+  });
+}
+
 export function useCavernaMedidas() {
   const { user } = useAuth();
   return useQuery<CavernaMedida[]>({

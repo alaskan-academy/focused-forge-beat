@@ -295,19 +295,64 @@ export function checklistDoDia(dia: number): { id: ItemId; label: string }[] {
   ];
 }
 
+// ── Princípios: o guia para manter o Modo Caverna ─────────────────
+
+export const PRINCIPIOS: { titulo: string; porque: string; pratica: string }[] = [
+  {
+    titulo: 'Começar menor do que dá vontade',
+    porque: 'A empolgação do começo acaba lá pela segunda semana. Quem começa no máximo cansa, se machuca ou desiste. Quem começa leve chega ao dia 30.',
+    pratica: 'A semana 1 é de base: carga leve, menos séries, dormir no horário. Cada semana sobe só um degrau (veja as fases). Se a semana 1 parecer fácil demais, está certo.',
+  },
+  {
+    titulo: 'Nunca falhar duas vezes seguidas',
+    porque: 'Um dia ruim é um acidente. Dois dias ruins seguidos começam a virar o hábito novo. A regra não é nunca falhar: é não deixar a falha se repetir.',
+    pratica: 'Falhou hoje? Amanhã é obrigatório fazer pelo menos a versão mínima. A sequência pode zerar, o desafio não.',
+  },
+  {
+    titulo: '6 de 7, não 7 de 7',
+    porque: 'Exigir perfeição todo dia faz o primeiro deslize parecer o fim de tudo. A meta já deixa uma folga para a vida real.',
+    pratica: 'Por dia, um item pode ficar de fora sem culpa. Só não use a folga sempre no mesmo item: se for sempre o mesmo, ele precisa de um plano.',
+  },
+  {
+    titulo: 'Feito vale mais que perfeito',
+    porque: 'Nos dias de cansaço, doença ou imprevisto, o que mantém o ritmo é aparecer, mesmo que pouco. O hábito é construído pela repetição, não pela intensidade.',
+    pratica: 'Dia ruim? Faça a "versão mínima para dias ruins" e marque. Dez minutos de bike contam. Zero não conta.',
+  },
+  {
+    titulo: 'O treino nunca é cortado pelo papel da semana',
+    porque: 'O papel muda quem cuida da casa e quem cuida do suporte, não quem treina. Se o treino depende de sobrar tempo, ele nunca sobra.',
+    pratica: 'O suporte pode responder em 1h a 2h, então o treino cabe. Quem está na casa encaixa a comida em volta do treino, não o contrário.',
+  },
+  {
+    titulo: 'Fora de casa, sempre juntos',
+    porque: 'Um puxa o outro nos dias sem vontade, a trilha fica mais segura e vira tempo de casal em vez de mais uma tarefa.',
+    pratica: 'Caminhada da manhã, caminhada rápida de terça, compras de quarta e trilha de sábado: se um não vai, combinem outro horário em vez de ir sozinho.',
+  },
+  {
+    titulo: 'O ambiente decide, não a força de vontade',
+    porque: 'Força de vontade acaba no fim do dia. O que está à mão e à vista ganha quase sempre.',
+    pratica: 'Sem ultraprocessados em casa, preparo de domingo feito, celular longe no bloco focado, telas desligadas 1h antes de dormir. Facilite o certo e dificulte o errado.',
+  },
+  {
+    titulo: 'Dormir é parte do plano',
+    porque: 'Sem sono não tem disposição, a fome aumenta e o treino rende menos. Dormir mal sabota todo o resto.',
+    pratica: 'Acordar às 7:00 todos os dias, inclusive no fim de semana, e deitar no horário da fase. Se for dormir tarde, acorde no horário mesmo assim.',
+  },
+  {
+    titulo: 'Cada um cuida do próprio placar',
+    porque: 'Fiscalizar o outro gera atrito e tira o foco de si. O apoio funciona melhor que a cobrança.',
+    pratica: 'Marque só o seu checklist, com honestidade. Para o outro: convite e incentivo ("bora caminhar?"), nunca cobrança.',
+  },
+  {
+    titulo: 'Recomeçar é permitido',
+    porque: 'Se a vida atropelou a semana, arrastar um desafio quebrado desanima mais do que começar de novo. O objetivo é sair com os hábitos, não com o número.',
+    pratica: 'Pode começar no dia que quiser e voltar ao dia 1 quando precisar. Melhor ainda se o novo dia 1 for uma segunda.',
+  },
+];
+
 // ── Regras e limites ──────────────────────────────────────────────
 
 export const REGRAS: { titulo: string; itens: string[] }[] = [
-  {
-    titulo: 'Princípios',
-    itens: [
-      'Começar menor do que dá vontade: cada semana sobe um degrau.',
-      'Nunca falhar duas vezes seguidas. Falhar um dia é normal.',
-      'Meta do checklist: 6 de 7 por dia, não 7 de 7.',
-      'O treino nunca é cortado por causa do papel da semana.',
-      'Tudo que é fora de casa é feito juntos.',
-    ],
-  },
   {
     titulo: 'Alimentação',
     itens: [

@@ -7,7 +7,8 @@ import CavernaDash from '@/components/caverna/CavernaDash';
 import CavernaHoje from '@/components/caverna/CavernaHoje';
 import CavernaProgresso from '@/components/caverna/CavernaProgresso';
 import CavernaRegras from '@/components/caverna/CavernaRegras';
-import { useCavernaDias, useCavernaPerfil, useSalvarDia, useSalvarPerfil } from '@/hooks/useCaverna';
+import CavernaSeletorDia from '@/components/caverna/CavernaSeletorDia';
+import { useCavernaDias, useCavernaPerfil, useRecomecar, useSalvarDia, useSalvarPerfil } from '@/hooks/useCaverna';
 import { DIAS_SEMANA, PESSOAS, TOTAL_DIAS, diaDaSemana, metaAgua, semanaCorrida, type ItemId, type Papel, type Pessoa } from '@/lib/caverna/plano';
 import { calcularPontos, calcularSequencia } from '@/lib/caverna/progresso';
 
@@ -55,6 +56,7 @@ export default function CavernaPage() {
   const { data: dias } = useCavernaDias();
   const salvarPerfil = useSalvarPerfil();
   const salvarDia = useSalvarDia();
+  const recomecar = useRecomecar();
 
   const pontosPorDia = useMemo(() => new Map((dias ?? []).map((d) => [d.dia, d.pontos])), [dias]);
 
@@ -80,6 +82,12 @@ export default function CavernaPage() {
     if (novo < 1 || novo > TOTAL_DIAS) return;
     salvarPerfil.mutate({ dia_atual: novo }, { onError: () => toast.error('Erro ao mudar o dia') });
   };
+
+  const recomecarDesafio = () =>
+    recomecar.mutate(undefined, {
+      onSuccess: () => toast.success('De volta ao dia 1'),
+      onError: () => toast.error('Erro ao recomeçar'),
+    });
 
   const mudarPapel = (papel: Papel) => {
     if (papel === perfil.papel) return;
@@ -118,7 +126,13 @@ export default function CavernaPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="px-2 text-sm font-semibold text-foreground tabular-nums min-w-[64px] text-center">Dia {dia}</span>
+            <CavernaSeletorDia
+              dia={dia}
+              pontosPorDia={pontosPorDia}
+              onIrPara={irPara}
+              onRecomecar={recomecarDesafio}
+              recomecando={recomecar.isPending}
+            />
             <button
               type="button"
               onClick={() => irPara(dia + 1)}
