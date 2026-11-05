@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import ActiveTimerBar from '@/components/ActiveTimerBar';
+import { CoffeeNavCard, CoffeeNavTab } from '@/components/CoffeeNavButton';
 
 const allNavItems = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -59,6 +60,7 @@ export default function AppSidebar() {
               <span>{item.title}</span>
             </NavLink>
           ))}
+          <CoffeeNavCard />
         </nav>
         <ActiveTimerBar variant="sidebar" />
         {/* User / logout */}
@@ -99,6 +101,8 @@ export default function AppSidebar() {
               </NavLink>
             );
           })}
+          {/* Coffee Cats (visual do jogo) */}
+          <CoffeeNavTab />
           {/* More button */}
           <button
             onClick={() => setMoreOpen(true)}

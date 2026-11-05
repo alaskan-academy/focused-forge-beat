@@ -22,6 +22,7 @@ const InboxPage = lazy(() => import("@/pages/InboxPage"));
 const RemindersPage = lazy(() => import("@/pages/RemindersPage"));
 const TrashPage = lazy(() => import("@/pages/TrashPage"));
 const CavernaPage = lazy(() => import("@/pages/CavernaPage"));
+const CoffeeCatsPage = lazy(() => import("@/pages/CoffeeCatsPage"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 function Spinner() {
@@ -64,6 +65,7 @@ function ProtectedLayout() {
               <Route path="/reminders" element={<RemindersPage />} />
               <Route path="/trash" element={<TrashPage />} />
               <Route path="/caverna" element={<CavernaPage />} />
+              <Route path="/coffee" element={<CoffeeCatsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

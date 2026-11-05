@@ -1,0 +1,131 @@
+/* Visual cozy do Coffee Cats (só carregado na aba do jogo). */
+@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&display=swap');
+
+.cc-root {
+  --cc-ink: #3b2a20;
+  --cc-paper: #fbf3e4;
+  --cc-wood: #7d4f33;
+  --cc-accent: #e07a5f;
+  --cc-accent-dark: #b8573f;
+  --cc-mint: #81b29a;
+  color: var(--cc-ink);
+}
+
+.cc-title {
+  font-family: 'Pixelify Sans', ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--cc-ink);
+}
+
+.cc-panel {
+  background: var(--cc-paper);
+  border: 3px solid var(--cc-wood);
+  border-radius: 18px;
+  box-shadow: 0 4px 0 #5e3a24, 0 12px 30px rgba(20, 10, 5, 0.45);
+}
+
+.cc-btn {
+  @apply rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-transform active:translate-y-[2px] disabled:opacity-60;
+  background: var(--cc-accent);
+  box-shadow: 0 3px 0 var(--cc-accent-dark);
+}
+.cc-btn:hover {
+  filter: brightness(1.05);
+}
+
+.cc-btn-ghost {
+  @apply rounded-xl px-3 py-2 text-sm font-medium transition-colors;
+  color: var(--cc-ink);
+  background: #efe0c4;
+  box-shadow: 0 2px 0 #d4bf9a;
+}
+.cc-btn-ghost:hover {
+  background: #e9d5b5;
+}
+
+.cc-chip {
+  @apply rounded-full px-3 py-1 text-xs font-medium transition-colors;
+  color: var(--cc-ink);
+  background: #efe0c4;
+}
+.cc-chip:hover {
+  background: #e6d2ad;
+}
+.cc-chip-on {
+  color: #fff;
+  background: var(--cc-wood);
+}
+.cc-chip-on:hover {
+  background: var(--cc-wood);
+}
+
+.cc-hud {
+  @apply rounded-xl px-3 py-1.5 text-sm font-semibold shadow-md;
+  background: rgba(251, 243, 228, 0.94);
+  border: 2px solid var(--cc-wood);
+  color: var(--cc-ink);
+}
+
+.cc-card {
+  @apply rounded-xl p-3;
+  background: #fffaf0;
+  border: 2px solid #e6d2ad;
+}
+
+.cc-option {
+  @apply rounded-xl px-3 py-2 text-left text-sm font-medium transition-all;
+  background: #f6ead3;
+  box-shadow: 0 2px 0 #d4bf9a;
+  color: var(--cc-ink);
+}
+.cc-option:hover:not(:disabled) {
+  background: #efe0c4;
+  transform: translateY(-1px);
+}
+.cc-option-bad {
+  background: #f6d5cb !important;
+  color: #8a3a26;
+  text-decoration: line-through;
+  text-decoration-color: rgba(138, 58, 38, 0.4);
+  box-shadow: none;
+}
+.cc-option-ok {
+  background: #cfe6d9 !important;
+  color: #2f5d46;
+  box-shadow: 0 2px 0 #81b29a;
+  animation: cc-pop 0.35s ease-out;
+}
+
+.cc-tile {
+  @apply rounded-lg px-2.5 py-1.5 text-sm font-semibold transition-transform active:scale-95;
+  background: #fff;
+  border: 2px solid #d4bf9a;
+  color: var(--cc-ink);
+}
+.cc-tile-on {
+  background: #f2cc8f;
+  border-color: #c99a5b;
+}
+
+.cc-input {
+  @apply rounded-xl px-3 py-2 text-base outline-none;
+  background: #fff;
+  border: 2px solid #d4bf9a;
+  color: var(--cc-ink);
+}
+.cc-input:focus {
+  border-color: var(--cc-accent);
+}
+
+.cc-round {
+  @apply flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-40;
+  background: #efe0c4;
+  color: var(--cc-ink);
+}
+
+@keyframes cc-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
