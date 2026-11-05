@@ -19,7 +19,8 @@ import MusicControl from '@/components/coffee/MusicControl';
 import UpdateNotice from '@/components/coffee/UpdateNotice';
 import { useNewVersion } from '@/components/coffee/useNewVersion';
 import { chunkStatus } from '@/lib/coffee/chunkSchedule';
-import { useCoffeeGame, type ActiveEncounter } from '@/components/coffee/useCoffeeGame';
+import { LANDLORD_CUSTOMER_ID, useCoffeeGame, type ActiveEncounter } from '@/components/coffee/useCoffeeGame';
+import belmont from '@/content/coffee/characters/belmont';
 import { useAuth } from '@/contexts/AuthContext';
 import { CHARACTER_BY_ID } from '@/content/coffee';
 import type { SceneOther } from '@/game/bridge';
@@ -152,7 +153,15 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
   );
 
   const onComplete = useCallback((results: ActivityResult[], durationMs: number) => complete(active!, results, durationMs), [active, complete]);
-  const char = active?.encounter.characterId ? CHARACTER_BY_ID[active.encounter.characterId] : undefined;
+  const char = active?.encounter.characterId
+    ? active.encounter.characterId === belmont.id
+      ? belmont
+      : CHARACTER_BY_ID[active.encounter.characterId]
+    : undefined;
+  // Belmont na porta (só para mim) e a dívida com ele
+  const landlordHere = !!snap?.landlord?.ready;
+  const debt = snap?.landlord?.debt ?? 0;
+  const [landlordNoticeClosed, setLandlordNoticeClosed] = useState(false);
 
   return (
     <div className="cc-root relative h-[calc(100dvh-4rem)] overflow-hidden bg-[#24170f] md:h-screen">
@@ -206,6 +215,11 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
             <button type="button" onClick={() => setInfo('coins')} className="rounded-lg px-1.5 py-0.5 hover:bg-[#e9d5b5]" title="Moedas: o que são e como ganhar">
               🪙 {snap.me.coins}
             </button>
+            {debt > 0 && (
+              <span className="rounded-lg bg-[#6b1f2a] px-1.5 py-0.5 text-xs font-bold text-[#fbe3e3]" title="Dívida com o Belmont (ele cobra na próxima visita)">
+                😈 {debt}
+              </span>
+            )}
             <button type="button" onClick={() => setInfo('xp')} className="flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 hover:bg-[#e9d5b5]" title="Nível e XP">
               Nv {level.level}
               <span className="h-1.5 w-10 overflow-hidden rounded-full bg-[#e6d2ad]">
@@ -246,7 +260,25 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
       )}
       {/* aviso do chunk do dia (a cada 12 h) */}
       {showUpdate && <UpdateNotice version={newVersion!} partner={snap?.partner?.display_name ?? null} onLater={() => setLaterFor(newVersion)} />}
-      {appearance && chunkReady && !chunkNoticeClosed && !overlayOpen && !showUpdate && (
+      {/* o Belmont chegou: faixa vermelha escura (até você falar com ele ou fechar) */}
+      {appearance && landlordHere && !landlordNoticeClosed && !overlayOpen && !showUpdate && (
+        <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex justify-center px-3">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-2xl border-[3px] border-[#2a0f14] bg-[#6b1f2a] px-4 py-2.5 text-[#fbe3e3] shadow-[0_4px_0_#2a0f14] animate-in fade-in slide-in-from-top-2 duration-500">
+            <span className="text-2xl">😈</span>
+            <div className="text-sm">
+              <div className="cc-title font-bold !text-[#fbe3e3]">Belmont Sulphur is here.</div>
+              <div className="text-xs opacity-80">He doesn't look happy. He never does. (Ele está na porta, esperando o aluguel.)</div>
+            </div>
+            <button type="button" className="rounded-xl bg-[#fbe3e3] px-3 py-1.5 text-xs font-semibold text-[#6b1f2a]" onClick={() => onInteract(LANDLORD_CUSTOMER_ID)}>
+              Atender
+            </button>
+            <button type="button" className="opacity-60 hover:opacity-100" onClick={() => setLandlordNoticeClosed(true)} aria-label="Fechar aviso">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+      {appearance && chunkReady && !chunkNoticeClosed && !overlayOpen && !showUpdate && !(landlordHere && !landlordNoticeClosed) && (
         <div className="pointer-events-none absolute inset-x-0 top-16 flex justify-center px-3">
           <div className="cc-panel pointer-events-auto flex items-center gap-3 px-4 py-2.5 animate-in fade-in slide-in-from-top-2 duration-500">
             <span className="text-2xl">🧠</span>
@@ -329,7 +361,8 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
           onSpend={spend}
           onComplete={onComplete}
           onCancel={() => {
-            store.release(active.customer.id).catch(() => {});
+            // o Belmont não é um cliente do banco: sair só fecha a conversa (ele continua esperando)
+            if (active.customer.id !== LANDLORD_CUSTOMER_ID) store.release(active.customer.id).catch(() => {});
             setActive(null);
           }}
           onClose={() => {

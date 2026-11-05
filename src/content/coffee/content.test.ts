@@ -1,12 +1,17 @@
 // Revisão automática do conteúdo. Se um teste daqui falhar, a mensagem diz qual cena/atividade corrigir.
 import { describe, expect, it } from 'vitest';
-import { ALL_SCENES, CHARACTERS, HANDOFFS, ITEMS, sceneText } from '.';
+import { ALL_SCENES as BASE_SCENES, CHARACTERS as BASE_CHARACTERS, HANDOFFS, ITEMS, sceneText } from '.';
+import belmont, { BELMONT_BILLS } from './characters/belmont';
 import { fillPlaceholders, personalize } from './personalize';
 import { CHUNKS } from './chunks';
 import { BOOK_PAGES } from './books';
 import { MENU, MENU_BY_NAME, formatPrice } from './menu';
 import { isLine, type Activity, type Scene } from './types';
-import { checkFreeWrite, tokenize } from '@/lib/coffee/activities';
+import { checkFreeWrite, parseSpot, tokenize } from '@/lib/coffee/activities';
+
+// o Belmont fica fora da fila de clientes, mas o conteúdo dele passa pelas mesmas verificações
+const ALL_SCENES: Scene[] = [...BASE_SCENES, ...belmont.chapters, ...belmont.regulars, ...BELMONT_BILLS];
+const CHARACTERS = [...BASE_CHARACTERS, belmont];
 
 const acts = (s: Scene) => s.steps.flatMap((st) => (isLine(st) ? [] : [{ a: st.activity, where: `${s.id}/${st.activity.id}` }]));
 const allActs = ALL_SCENES.flatMap(acts);
@@ -30,14 +35,14 @@ describe('cenas', () => {
     }
   });
 
-  it('toda fala tem tradução e no máximo 3 frases', () => {
+  it('toda fala tem tradução e no máximo 3 frases (5 nas cenas `long`, como as do Belmont)', () => {
     for (const s of ALL_SCENES)
       for (const st of s.steps) {
         if (!isLine(st)) continue;
         expect(st.pt.trim().length, `${s.id}: "${st.say}" sem pt`).toBeGreaterThan(0);
         // fragmentos de uma palavra ("Every. Single. Night.") não contam como frase
         const sentences = st.say.split(/(?<=[.!?])\s+/).filter((x) => x.trim().split(/\s+/).length >= 2).length;
-        expect(sentences, `${s.id}: "${st.say}"`).toBeLessThanOrEqual(3);
+        expect(sentences, `${s.id}: "${st.say}"`).toBeLessThanOrEqual(s.long ? 5 : 3);
       }
   });
 
@@ -57,9 +62,10 @@ describe('cenas', () => {
 });
 
 describe('uma resposta claramente certa', () => {
-  it('choose_reply: exatamente uma correta; as erradas explicam por quê', () => {
+  it('choose_reply: exatamente uma correta (escolha pessoal `either`: cada certa com valor); as erradas explicam por quê', () => {
     for (const { a, where } of of('choose_reply')) {
-      expect(a.options.filter((o) => o.correct).length, where).toBe(1);
+      if (a.either) a.options.filter((o) => o.correct).forEach((o) => expect(o.value, `${where}: "${o.text}" sem value`).toBeTruthy());
+      else expect(a.options.filter((o) => o.correct).length, where).toBe(1);
       a.options.filter((o) => !o.correct).forEach((o) => expect(o.why_pt, `${where}: "${o.text}" sem why_pt`).toBeTruthy());
       expect(new Set(a.options.map((o) => o.text)).size, where).toBe(a.options.length);
     }
@@ -123,6 +129,16 @@ describe('uma resposta claramente certa', () => {
         const fits = a.wants.every((t) => item.tags.includes(t as never));
         expect(fits, `${where}: "${name}"`).toBe(i === a.answer);
       });
+  });
+
+  it('spot_error: exatamente uma palavra marcada, e a correção muda a frase', () => {
+    for (const { a, where } of of('spot_error')) {
+      const { words, wrong } = parseSpot(a.sentence);
+      expect(wrong, `${where}: marque a palavra errada com *asteriscos*`).toBeGreaterThanOrEqual(0);
+      expect(a.sentence.split('*').length, `${where}: só uma palavra marcada`).toBe(3);
+      expect(a.fix, where).not.toBe(words.join(' '));
+      expect(a.why_pt, where).toBeTruthy();
+    }
   });
 
   it('change: a resposta é o troco certo', () => {
@@ -192,10 +208,10 @@ describe('personagens', () => {
       expect(types.has(t as never), `falta pedido do tipo ${t}`).toBe(true);
   });
 
-  it('o sistema cobre os 11 tipos de atividade', () => {
+  it('o sistema cobre os 12 tipos de atividade', () => {
     const types = new Set(allActs.map((x) => x.a.type));
     expect([...types].sort()).toEqual(
-      ['build_order', 'build_reply', 'change', 'choose_reply', 'comprehension', 'free_write', 'gap', 'group_order', 'recall', 'recommend', 'safe_pick'].sort(),
+      ['build_order', 'build_reply', 'change', 'choose_reply', 'comprehension', 'free_write', 'gap', 'group_order', 'recall', 'recommend', 'safe_pick', 'spot_error'].sort(),
     );
   });
 });

@@ -61,6 +61,17 @@ export default function CharacterCreator({ initial, profile, title = 'Seu person
         >
           <Shuffle className="h-3.5 w-3.5" /> Sortear
         </button>
+        <button
+          type="button"
+          onClick={() => setA((cur) => {
+            const { horns, ...rest } = cur;
+            return horns ? rest : { ...rest, horns: true };
+          })}
+          className={cn('cc-chip mb-1', a.horns && 'cc-chip-on')}
+          title="Chifrinhos (estilo Belmont)"
+        >
+          😈 Chifres
+        </button>
       </div>
 
       <div className="mt-4 flex flex-wrap justify-center gap-1.5">

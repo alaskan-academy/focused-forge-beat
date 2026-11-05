@@ -563,6 +563,60 @@ export const CHUNKS: Chunk[] = [
     ],
     exercise: ex(build('ex', ['c:to_go_with', 'g:will_offers'], "I'll go with the lemon cake, please.", 'Vou de bolo de limão, por favor.', ['went', 'for', 'going'])),
   },
+  {
+    id: 'c:take_it_easy',
+    en: 'take it easy',
+    pt: 'relaxa / vai com calma',
+    when_pt: 'Para acalmar alguém estressado, ou como despedida tranquila ("take it easy!").',
+    level: 'A2',
+    examples: [
+      { en: "Take it easy, it's just a game.", pt: 'Relaxa, é só um jogo.' },
+      { en: 'See you tomorrow. Take it easy!', pt: 'Até amanhã. Vai com calma!' },
+    ],
+    exercise: ex(gap('ex', ['c:take_it_easy', 'g:take_phrases'], 'player', 'Hey, ', 'take', " it easy. It's only a small mistake.", 'Ei, relaxa. É só um errinho.', ['take', 'took', 'make'])),
+  },
+  {
+    id: 'c:take_care',
+    en: 'take care',
+    pt: 'se cuida',
+    when_pt: 'Despedida carinhosa, com amigos ou clientes.',
+    level: 'A2',
+    examples: [
+      { en: 'Bye, Maya! Take care!', pt: 'Tchau, Maya! Se cuida!' },
+      { en: 'Take care of yourself, OK?', pt: 'Se cuida, tá?' },
+    ],
+    exercise: ex(build('ex', ['c:take_care'], 'See you next week. Take care!', 'Até semana que vem. Se cuida!', ['took', 'cares', 'make'])),
+  },
+  {
+    id: 'c:take_a_break',
+    en: 'take a break',
+    pt: 'fazer uma pausa',
+    when_pt: 'Quando alguém precisa parar um pouco (trabalho, estudo, briga).',
+    level: 'A2',
+    examples: [
+      { en: "You look tired. Take a break.", pt: 'Você parece cansado. Faz uma pausa.' },
+      { en: "Let's take a break and get some coffee.", pt: 'Vamos fazer uma pausa e tomar um café.' },
+    ],
+    exercise: ex(
+      choose('ex', ['c:take_a_break', 'g:take_phrases'], [
+        ok("Let's take a break. Coffee?"),
+        no("Let's make a break. Coffee?", 'Em inglês é TAKE a break, não "make".'),
+        no("Let's take a broke. Coffee?", '"Broke" é "quebrado/sem dinheiro". O certo é "break".'),
+      ]),
+    ),
+  },
+  {
+    id: 'c:dont_take_it_personally',
+    en: "don't take it personally",
+    pt: 'não leve para o lado pessoal',
+    when_pt: 'Para dizer que uma crítica ou atitude não é contra a pessoa.',
+    level: 'A2+',
+    examples: [
+      { en: "Don't take it personally. He's rude to everyone.", pt: 'Não leva pro lado pessoal. Ele é grosso com todo mundo.' },
+      { en: 'I took it personally, and I was wrong.', pt: 'Levei pro lado pessoal, e eu estava errado.' },
+    ],
+    exercise: ex(gap('ex', ['c:dont_take_it_personally', 'g:aux_do'], 'player', "Don't ", 'take', ' it personally. He charges everyone.', 'Não leva pro lado pessoal. Ele cobra todo mundo.', ['take', 'took', 'taken'])),
+  },
 ];
 
 export const CHUNK_BY_ID: Record<string, Chunk> = Object.fromEntries(CHUNKS.map((c) => [c.id, c]));

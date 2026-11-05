@@ -56,10 +56,14 @@ export type ReplyOption = {
   hearts?: number;
   // reação do cliente a essa escolha
   reaction?: Line;
+  // escolha pessoal (com `either`): o valor fica guardado (ex.: quem reservou a cabana)
+  value?: string;
 };
 
 // Escolher a resposta certa em gramática E em tom. Exatamente uma opção `correct`.
-export type ChooseReply = Base & { type: 'choose_reply'; prompt_pt?: string; options: ReplyOption[] };
+// Com `either`, é uma escolha pessoal: mais de uma opção pode ser `correct` (cada uma com `value`),
+// e as erradas são erros de inglês.
+export type ChooseReply = Base & { type: 'choose_reply'; prompt_pt?: string; options: ReplyOption[]; either?: boolean };
 
 // Montar a própria fala ordenando palavras. As peças falsas não podem aparecer na resposta.
 export type BuildReply = Base & { type: 'build_reply'; text: string; pt: string; distractors: string[] };
@@ -113,6 +117,10 @@ export type BuildOrder = Base & { type: 'build_order'; order: OrderSpec };
 // Pedido em grupo: quantidade de cada item (nomes de menu.ts).
 export type GroupOrder = Base & { type: 'group_order'; order: Record<string, number>; choices: string[] };
 
+// Achar o erro: a frase tem UMA palavra errada, marcada com *asteriscos* em `sentence`
+// (ex.: "Did you *went* to the party?"). O jogador toca na palavra errada; `fix` é a frase certa.
+export type SpotError = Base & { type: 'spot_error'; sentence: string; fix: string; why_pt: string };
+
 export type Activity =
   | ChooseReply
   | BuildReply
@@ -124,7 +132,8 @@ export type Activity =
   | Change
   | FreeWrite
   | BuildOrder
-  | GroupOrder;
+  | GroupOrder
+  | SpotError;
 
 export type ActivityType = Activity['type'];
 
@@ -160,6 +169,8 @@ export type Scene = {
   channel?: 'counter' | 'phone';
   // conversas avulsas: emendar um pedido depois da conversa
   withOrder?: boolean;
+  // falas mais longas (até 5 frases), para personagens de nível mais alto (Belmont)
+  long?: boolean;
 };
 
 export type Chapter = Scene & {

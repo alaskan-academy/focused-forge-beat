@@ -133,6 +133,7 @@ export type ActivityResult = {
   hints: number;
   revealed: boolean; // desistiu / mostrou a resposta
   hearts: number; // efeito em corações (choose_reply)
+  value?: string; // escolha pessoal (choose_reply com `either`), ex.: quem reservou a cabana
 };
 
 export function gradeOf(r: ActivityResult): Grade {
@@ -224,4 +225,12 @@ export function levelFromXp(xp: number): { level: number; into: number; needed: 
     need += 50;
   }
   return { level, into: rest, needed: need };
+}
+
+// ── achar o erro ────────────────────────────────────────────────────────────
+
+// "Did you *went* to the party?" → palavras sem os asteriscos + índice da palavra errada (-1 se não houver)
+export function parseSpot(sentence: string): { words: string[]; wrong: number } {
+  const raw = sentence.trim().split(/\s+/);
+  return { words: raw.map((w) => w.split('*').join('')), wrong: raw.findIndex((w) => w.includes('*')) };
 }

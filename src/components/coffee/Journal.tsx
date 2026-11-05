@@ -5,6 +5,7 @@ import { CHARACTERS, ITEMS, ITEM_EXAMPLES } from '@/content/coffee';
 import { MAX_HEARTS, MILESTONES, chapterStatus, isSpecial, type ArcState } from '@/lib/coffee/arcs';
 import { MAX_BOX, type VocabState } from '@/lib/coffee/srs';
 import CharacterPreview from './CharacterPreview';
+import belmont from '@/content/coffee/characters/belmont';
 import { customItemId, isCustomId, sameWord } from '@/content/coffee/custom';
 import type { CustomItem, CustomItemInput } from '@/lib/coffee/store/types';
 
@@ -70,7 +71,7 @@ export default function Journal({ states, arcs, now, customItems = [], userId, p
         <div className="flex-1 overflow-y-auto bg-[#fbf3e4] p-3">
           {tab === 'people' && (
             <div className="space-y-3">
-              {CHARACTERS.map((c) => {
+              {[...CHARACTERS, ...(arcs[belmont.id] ? [belmont] : [])].map((c) => {
                 const arc = arcs[c.id];
                 if (!arc) {
                   return (
@@ -91,7 +92,7 @@ export default function Journal({ states, arcs, now, customItems = [], userId, p
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="cc-title text-lg leading-tight">{c.name}</div>
-                        <Hearts n={arc.hearts} />
+                        {c.id === belmont.id ? <div className="text-xs italic opacity-70">Affection is not included in the lease.</div> : <Hearts n={arc.hearts} />}
                         <p className="mt-1 text-xs opacity-75">{c.bio_pt}</p>
                       </div>
                     </div>

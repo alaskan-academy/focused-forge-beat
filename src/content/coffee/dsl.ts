@@ -35,6 +35,11 @@ export const ask = (id: string, items: string[], question: string, options: stri
   activity: { id, type: 'comprehension', items, question, options, answer: 0, ...(why_pt ? { why_pt } : {}) },
 });
 
+// achar o erro: marque a palavra errada com *asteriscos* ("Did you *went*?") e dê a frase certa
+export const spot = (id: string, items: string[], sentence: string, fix: string, why_pt: string): Step => ({
+  activity: { id, type: 'spot_error', items, sentence, fix, why_pt },
+});
+
 export const recall = (id: string, from: string, items: string[], question: string, options: string[]): Step => ({
   activity: { id, type: 'recall', from, items, question, options, answer: 0 },
 });
@@ -73,7 +78,7 @@ export const change = (id: string, items: string[], question: string, price_cent
 
 export const price = (name: string) => MENU_BY_NAME[name]?.price_cents ?? 0;
 
-type Extra = { gapDays?: number; minHearts?: number };
+type Extra = { gapDays?: number; minHearts?: number; long?: boolean };
 
 export const chapter = (
   id: string,

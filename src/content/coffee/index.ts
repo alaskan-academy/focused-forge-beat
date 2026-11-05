@@ -80,6 +80,9 @@ export function sceneText(s: Scene): string {
       case 'group_order':
         parts.push(...a.choices);
         break;
+      case 'spot_error':
+        parts.push(a.sentence.split('*').join(''), a.fix);
+        break;
       default:
         parts.push(a.question, ...a.options);
     }

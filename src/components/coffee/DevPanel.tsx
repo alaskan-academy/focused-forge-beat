@@ -34,6 +34,9 @@ export default function DevPanel({ store }: { store: LocalStore }) {
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.advanceDays(1))}>
           ⏩ +1 dia
         </button>
+        <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.callLandlord())}>
+          😈 Chamar o Belmont
+        </button>
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.resetPuzzles())}>
           ♟️ Sudoku novo
         </button>

@@ -6,6 +6,7 @@ import type { ArcState } from '../arcs';
 import type { Grade, VocabState } from '../srs';
 import type { Pronoun } from '@/content/coffee/personalize';
 import type { SudokuProgress, SudokuPuzzle, SudokuSize } from '../sudoku';
+import type { LandlordBill, LandlordPayInput, LandlordPayResult } from '../landlord';
 
 export type CafeCustomer = {
   id: string;
@@ -58,6 +59,7 @@ export type Snapshot = {
   upgrade: UpgradeState | null;
   puzzles: PuzzleRow[]; // meus puzzles de hoje e de ontem (mesa de jogos)
   customItems: CustomItem[]; // caderninho escrito à mão (meus e da outra pessoa, para copiar)
+  landlord: LandlordBill | null; // conta de hoje do Belmont (null = indisponível)
 };
 
 // Palavra anotada à mão no caderninho. Na revisão o item é `u:<id>` (ver content/coffee/custom.ts).
@@ -132,6 +134,8 @@ export interface CoffeeStore {
   // caderninho escrito à mão (cada um o seu)
   addCustomItem(input: CustomItemInput): Promise<CustomItem>;
   deleteCustomItem(id: string): Promise<void>;
+  // Belmont Sulphur, o senhorio: paga a conta do dia no fim da visita
+  landlordPay(input: LandlordPayInput): Promise<LandlordPayResult>;
   subscribe(cb: () => void): () => void;
   joinPresence(cafeId: string, self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle;
 }

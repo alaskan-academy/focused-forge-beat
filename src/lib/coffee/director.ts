@@ -21,7 +21,7 @@ export type PlayerContext = {
 };
 
 export type Encounter = {
-  kind: 'chapter' | 'regular' | 'order' | 'talk';
+  kind: 'chapter' | 'regular' | 'order' | 'talk' | 'landlord';
   characterId: string | null;
   chapterId: string | null;
   scenes: Scene[];

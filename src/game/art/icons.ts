@@ -58,6 +58,15 @@ export const ICONS: Record<string, (r: R) => void> = {
     r(6, 2, 2, 5, '#c4554d');
     r(6, 8, 2, 1, '#c4554d');
   },
+  // conta: o Belmont veio cobrar o aluguel
+  bill: (r) => {
+    bubble(r, '#f6d5cb');
+    r(4, 2, 6, 7, '#fffaf0');
+    r(4, 2, 6, 1, '#c4554d');
+    r(5, 4, 4, 1, '#8e8577');
+    r(5, 6, 3, 1, '#8e8577');
+    r(8, 7, 1, 1, '#c4554d');
+  },
   // tecla E
   keyE: (r) => {
     r(0, 0, 11, 11, OUT);
@@ -86,6 +95,7 @@ export const ICON_SIZE: Record<string, [number, number]> = {
   talk: [14, 13],
   busy: [14, 13],
   alert: [14, 13],
+  bill: [14, 13],
   keyE: [11, 11],
   heart: [8, 6],
 };

@@ -7,6 +7,7 @@ import { appearanceFromSeed } from '../character';
 import type { ArcState } from '../arcs';
 import type { VocabState } from '../srs';
 import { PUZZLE_COINS, dayKey, type SudokuProgress, type SudokuPuzzle, type SudokuSize } from '../sudoku';
+import { computeBill, landlordXp, settle, type LandlordBill, type LandlordPayInput } from '../landlord';
 import {
   CHARACTER_CHANCE,
   CAT_CORNER,
@@ -38,6 +39,8 @@ type Data = {
   upgrade: UpgradeState;
   puzzles: PuzzleRow[];
   custom: CustomItem[];
+  // Belmont: mesmas regras de coffee_landlord_compute/pay
+  landlord: { debt: number; visits: number; last_visit_day: string | null; booked_by_me: boolean | null; earned_since: number; errors_since: number; active_day: string | null };
   last_spawn_at: string;
   clock_offset_ms: number;
 };
@@ -56,6 +59,7 @@ function fresh(): Data {
     feed: [{ id: 'f0', user_id: USER, kind: 'opened_cafe', data: {}, created_at: new Date().toISOString() }],
     upgrade: { id: 'local-upgrade', key: CAT_CORNER.key, cost: CAT_CORNER.cost, funded: 0, completed_at: null, contributions: {} },
     puzzles: [],
+    landlord: { debt: 0, visits: 0, last_visit_day: null, booked_by_me: null, earned_since: 0, errors_since: 0, active_day: null },
     // uma anotação da "Jessica" de teste, para experimentar o copiar
     custom: [
       { id: 'local-partner-1', user_id: PARTNER.user_id, en: 'break a leg', pt: 'boa sorte (antes de uma apresentação)', example: 'Your interview is today? Break a leg!', source: 'aula de inglês', created_at: new Date().toISOString() },
@@ -84,6 +88,7 @@ export class LocalStore implements CoffeeStore {
 
   async load(): Promise<Snapshot> {
     const { me, partner, customers, items, arcs, feed, upgrade, puzzles, custom } = this.data;
+    const landlord = this.landlordBill();
     return {
       cafe: { id: 'local', name: 'Coffee Cats', invite_code: 'LOCAL1', reputation: 0, members: [USER, ...(partner ? [partner.user_id] : [])] },
       feed: [...feed],
@@ -95,6 +100,7 @@ export class LocalStore implements CoffeeStore {
       arcs: { ...arcs },
       puzzles: puzzles.map((p) => ({ ...p })),
       customItems: custom.map((c) => ({ ...c })),
+      landlord,
     };
   }
 
@@ -172,6 +178,7 @@ export class LocalStore implements CoffeeStore {
     if (c) this.markServed(c, USER);
     this.data.me.coins += money.total;
     this.data.me.xp += xp;
+    this.trackForLandlord(money.total, input.mistakes);
     this.log(USER, input.chapterId ? 'chapter' : 'served', { stars: input.stars, character: input.characterId, chapter: input.chapterId, walkout: money.walkout });
     this.write();
     return { coins: money.total, tip: money.tip, walkout: money.walkout, xp, total_coins: this.data.me.coins, total_xp: this.data.me.xp };
@@ -219,9 +226,83 @@ export class LocalStore implements CoffeeStore {
     Object.assign(row, { status: 'done', stars: input.stars, progress: input.progress });
     this.data.me.coins += coins;
     this.data.me.xp += xp;
+    this.trackForLandlord(coins, input.mistakes);
     this.log(USER, 'puzzle', { size: row.size, stars: input.stars, theme: row.data.theme, mistakes: input.mistakes, hints: input.hints });
     this.write();
     return { coins, xp, total_coins: this.data.me.coins, total_xp: this.data.me.xp };
+  }
+
+  // ── Belmont Sulphur (senhorio) ─────────────────────────────────────────────
+
+  private landlordBill(): LandlordBill {
+    const l = this.data.landlord;
+    const today = dayKey(this.now());
+    const first = l.visits === 0;
+    const upgrades = this.data.upgrade.completed_at ? 1 : 0;
+    const coins = this.data.me.coins;
+    const b = computeBill({ first, coins, earned: l.earned_since, errors: l.errors_since, upgrades, debt: l.debt });
+    return {
+      ready: l.active_day === today && l.last_visit_day !== today,
+      first,
+      visits: l.visits,
+      earned: l.earned_since,
+      errors: l.errors_since,
+      upgrades,
+      rent: b.rent,
+      error_fee: b.error_fee,
+      debt: l.debt,
+      total: b.total,
+      coins,
+      booked_by_me: l.booked_by_me,
+    };
+  }
+
+  // o que conta para o aluguel: moedas ganhas, erros e se já jogou hoje
+  private trackForLandlord(coins: number, mistakes: number) {
+    const l = this.data.landlord;
+    l.earned_since += coins;
+    l.errors_since += mistakes;
+    l.active_day = dayKey(this.now());
+  }
+
+  async landlordPay(input: LandlordPayInput) {
+    const bill = this.landlordBill();
+    if (!bill.ready) throw new Error('landlord is not here today');
+    const s = settle(bill, input.discount);
+    const xp = landlordXp(input.stars, input.activities);
+    const l = this.data.landlord;
+    this.data.me.coins -= s.paid;
+    this.data.me.xp += xp;
+    Object.assign(l, {
+      debt: s.debt,
+      visits: l.visits + 1,
+      last_visit_day: dayKey(this.now()),
+      booked_by_me: input.bookedByMe ?? l.booked_by_me,
+      earned_since: 0,
+      errors_since: 0,
+    });
+    this.log(USER, 'rent', { paid: s.paid, debt: s.debt, first: bill.first, chapter: input.chapterId });
+    this.write();
+    return {
+      paid: s.paid,
+      debt: s.debt,
+      discount: s.discount,
+      first: bill.first,
+      xp,
+      rent: bill.rent,
+      error_fee: bill.error_fee,
+      previous_debt: bill.debt,
+      total_coins: this.data.me.coins,
+      total_xp: this.data.me.xp,
+    };
+  }
+
+  // teste: o Belmont aparece agora (como se você já tivesse jogado hoje e ele ainda não tivesse vindo)
+  callLandlord() {
+    const l = this.data.landlord;
+    l.active_day = dayKey(this.now());
+    if (l.last_visit_day === l.active_day) l.last_visit_day = null;
+    this.write();
   }
 
   // ── caderninho escrito à mão ──────────────────────────────────────────────
@@ -371,6 +452,7 @@ export class LocalStore implements CoffeeStore {
       d.customers = d.customers.map((c) => ({ ...c, served_by: c.served_by ?? [] }));
       d.puzzles = d.puzzles ?? [];
       d.custom = d.custom ?? fresh().custom;
+      d.landlord = { ...fresh().landlord, ...(d.landlord ?? {}) };
       return d;
     } catch {
       return null;

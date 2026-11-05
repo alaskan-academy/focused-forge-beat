@@ -166,6 +166,16 @@ w('latte', 'latte', 'café com leite (latte)', '🥤', 'Espresso with a lot of h
 - **Palavra nova:** vira o item de revisão `w:<id>`. Não renomeie ids depois de publicado.
 - **Dificuldade:** o jogo escolhe o tipo de pista pela caixa da palavra no SRS. Palavras novas ganham imagem/tradução; as dominadas, definição e lacuna. No 4×4 tudo fica um pouco mais fácil.
 
+## 6d. Belmont Sulphur, o senhorio (`characters/belmont.ts`)
+
+Personagem especial: não entra na fila de clientes, aparece uma vez por dia para cada jogador (depois do primeiro atendimento ou Sudoku do dia) e cobra o aluguel (regras em `lib/coffee/landlord.ts` e na migration `coffee_landlord`).
+
+- **Nível B1** e cenas `long` (falas de até 5 frases). Assuntos fixos: *take/took/taken* e verbos auxiliares (do/be/have/modais, respostas curtas, perguntas de reação).
+- **Marcadores extras:** números da conta `{rent} {fee} {debt} {total} {earned} {errors} {coins}`; quem reservou a cabana `{booker}/{Booker}` (em português `{booker_pt}/{Booker_pt}`), além dos de sempre (`{partner}`, `{Sub}`…).
+- **Capítulos** (`chapters`, um por dia) contam o pacto da cabana; **visitas** (`regulars`) são as cobranças do dia a dia; **contas** (`BELMONT_BILLS`) fecham a visita a partir da 2ª e precisam de uma atividade com id `negotiate` (acertar de primeira dá 5 moedas de desconto).
+- **Escolha pessoal:** `choose_reply` com `either: true` aceita mais de uma resposta certa, cada uma com `value` (ex.: "I did." = `me`, "She did." = `partner`).
+- **Achar o erro** (`spot(...)`): marque a palavra errada com `*asteriscos*` e dê a frase certa e o porquê.
+
 ## 7. Checklist antes de publicar
 
 - [ ] `npx vitest run src/content src/lib/coffee/sudoku.test.ts` passa.

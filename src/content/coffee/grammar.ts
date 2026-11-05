@@ -36,6 +36,16 @@ export const GRAMMAR: GrammarItem[] = [
   { id: 'g:superlatives', name: 'superlativos', pt: 'O mais: the + -est (the laziest) ou the most + adjetivo longo (the most dramatic).', example: "She's the laziest cat in the world.", level: 'A2' },
   { id: 'g:register_formal', name: 'registro formal', pt: 'Educado e distante: "Would it be possible to…", "I was wondering if…", "Certainly", "I apologize".', example: 'Would it be possible to have the bill, please?', level: 'B1' },
   { id: 'g:register_informal', name: 'registro informal', pt: 'Entre amigos: gonna, wanna, kinda, "no way", "dude". Soa natural na conversa, estranho num e-mail formal.', example: "Dude, I'm gonna need a bigger coffee.", level: 'A2+' },
+
+  // take e verbos auxiliares (Belmont Sulphur)
+  { id: 'g:take_forms', name: 'take / took / taken', pt: 'Presente take, passado TOOK, particípio TAKEN (depois de have/has: "I have taken", nunca "have took").', example: 'You took eleven brigadeiros. Have you ever taken anything seriously?', level: 'A2+' },
+  { id: 'g:take_phrases', name: 'expressões com take', pt: 'take a break (fazer uma pausa), take it easy (relaxar), take it personally (levar para o lado pessoal), take a picture (tirar foto), take the bus (pegar o ônibus), take care (se cuidar).', example: "Don't take it personally. I charge everyone.", level: 'A2+' },
+  { id: 'g:aux_do', name: 'auxiliar do / does / did', pt: `Pergunta e negativa no presente e no passado usam DO/DOES/DID + verbo base: "Did you go?" (nunca "did you went"), "She doesn't know" (nunca "she don't").`, example: "Did you pay? No, you didn't.", level: 'A2' },
+  { id: 'g:aux_be', name: 'auxiliar be (am / is / are / was / were)', pt: 'BE + verbo -ing para o que está (ou estava) acontecendo. E nunca "I am agree": agree já é verbo, então é só "I agree".', example: 'You were sleeping when I arrived.', level: 'A2' },
+  { id: 'g:aux_have', name: 'auxiliar have / has / had', pt: 'HAVE/HAS + particípio forma o present perfect: "I have read", "she has taken". Pergunta: "Have you ever…?"', example: 'Have you ever read a contract before signing it?', level: 'A2+' },
+  { id: 'g:aux_modals', name: 'modais (will / would / can / could / should)', pt: 'Modais vêm direto com o verbo base, sem "to" e sem -s: "he can pay", "you should read", "I will take".', example: 'You should read the fine print. I would.', level: 'A2' },
+  { id: 'g:short_answers', name: 'respostas curtas (Yes, I did.)', pt: `Responda repetindo o auxiliar da pergunta: "Did you…?" → "Yes, I did." / "Are you…?" → "No, I'm not." / "Have you…?" → "Yes, I have."`, example: 'Did you sign the contract? Yes, I did.', level: 'A2' },
+  { id: 'g:echo_questions', name: 'perguntas de reação (Have you?)', pt: `Para reagir com surpresa, repita o auxiliar como pergunta: "I've been married for 300 years." → "Have you?"; "I don't pay rent." → "Don't you?"`, example: "I've been married for 300 years. Have you?", level: 'B1' },
 ];
 
 export const GRAMMAR_BY_ID: Record<string, GrammarItem> = Object.fromEntries(GRAMMAR.map((g) => [g.id, g]));

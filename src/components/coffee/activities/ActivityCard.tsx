@@ -14,6 +14,7 @@ import type {
   GroupOrder,
   Line,
   OrderSpec,
+  SpotError,
 } from '@/content/coffee/types';
 import {
   HINT_LINE_COST,
@@ -26,6 +27,7 @@ import {
   correctPrefix,
   emptySelection,
   orderFields,
+  parseSpot,
   type OrderSelection,
   type Tile,
 } from '@/lib/coffee/activities';
@@ -39,6 +41,8 @@ export type CardOutcome = {
   utterance?: string;
   // fala do cliente (lacuna do cliente) que entra na conversa
   customerLine?: string;
+  // escolha pessoal (choose_reply com `either`)
+  value?: string;
 };
 
 type CardProps<A> = {
@@ -102,7 +106,7 @@ function ChooseReplyCard({ activity: a, onExchange, onDone }: CardProps<ChooseRe
     if (o.correct || o.reaction) onExchange({ text: o.text, wrong: !o.correct }, o.reaction);
     if (o.correct) {
       setDone(true);
-      onDone({ mistakes: wrong.length, hints: 0, revealed: false, hearts: h });
+      onDone({ mistakes: wrong.length, hints: 0, revealed: false, hearts: h, ...(a.either && o.value ? { value: o.value } : {}) });
     } else setWrong([...wrong, o.text]);
   };
 
@@ -569,6 +573,59 @@ function GroupOrderCard({ activity: a, onDone }: CardProps<GroupOrder>) {
   );
 }
 
+// ── achar o erro ────────────────────────────────────────────────────────────
+
+function SpotErrorCard({ activity: a, onDone }: CardProps<SpotError>) {
+  const { words, wrong } = useMemo(() => parseSpot(a.sentence), [a]);
+  const [missed, setMissed] = useState<number[]>([]);
+  const [state, setState] = useState<'play' | 'ok' | 'revealed'>('play');
+
+  const pick = (i: number) => {
+    if (state !== 'play' || missed.includes(i)) return;
+    if (i === wrong) {
+      setState('ok');
+      onDone({ mistakes: missed.length, hints: 0, revealed: false, hearts: 0, utterance: a.fix });
+      return;
+    }
+    const m = [...missed, i];
+    setMissed(m);
+    if (m.length >= 2) {
+      setState('revealed');
+      onDone({ mistakes: m.length, hints: 0, revealed: true, hearts: 0, utterance: a.fix });
+    }
+  };
+
+  return (
+    <Shell title="Ache o erro: toque na palavra errada">
+      <div className="flex flex-wrap gap-1.5">
+        {words.map((w, i) => (
+          <button
+            key={i}
+            type="button"
+            disabled={state !== 'play' || missed.includes(i)}
+            onClick={() => pick(i)}
+            className={cn(
+              'cc-tile',
+              missed.includes(i) && 'border-[#e6d2ad] opacity-50',
+              state !== 'play' && i === wrong && 'border-[#c4554d] bg-[#f6d5cb] text-[#8a3a26] line-through',
+            )}
+          >
+            {w}
+          </button>
+        ))}
+      </div>
+      {state === 'play' && missed.length > 0 && <Feedback kind="bad">Essa está certa. Procure outra.</Feedback>}
+      {state !== 'play' && (
+        <Feedback kind={state === 'ok' ? 'ok' : 'info'}>
+          {state === 'ok' ? 'Achou! ' : 'O erro era este. '}
+          O certo: <b>{a.fix}</b>
+          <div className="mt-0.5 text-xs opacity-80">{a.why_pt}</div>
+        </Feedback>
+      )}
+    </Shell>
+  );
+}
+
 // ── despacho ────────────────────────────────────────────────────────────────
 
 export default function ActivityCard(props: CardProps<Activity> & { gapMode: 'options' | 'typed' }) {
@@ -586,6 +643,8 @@ export default function ActivityCard(props: CardProps<Activity> & { gapMode: 'op
       return <BuildOrderCard {...props} activity={a} />;
     case 'group_order':
       return <GroupOrderCard {...props} activity={a} />;
+    case 'spot_error':
+      return <SpotErrorCard {...props} activity={a} />;
     default:
       return <PickCard {...props} activity={a} />;
   }

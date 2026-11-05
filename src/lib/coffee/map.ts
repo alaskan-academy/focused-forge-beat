@@ -61,8 +61,11 @@ export const CUSTOMER_SPOTS: Spot[] = [
   { id: 'table6', x: 15, y: 10, face: 'left' },
 ];
 
+// Onde o Belmont (senhorio) espera, perto da porta. Não é lugar de cliente (só aparece para quem ele cobra).
+export const LANDLORD_SPOT: Spot = { id: 'landlord', x: 10, y: 12, face: 'up' };
+
 export function spotById(id: string): Spot | undefined {
-  return CUSTOMER_SPOTS.find((s) => s.id === id);
+  return id === LANDLORD_SPOT.id ? LANDLORD_SPOT : CUSTOMER_SPOTS.find((s) => s.id === id);
 }
 
 const DIRS: Point[] = [

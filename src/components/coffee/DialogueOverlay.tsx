@@ -3,6 +3,7 @@ import { ChevronRight, Languages, Phone, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ITEMS } from '@/content/coffee';
 import { MOOD_EMOJI, isLine, type Line, type Mood } from '@/content/coffee/types';
+import type { LandlordPayResult } from '@/lib/coffee/landlord';
 import { HINT_LINE_COST, HINT_WORD_COST, WALKOUT_MISTAKES, gapMode, type ActivityResult, type Feedback } from '@/lib/coffee/activities';
 import type { Encounter } from '@/lib/coffee/director';
 import type { Appearance } from '@/lib/coffee/character';
@@ -24,6 +25,7 @@ export type EncounterSummary = {
   weak?: string[]; // itens com erro ou dica: voltam antes na revisão
   chapterTitle: string | null;
   feedback?: Feedback;
+  rent?: LandlordPayResult; // visita do Belmont: a conta paga (no lugar das moedas ganhas)
 };
 
 type Props = {
@@ -98,7 +100,7 @@ export default function DialogueOverlay({ encounter, name, look, states, coins, 
 
   const onDone = (o: CardOutcome) => {
     if (!step || isLine(step)) return;
-    setResults((r) => [...r, { activityId: step.activity.id, mistakes: o.mistakes, hints: o.hints + pendingHints.current, revealed: o.revealed, hearts: o.hearts }]);
+    setResults((r) => [...r, { activityId: step.activity.id, mistakes: o.mistakes, hints: o.hints + pendingHints.current, revealed: o.revealed, hearts: o.hearts, ...(o.value ? { value: o.value } : {}) }]);
     pendingHints.current = 0;
     if (o.customerLine) push({ who: 'customer', text: o.customerLine, mood });
     if (o.utterance) push({ who: 'player', text: o.utterance });
@@ -298,6 +300,37 @@ function HintedText({ text, revealed, onWord }: { text: string; revealed: Set<st
 
 const UNLOCK_LABEL: Record<string, string> = { gift: '🎁 Presente para o café', photo: '📷 Foto no caderninho' };
 
+// Conta do Belmont: o que foi cobrado, o desconto, quanto você pagou e a dívida que ficou.
+function RentBill({ r }: { r: LandlordPayResult }) {
+  const row = (label: string, value: string, strong = false) => (
+    <div className={cn('flex justify-between gap-3', strong && 'font-bold')}>
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+  return (
+    <div className="mx-auto mt-2 max-w-[260px] rounded-lg border-2 border-dashed border-[#c4554d]/50 bg-[#fdf1ec] px-3 py-2 text-left text-xs text-[#5e2a22]">
+      <div className="mb-1 text-center font-semibold">🧾 Conta do Belmont</div>
+      {r.first ? (
+        row('Primeiro aluguel + depósito + "danos emocionais"', `${r.paid} 🪙`, true)
+      ) : (
+        <>
+          {row('Aluguel', `${r.rent} 🪙`)}
+          {row('Erros (1 🪙 cada)', `${r.error_fee} 🪙`)}
+          {r.previous_debt > 0 && row('Dívida anterior', `${r.previous_debt} 🪙`)}
+          {r.discount > 0 && row('Desconto por negociar', `−${r.discount} 🪙`)}
+          {row('Você pagou', `${r.paid} 🪙`, true)}
+        </>
+      )}
+      {r.debt > 0 ? (
+        <div className="mt-1 text-center font-semibold text-[#8a3a26]">😈 Ficou devendo {r.debt} 🪙 (ele cobra amanhã)</div>
+      ) : (
+        <div className="mt-1 text-center opacity-70">Nada devendo. Por enquanto.</div>
+      )}
+    </div>
+  );
+}
+
 function Summary({ s, name }: { s: EncounterSummary; name: string }) {
   return (
     <div className="cc-card animate-in zoom-in-95 fade-in text-center duration-300">
@@ -318,7 +351,9 @@ function Summary({ s, name }: { s: EncounterSummary; name: string }) {
           ))}
         </div>
       )}
-      {s.walkout ? (
+      {s.rent ? (
+        <RentBill r={s.rent} />
+      ) : s.walkout ? (
         <div className="mt-2 rounded-lg bg-[#e07a5f]/20 px-3 py-2 text-sm font-semibold text-[#8a3a26]">
           😤 {s.mistakes} erros: o cliente foi embora sem pagar.
         </div>
@@ -329,7 +364,7 @@ function Summary({ s, name }: { s: EncounterSummary; name: string }) {
         </div>
       )}
       <div className="mt-2 flex flex-wrap justify-center gap-3 text-sm font-semibold">
-        <span>+{s.coins} 🪙</span>
+        {!s.rent && <span>+{s.coins} 🪙</span>}
         <span>+{s.xp} XP</span>
         {s.heartsDelta !== null && (
           <span>

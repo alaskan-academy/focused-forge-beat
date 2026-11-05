@@ -15,6 +15,7 @@ export type Appearance = {
   shirt: { style: ShirtStyle; color: string };
   pants: { style: PantsStyle; color: string };
   shoes: { style: ShoeStyle; color: string };
+  horns?: boolean; // chifrinhos (o Belmont tem; qualquer um pode usar)
 };
 
 export const HAIR_STYLES = ['curto', 'longo', 'coque', 'cacheado'] as const;
@@ -50,6 +51,7 @@ export function normalizeAppearance(raw: unknown): Appearance {
     shirt: { style: pick(r.shirt?.style, SHIRT_STYLES, d.shirt.style), color: color(r.shirt?.color, d.shirt.color) },
     pants: { style: pick(r.pants?.style, PANTS_STYLES, d.pants.style), color: color(r.pants?.color, d.pants.color) },
     shoes: { style: pick(r.shoes?.style, SHOE_STYLES, d.shoes.style), color: color(r.shoes?.color, d.shoes.color) },
+    ...(r.horns === true ? { horns: true } : {}),
   };
 }
 
@@ -73,7 +75,7 @@ export function appearanceFromSeed(seed: number): Appearance {
 }
 
 export function appearanceKey(a: Appearance): string {
-  return [a.skin, a.hair.style, a.hair.color, a.shirt.style, a.shirt.color, a.pants.style, a.pants.color, a.shoes.style, a.shoes.color].join('|');
+  return [a.skin, a.hair.style, a.hair.color, a.shirt.style, a.shirt.color, a.pants.style, a.pants.color, a.shoes.style, a.shoes.color, a.horns ? 'horns' : ''].join('|');
 }
 
 // ── Desenho ─────────────────────────────────────────────────────────────────
@@ -88,6 +90,18 @@ const side = (p: Pose) => p.dir === 'left' || p.dir === 'right';
 
 // Pernas: deslocamento vertical de cada perna no passo.
 const legLift = (p: Pose) => ({ l: p.step === 1 ? -1 : 0, r: p.step === -1 ? -1 : 0 });
+
+// chifrinhos curvos acima da cabeça (mesmo desenho de frente, de costas e de lado)
+const HORN_COLOR = '#e9dcc5';
+const drawHorns: PartFn = (px, _rect, p) => {
+  const b = p.bob;
+  px(5, 2 + b);
+  px(4, 1 + b);
+  px(4, 0 + b, 'light');
+  px(10, 2 + b);
+  px(11, 1 + b);
+  px(11, 0 + b, 'light');
+};
 
 const drawBody: PartFn = (px, rect, p) => {
   const b = p.bob;
@@ -311,6 +325,7 @@ export function drawCharacterFrame(ctx: CanvasRenderingContext2D, a: Appearance,
   layer(pants[a.pants.style], a.pants.color);
   layer(shirts[a.shirt.style], a.shirt.color);
   layer(hairs[a.hair.style], a.hair.color);
+  if (a.horns) layer(drawHorns, HORN_COLOR);
 
   // contorno escuro em volta da silhueta
   const filled = (x: number, y: number) => x >= 0 && y >= 0 && x < FRAME_W && y < FRAME_H && grid[y * FRAME_W + x] !== null && grid[y * FRAME_W + x] !== OUTLINE;

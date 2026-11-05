@@ -13,11 +13,16 @@ import { customItemId, registerCustomItems } from '@/content/coffee/custom';
 import type { CustomItemInput } from '@/lib/coffee/store/types';
 import type { Appearance } from '@/lib/coffee/character';
 import type { EncounterSummary } from './DialogueOverlay';
+import belmont from '@/content/coffee/characters/belmont';
+import { BELMONT_ID, negotiationDiscount, planLandlordVisit } from '@/lib/coffee/landlordVisit';
 
 const SPAWN_POLL_MS = 60_000;
 const GRADE_RANK: Record<Grade, number> = { fail: 0, ok: 1, good: 2 };
 
 export type ActiveEncounter = { customer: CafeCustomer; encounter: Encounter };
+
+// id do Belmont na cena (não é um cliente do banco)
+export const LANDLORD_CUSTOMER_ID = 'landlord';
 
 // Liga o armazenamento (local ou Supabase) às regras do jogo: chegada de clientes, escolha do
 // encontro pelo SRS, e gravação do resultado (SRS, corações, moedas).
@@ -92,7 +97,7 @@ export function useCoffeeGame(store: CoffeeStore) {
   const sceneCustomers = useMemo<SceneCustomer[]>(() => {
     if (!snap) return [];
     const now = store.now();
-    return snap.customers.map((c) => {
+    const list: SceneCustomer[] = snap.customers.map((c) => {
       const char = c.character_id ? CHARACTER_BY_ID[c.character_id] : undefined;
       return {
         id: c.id,
@@ -107,12 +112,43 @@ export function useCoffeeGame(store: CoffeeStore) {
         look: char?.look,
       };
     });
+    // Belmont Sulphur: só para mim, parado na porta, enquanto a conta de hoje estiver aberta
+    if (snap.landlord?.ready)
+      list.push({
+        id: LANDLORD_CUSTOMER_ID,
+        spotId: 'landlord',
+        seed: 666,
+        status: 'waiting',
+        busy: false,
+        doneForMe: false,
+        arriving: false,
+        bubble: 'bill',
+        name: belmont.name,
+        look: belmont.look,
+      });
+    return list;
   }, [snap, store]);
 
   // Começa um atendimento: trava o cliente e escolhe o encontro para este jogador.
   const begin = useCallback(
     async (customerId: string): Promise<ActiveEncounter | 'busy' | null> => {
       const s = snapRef.current;
+      if (s && customerId === LANDLORD_CUSTOMER_ID) {
+        if (!s.landlord?.ready) return null;
+        const p = s.partner;
+        const encounter = planLandlordVisit({
+          arcs: s.arcs,
+          recentScenes: s.me.recent_scenes,
+          bill: s.landlord,
+          partner: p ? { name: p.display_name, pronoun: p.pronoun } : null,
+          bookedByMe: s.landlord.booked_by_me,
+          feed: s.feed,
+          userId: store.userId,
+          now: store.now(),
+        });
+        const customer: CafeCustomer = { id: LANDLORD_CUSTOMER_ID, spot: 'landlord', seed: 666, character_id: BELMONT_ID, status: 'serving', claimed_by: store.userId, served_by: [], arrived_at: store.now().toISOString() };
+        return { customer, encounter };
+      }
       const customer = s?.customers.find((c) => c.id === customerId);
       if (!s || !customer) return null;
       if (!(await store.claim(customerId))) return 'busy';
@@ -160,6 +196,40 @@ export function useCoffeeGame(store: CoffeeStore) {
       const stars = computeStars(total);
       const perfect = results.filter((r) => !r.revealed && r.mistakes === 0 && r.hints === 0).length;
       const weak = [...grades].filter(([, g]) => g !== 'good').map(([id]) => id);
+
+      // Belmont: em vez de receber, você paga a conta do dia (sem corações e sem cliente indo embora)
+      if (enc.kind === 'landlord') {
+        if (enc.chapterId) await store.saveArc(applyEncounter(s.arcs[BELMONT_ID], BELMONT_ID, enc.chapterId, 0, now).arc);
+        const booked = results.find((r) => r.activityId === 'booked')?.value;
+        const pay = await store.landlordPay({
+          stars,
+          activities: activities.length,
+          mistakes: total.mistakes,
+          discount: negotiationDiscount(results),
+          bookedByMe: booked ? booked === 'me' : null,
+          chapterId: enc.chapterId,
+        });
+        await store.savePlayer({
+          recent_scenes: [...enc.scenes.map((sc) => sc.id), ...s.me.recent_scenes].slice(0, 15),
+          last_theme: enc.scenes[enc.scenes.length - 1].theme,
+        });
+        return {
+          stars,
+          coins: 0,
+          tip: 0,
+          walkout: false,
+          mistakes: total.mistakes,
+          xp: pay.xp,
+          heartsDelta: null,
+          hearts: null,
+          newUnlocks: [],
+          items: [...grades.keys()],
+          weak,
+          chapterTitle: belmont.chapters.find((c) => c.id === enc.chapterId)?.title_pt ?? null,
+          feedback: performanceFeedback({ stars, activities: activities.length, perfect, mistakes: total.mistakes, hints: total.hints, revealed: total.revealed, walkout: false, fast: false }),
+          rent: pay,
+        };
+      }
 
       let hearts: number | null = null;
       let delta: number | null = null;

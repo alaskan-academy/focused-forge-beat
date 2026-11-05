@@ -26,6 +26,13 @@ export function feedText(e: FeedEntry, nameOf: (userId: string | null) => string
       return char ? `${who} conversou com ${char.name} ${stars}` : `${who} atendeu um cliente ${stars}`;
     case 'contributed':
       return `${who} colocou ${d.amount ?? 0} 🪙 no ${UPGRADE_NAMES[d.upgrade ?? ''] ?? 'projeto do café'}`;
+    case 'rent': {
+      const r = e.data as { paid?: number; debt?: number; first?: boolean };
+      if (r.first) return `O Belmont levou todas as ${r.paid ?? 0} 🪙 de ${who} na primeira visita 😈`;
+      return (r.debt ?? 0) > 0
+        ? `${who} pagou ${r.paid ?? 0} 🪙 ao Belmont e ficou devendo ${r.debt} 😈`
+        : `${who} pagou ${r.paid ?? 0} 🪙 de aluguel ao Belmont 😈`;
+    }
     case 'puzzle': {
       const p = e.data as { size?: number; theme?: string };
       const theme = SUDOKU_THEMES.find((t) => t.id === p.theme);

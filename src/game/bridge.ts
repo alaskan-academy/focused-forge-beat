@@ -15,7 +15,7 @@ export type SceneCustomer = {
   // chegou agora: entra andando pela porta
   arriving: boolean;
   // balão: pedido, conversa ou capítulo novo
-  bubble: 'coffee' | 'talk' | 'book';
+  bubble: 'coffee' | 'talk' | 'book' | 'bill';
   // clientes recorrentes: nome e aparência fixa
   name?: string;
   look?: Appearance;

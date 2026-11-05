@@ -8,6 +8,7 @@ import type { ArcState } from '../arcs';
 import type { VocabState } from '../srs';
 import type { Pronoun } from '@/content/coffee/personalize';
 import { dayKey, type SudokuProgress, type SudokuPuzzle, type SudokuSize } from '../sudoku';
+import type { LandlordBill, LandlordPayInput, LandlordPayResult } from '../landlord';
 import type {
   CafeCustomer,
   CustomItem,
@@ -84,7 +85,7 @@ export class SupabaseStore implements CoffeeStore {
     }
 
     const yesterday = dayKey(new Date(Date.now() - 86_400_000));
-    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom] = await Promise.all([
+    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom, landlord] = await Promise.all([
       db.from('coffee_cafes').select('id, name, invite_code, reputation').eq('id', cid).single(),
       db.from('coffee_members').select('user_id, joined_at').eq('cafe_id', cid).order('joined_at'),
       db.from('coffee_players').select('*').eq('cafe_id', cid),
@@ -99,6 +100,7 @@ export class SupabaseStore implements CoffeeStore {
       db.from('coffee_upgrades').select('id, key, cost, funded, completed_at, coffee_upgrade_contributions(user_id, amount)').eq('cafe_id', cid),
       db.from('coffee_puzzles').select('id, day, size, data, progress, status, stars').eq('user_id', this.userId).gte('day', yesterday),
       db.from('coffee_custom_items').select('id, user_id, en, pt, example, source, created_at').eq('cafe_id', cid).order('created_at', { ascending: false }),
+      db.rpc('coffee_landlord_bill'),
     ]);
 
     const cafeRow = check(cafe) as Row;
@@ -167,6 +169,8 @@ export class SupabaseStore implements CoffeeStore {
       // sem a tabela (migration ainda não aplicada) a mesa só fica vazia; o resto do café funciona
       puzzles: puzzles.error ? [] : ((puzzles.data as Row[]) ?? []).map(toPuzzle),
       customItems: custom.error ? [] : ((custom.data as unknown as CustomItem[]) ?? []),
+      // sem a função no banco (migration não aplicada) o Belmont simplesmente não aparece
+      landlord: landlord.error ? null : ((landlord.data as LandlordBill | null) ?? null),
     };
   }
 
@@ -273,6 +277,19 @@ export class SupabaseStore implements CoffeeStore {
   async deleteCustomItem(id: string) {
     check(await db.from('coffee_custom_items').delete().eq('id', id).eq('user_id', this.userId));
     check(await db.from('coffee_player_items').delete().eq('user_id', this.userId).eq('item_id', 'u:' + id));
+  }
+
+  async landlordPay(input: LandlordPayInput): Promise<LandlordPayResult> {
+    return check(
+      await db.rpc('coffee_landlord_pay', {
+        p_stars: input.stars,
+        p_activities: input.activities,
+        p_mistakes: input.mistakes,
+        p_discount: input.discount,
+        p_booked_by_me: input.bookedByMe,
+        p_chapter: input.chapterId,
+      }),
+    ) as LandlordPayResult;
   }
 
   subscribe(cb: () => void) {
