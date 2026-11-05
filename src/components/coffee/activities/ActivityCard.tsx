@@ -44,7 +44,9 @@ export type CardOutcome = {
 type CardProps<A> = {
   activity: A;
   onHint: (cost: number) => Promise<boolean>;
-  onReaction: (line: Line) => void;
+  // fala do jogador e, se houver, a reação do cliente — nesta ordem na conversa.
+  // `wrong`: resposta errada que mesmo assim gerou reação (aparece riscada).
+  onExchange: (said: { text: string; wrong?: boolean }, reaction?: Line) => void;
   onDone: (o: CardOutcome) => void;
 };
 
@@ -85,7 +87,7 @@ function HintButton({ cost, label, onClick }: { cost: number; label: string; onC
 
 // ── choose_reply ────────────────────────────────────────────────────────────
 
-function ChooseReplyCard({ activity: a, onReaction, onDone }: CardProps<ChooseReply>) {
+function ChooseReplyCard({ activity: a, onExchange, onDone }: CardProps<ChooseReply>) {
   const options = useMemo(() => shuffled(a.options), [a]);
   const [wrong, setWrong] = useState<string[]>([]);
   const [done, setDone] = useState(false);
@@ -96,10 +98,11 @@ function ChooseReplyCard({ activity: a, onReaction, onDone }: CardProps<ChooseRe
     if (done || wrong.includes(o.text)) return;
     const h = hearts + (o.hearts ?? 0);
     setHearts(h);
-    if (o.reaction) onReaction(o.reaction);
+    // a fala do jogador entra antes da reação; resposta errada sem reação fica só no cartão
+    if (o.correct || o.reaction) onExchange({ text: o.text, wrong: !o.correct }, o.reaction);
     if (o.correct) {
       setDone(true);
-      onDone({ mistakes: wrong.length, hints: 0, revealed: false, hearts: h, utterance: o.text });
+      onDone({ mistakes: wrong.length, hints: 0, revealed: false, hearts: h });
     } else setWrong([...wrong, o.text]);
   };
 
@@ -326,23 +329,33 @@ const PICK_TITLE: Record<string, string> = {
 
 type PickActivity = Extract<Activity, { type: 'comprehension' | 'recall' | 'safe_pick' | 'recommend' | 'change' }>;
 
+function pickUtterance(a: PickActivity): string | undefined {
+  const opt = a.options[a.answer];
+  if (a.type === 'recommend') return `I'd recommend the ${opt}.`;
+  if (a.type === 'safe_pick') return `The ${opt} is safe for you.`;
+  if (a.type === 'change') return `Here's your change: ${opt}.`;
+  return undefined; // compreensão e lembrança acontecem na cabeça do jogador
+}
+
 function PickCard({ activity: a, onDone }: CardProps<PickActivity>) {
   const order = useMemo(() => shuffled(a.options.map((_, i) => i)), [a]);
   const [wrong, setWrong] = useState<number[]>([]);
   const [state, setState] = useState<'play' | 'ok' | 'revealed'>('play');
 
+  // recomendar, oferecer o item seguro e dar o troco são falas do jogador para o cliente
+  const utterance = pickUtterance(a);
   const pick = (i: number) => {
     if (state !== 'play' || wrong.includes(i)) return;
     if (i === a.answer) {
       setState('ok');
-      onDone({ mistakes: wrong.length, hints: 0, revealed: false, hearts: 0 });
+      onDone({ mistakes: wrong.length, hints: 0, revealed: false, hearts: 0, utterance });
       return;
     }
     const w = [...wrong, i];
     setWrong(w);
     if (w.length >= 2) {
       setState('revealed');
-      onDone({ mistakes: w.length, hints: 0, revealed: true, hearts: 0 });
+      onDone({ mistakes: w.length, hints: 0, revealed: true, hearts: 0, utterance });
     }
   };
 

@@ -3,7 +3,7 @@ import { ChevronRight, Languages, Phone, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ITEMS } from '@/content/coffee';
 import { MOOD_EMOJI, isLine, type Line, type Mood } from '@/content/coffee/types';
-import { HINT_LINE_COST, HINT_WORD_COST, WALKOUT_MISTAKES, gapMode, type ActivityResult } from '@/lib/coffee/activities';
+import { HINT_LINE_COST, HINT_WORD_COST, WALKOUT_MISTAKES, gapMode, type ActivityResult, type Feedback } from '@/lib/coffee/activities';
 import type { Encounter } from '@/lib/coffee/director';
 import type { Appearance } from '@/lib/coffee/character';
 import type { VocabState } from '@/lib/coffee/srs';
@@ -21,7 +21,9 @@ export type EncounterSummary = {
   hearts: number | null;
   newUnlocks: string[];
   items: string[];
+  weak?: string[]; // itens com erro ou dica: voltam antes na revisão
   chapterTitle: string | null;
+  feedback?: Feedback;
 };
 
 type Props = {
@@ -36,7 +38,7 @@ type Props = {
   onClose: () => void;
 };
 
-type Entry = { key: string; who: 'customer' | 'player'; text: string; pt?: string; mood?: Mood; speaker?: string };
+type Entry = { key: string; who: 'customer' | 'player'; text: string; pt?: string; mood?: Mood; speaker?: string; wrong?: boolean };
 
 // Expressões de vocabulário (mais longas primeiro) para destacar nas falas.
 const VOCAB_PHRASES = Object.values(ITEMS)
@@ -103,7 +105,10 @@ export default function DialogueOverlay({ encounter, name, look, states, coins, 
     setActivityDone(true);
   };
 
-  const onReaction = (line: Line) => push({ who: 'customer', text: line.say, pt: line.pt, mood: line.mood, speaker: line.speaker });
+  const onExchange = (said: { text: string; wrong?: boolean }, line?: Line) => {
+    push({ who: 'player', text: said.text, wrong: said.wrong });
+    if (line) push({ who: 'customer', text: line.say, pt: line.pt, mood: line.mood, speaker: line.speaker });
+  };
 
   const spend = async (cost: number) => {
     const ok = await onSpend(cost);
@@ -168,7 +173,7 @@ export default function DialogueOverlay({ encounter, name, look, states, coins, 
               activity={step.activity}
               gapMode={step.activity.type === 'gap' ? gapMode(step.activity, states) : 'options'}
               onHint={spendForCard}
-              onReaction={onReaction}
+              onExchange={onExchange}
               onDone={onDone}
             />
           )}
@@ -212,7 +217,15 @@ function Bubble({
   if (e.who === 'player')
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-[#81b29a] px-3 py-2 text-sm font-medium text-white shadow-sm">{e.text}</div>
+        <div
+          className={cn(
+            'max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 text-sm font-medium shadow-sm',
+            e.wrong ? 'bg-[#e9d5b5] text-[#7d4f33] line-through decoration-[#c4554d]/70' : 'bg-[#81b29a] text-white',
+          )}
+          title={e.wrong ? 'resposta que não era a melhor' : undefined}
+        >
+          {e.text}
+        </div>
       </div>
     );
   return (
@@ -295,6 +308,16 @@ function Summary({ s, name }: { s: EncounterSummary; name: string }) {
           </span>
         ))}
       </div>
+      {s.feedback && (
+        <div className="mt-1">
+          <div className="cc-title text-base leading-snug">{s.feedback.headline}</div>
+          {s.feedback.notes.map((n) => (
+            <div key={n} className="text-xs opacity-75">
+              {n}
+            </div>
+          ))}
+        </div>
+      )}
       {s.walkout ? (
         <div className="mt-2 rounded-lg bg-[#e07a5f]/20 px-3 py-2 text-sm font-semibold text-[#8a3a26]">
           😤 {s.mistakes} erros: o cliente foi embora sem pagar.
@@ -325,12 +348,21 @@ function Summary({ s, name }: { s: EncounterSummary; name: string }) {
         <div className="mt-3 text-left text-xs">
           <div className="mb-1 font-semibold opacity-70">Você treinou:</div>
           <div className="flex flex-wrap gap-1">
-            {s.items.map((id) => (
-              <span key={id} className="rounded-full bg-[#efe0c4] px-2 py-0.5">
-                {ITEMS[id]?.label ?? id}
-              </span>
-            ))}
+            {s.items.map((id) => {
+              const weak = s.weak?.includes(id);
+              return (
+                <span
+                  key={id}
+                  className={cn('rounded-full px-2 py-0.5', weak ? 'bg-[#f6d5cb] text-[#8a3a26]' : 'bg-[#efe0c4]')}
+                  title={weak ? 'volta logo na revisão' : undefined}
+                >
+                  {weak ? '↻ ' : ''}
+                  {ITEMS[id]?.label ?? id}
+                </span>
+              );
+            })}
           </div>
+          {s.weak && s.weak.length > 0 && <div className="mt-1 opacity-60">↻ = volta logo na revisão para você fixar</div>}
         </div>
       )}
     </div>

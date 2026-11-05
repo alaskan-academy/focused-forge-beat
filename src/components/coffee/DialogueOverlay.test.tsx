@@ -8,7 +8,7 @@ import type { ActivityResult } from '@/lib/coffee/activities';
 HTMLCanvasElement.prototype.getContext = (() => null) as never;
 Element.prototype.scrollTo = (() => {}) as never;
 
-const summary: EncounterSummary = { stars: 3, coins: 10, tip: 8, walkout: false, mistakes: 0, xp: 20, heartsDelta: 2, hearts: 2, newUnlocks: [], items: ['g:should_advice'], chapterTitle: 'Vida nova' };
+const summary: EncounterSummary = { stars: 3, coins: 10, tip: 8, walkout: false, mistakes: 0, xp: 20, heartsDelta: 2, hearts: 2, newUnlocks: [], items: ['g:should_advice'], weak: ['g:should_advice'], chapterTitle: 'Vida nova', feedback: { headline: 'Muito bom! Faltou pouco para as 3 estrelas.', notes: ['Para ⭐⭐⭐: evitar 1 erro.'] } };
 const cont = () => fireEvent.click(screen.getByRole('button', { name: /Continuar/ }));
 
 describe('tela de diálogo', () => {
@@ -40,6 +40,12 @@ describe('tela de diálogo', () => {
     fireEvent.click(screen.getByRole('button', { name: "I'm sorry to hear that. How are you doing?" }));
     expect(screen.getAllByText("I'm sorry to hear that. How are you doing?").length).toBeGreaterThan(0);
 
+    // ordem do chat: cada fala do jogador vem antes da reação do cliente
+    const chat = document.body.textContent!;
+    const order = ['Oh. OK. Next, please!', 'Ah... right. Sorry.', "I'm sorry to hear that. How are you doing?", 'Better, thanks.'].map((t) => chat.indexOf(t));
+    order.forEach((pos) => expect(pos).toBeGreaterThanOrEqual(0));
+    expect([...order].sort((x, y) => x - y)).toEqual(order);
+
     cont(); // pizza
     cont(); // compreensão
     fireEvent.click(screen.getByRole('button', { name: 'pizza' }));
@@ -56,6 +62,9 @@ describe('tela de diálogo', () => {
     expect(results[1].mistakes).toBe(0);
     expect(await screen.findByText(/Voltar ao café/)).toBeInTheDocument();
     expect(screen.getByText(/2 💛/)).toBeInTheDocument();
+    expect(screen.getByText('Muito bom! Faltou pouco para as 3 estrelas.')).toBeInTheDocument();
+    expect(screen.getByText('Para ⭐⭐⭐: evitar 1 erro.')).toBeInTheDocument();
+    expect(screen.getByText(/volta logo na revisão para você fixar/)).toBeInTheDocument();
   });
 
   it('pedido por telefone: pedido em grupo com quantidades', async () => {

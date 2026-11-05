@@ -67,16 +67,17 @@ export default function InfoPanel({ snap, topic: initial, onClose }: Props) {
               <Section title="Como ganhar">
                 <ul className="list-disc pl-5">
                   <li>
-                    <b>3 ⭐</b>: nenhum erro, nenhuma dica e no tempo
+                    <b>3 ⭐</b>: nenhum erro e nenhuma dica
                   </li>
                   <li>
-                    <b>2 ⭐</b>: até 1 erro e até 1 dica
+                    <b>2 ⭐</b>: até 1 erro (dicas pagas podem)
                   </li>
                   <li>
                     <b>1 ⭐</b>: mais que isso (ou quando a resposta foi mostrada)
                   </li>
                 </ul>
               </Section>
+              <Section title="E o tempo?">Não conta. Leia a história com calma: ela também é treino de inglês.</Section>
               <Section title="Para que servem">Mais estrelas dão mais XP (5 por estrela) e aumentam a reputação do café, que é dos dois.</Section>
             </>
           )}

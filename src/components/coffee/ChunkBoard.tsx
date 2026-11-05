@@ -54,7 +54,7 @@ export default function ChunkBoard({ states, now, onHint, onLearn, onClose }: Pr
               <ChunkCard chunk={opened} />
               {!done ? (
                 <div className="text-[#3b2a20]">
-                  <ActivityCard activity={opened.exercise} gapMode="options" onHint={onHint} onReaction={() => {}} onDone={finish} />
+                  <ActivityCard activity={opened.exercise} gapMode="options" onHint={onHint} onExchange={() => {}} onDone={finish} />
                 </div>
               ) : (
                 <div className="rounded-xl bg-[#eef3ea]/10 p-3 text-center text-sm">

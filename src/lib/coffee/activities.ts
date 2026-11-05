@@ -144,15 +144,56 @@ export function gradeOf(r: ActivityResult): Grade {
 export const HINT_LINE_COST = 3; // traduzir uma fala
 export const HINT_WORD_COST = 2; // traduzir uma palavra/expressão
 
-// Tempo "bom" para 3 estrelas.
+// Tempo "ágil" de um atendimento: só vira elogio no resumo, nunca tira estrela
+// (ler a história com calma faz parte do aprendizado).
 export function targetMs(activities: Activity[]): number {
   return 10_000 + activities.length * 20_000;
 }
 
-export function computeStars(r: { mistakes: number; hints: number; revealed: number; durationMs: number; targetMs: number }): 1 | 2 | 3 {
-  if (r.revealed === 0 && r.mistakes === 0 && r.hints === 0 && r.durationMs <= r.targetMs) return 3;
-  if (r.revealed === 0 && r.mistakes <= 1 && r.hints <= 1) return 2;
+// Estrelas: só a precisão conta.
+//  ⭐⭐⭐ nenhum erro, nenhuma dica, nenhuma resposta revelada
+//  ⭐⭐  no máximo 1 erro e nenhuma resposta revelada (dicas pagas são permitidas)
+//  ⭐   o resto
+export function computeStars(r: { mistakes: number; hints: number; revealed: number }): 1 | 2 | 3 {
+  if (r.revealed === 0 && r.mistakes === 0 && r.hints === 0) return 3;
+  if (r.revealed === 0 && r.mistakes <= 1) return 2;
   return 1;
+}
+
+export type Feedback = { headline: string; notes: string[] };
+
+// Comentário curto sobre o desempenho, para o resumo do atendimento.
+export function performanceFeedback(r: {
+  stars: 1 | 2 | 3;
+  activities: number;
+  perfect: number; // atividades sem erro, dica nem resposta revelada
+  mistakes: number;
+  hints: number;
+  revealed: number;
+  walkout: boolean;
+  fast: boolean;
+}): Feedback {
+  const notes: string[] = [];
+  let headline: string;
+  if (r.walkout) headline = 'Esse foi difícil. Acontece! Os itens que você errou voltam logo na revisão.';
+  else if (r.stars === 3) headline = r.fast ? 'Perfeito e rápido! ⚡' : 'Perfeito! Nenhum erro, nenhuma dica.';
+  else if (r.stars === 2) headline = 'Muito bom! Faltou pouco para as 3 estrelas.';
+  else headline = 'Valeu o esforço! Cada erro aqui vira treino na revisão.';
+
+  notes.push(`${r.perfect} de ${r.activities} ${r.activities === 1 ? 'atividade' : 'atividades'} de primeira`);
+  if (!r.walkout && r.stars < 3) {
+    const need: string[] = [];
+    if (r.revealed > 0) need.push(r.revealed === 1 ? 'não revelar a resposta' : 'não revelar respostas');
+    if (r.mistakes > 0) need.push(r.mistakes === 1 ? 'evitar 1 erro' : `evitar ${r.mistakes} erros`);
+    if (r.hints > 0) need.push(r.hints === 1 ? 'não usar a dica' : 'não usar dicas');
+    if (need.length) notes.push(`Para ⭐⭐⭐: ${joinPt(need)}.`);
+  }
+  if (r.stars === 3 && !r.fast) notes.push('Ler com calma vale: a história também é treino de inglês.');
+  return { headline, notes };
+}
+
+function joinPt(parts: string[]) {
+  return parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}`;
 }
 
 // Moedas de um atendimento = pagamento + gorjeta. Mesmos números da função SQL

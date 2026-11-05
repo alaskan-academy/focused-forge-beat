@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CHARACTERS, CHARACTER_BY_ID } from '@/content/coffee';
 import type { SceneCustomer } from '@/game/bridge';
-import { WALKOUT_MISTAKES, computeStars, targetMs, type ActivityResult } from '@/lib/coffee/activities';
+import { WALKOUT_MISTAKES, computeStars, performanceFeedback, targetMs, type ActivityResult } from '@/lib/coffee/activities';
 import { applyEncounter, chapterStatus, heartsDelta } from '@/lib/coffee/arcs';
 import { bubbleFor, planEncounter, sceneActivities, type Encounter } from '@/lib/coffee/director';
 import { newToday, review, type Grade, type VocabState } from '@/lib/coffee/srs';
@@ -10,7 +10,7 @@ import type { CafeCustomer, CoffeeStore, Position, RemotePresence, Snapshot } fr
 import type { Appearance } from '@/lib/coffee/character';
 import type { EncounterSummary } from './DialogueOverlay';
 
-const SPAWN_POLL_MS = 30_000;
+const SPAWN_POLL_MS = 60_000;
 const GRADE_RANK: Record<Grade, number> = { fail: 0, ok: 1, good: 2 };
 
 export type ActiveEncounter = { customer: CafeCustomer; encounter: Encounter };
@@ -48,22 +48,33 @@ export function useCoffeeGame(store: CoffeeStore) {
 
   useEffect(() => {
     let alive = true;
+    let busy = false;
     const off = store.subscribe(() => alive && refresh());
-    const spawn = async () => {
+    // Chegada de clientes: só com a aba visível, sem sobrepor chamadas, e uma única RPC por vez.
+    // Clientes novos chegam pelo tempo real (subscribe → refresh); a carga completa só acontece
+    // na abertura e quando a aba volta a ficar visível.
+    const tick = async (full: boolean) => {
+      if (busy || document.hidden) return;
+      busy = true;
       try {
-        const s = await store.load();
+        const s = full || !snapRef.current ? await store.load() : snapRef.current;
         if (s) await store.spawn(candidates(s));
         if (alive) setSnap(s ? await store.load() : null);
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        busy = false;
       }
     };
-    spawn();
-    const id = window.setInterval(spawn, SPAWN_POLL_MS);
+    const onVisible = () => !document.hidden && tick(true);
+    tick(true);
+    const id = window.setInterval(() => tick(false), SPAWN_POLL_MS);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       alive = false;
       off();
       window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [store, refresh, candidates, setSnap]);
 
@@ -135,7 +146,9 @@ export function useCoffeeGame(store: CoffeeStore) {
         (acc, r) => ({ mistakes: acc.mistakes + r.mistakes, hints: acc.hints + r.hints, revealed: acc.revealed + (r.revealed ? 1 : 0) }),
         { mistakes: 0, hints: 0, revealed: 0 },
       );
-      const stars = computeStars({ ...total, durationMs, targetMs: targetMs(activities) });
+      const stars = computeStars(total);
+      const perfect = results.filter((r) => !r.revealed && r.mistakes === 0 && r.hints === 0).length;
+      const weak = [...grades].filter(([, g]) => g !== 'good').map(([id]) => id);
 
       let hearts: number | null = null;
       let delta: number | null = null;
@@ -180,7 +193,18 @@ export function useCoffeeGame(store: CoffeeStore) {
         hearts,
         newUnlocks,
         items: [...grades.keys()],
+        weak,
         chapterTitle: chapter?.title_pt ?? null,
+        feedback: performanceFeedback({
+          stars,
+          activities: activities.length,
+          perfect,
+          mistakes: total.mistakes,
+          hints: total.hints,
+          revealed: total.revealed,
+          walkout: fin.walkout,
+          fast: durationMs <= targetMs(activities),
+        }),
       };
     },
     [store],

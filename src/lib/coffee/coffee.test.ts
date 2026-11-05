@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { CUSTOMER_SPOTS, DOOR, MAP_ROWS, MAP_W, PLAYER_START, findPath, isWalkable, serveTiles } from './map';
 import { BOX_INTERVAL_DAYS, isDue, newToday, review, type VocabState } from './srs';
 import { DEFAULT_APPEARANCE, appearanceFromSeed, normalizeAppearance } from './character';
-import { checkFreeWrite, checkGroup, checkOrder, checkTyped, computeStars, emptySelection, encounterCoins, gapMode, gradeOf, levelFromXp } from './activities';
+import { checkFreeWrite, checkGroup, checkOrder, checkTyped, computeStars, emptySelection, encounterCoins, gapMode, gradeOf, levelFromXp, performanceFeedback } from './activities';
 import { feedText } from './feed';
 import { chunkStatus } from './chunkSchedule';
 import { CHUNKS } from '@/content/coffee/chunks';
@@ -116,9 +116,22 @@ describe('atividades', () => {
     expect(gradeOf({ activityId: 'x', mistakes: 0, hints: 0, revealed: false, hearts: 0 })).toBe('good');
     expect(gradeOf({ activityId: 'x', mistakes: 0, hints: 1, revealed: false, hearts: 0 })).toBe('ok');
     expect(gradeOf({ activityId: 'x', mistakes: 0, hints: 0, revealed: true, hearts: 0 })).toBe('fail');
-    expect(computeStars({ mistakes: 0, hints: 0, revealed: 0, durationMs: 1000, targetMs: 5000 })).toBe(3);
-    expect(computeStars({ mistakes: 1, hints: 0, revealed: 0, durationMs: 1000, targetMs: 5000 })).toBe(2);
-    expect(computeStars({ mistakes: 0, hints: 0, revealed: 1, durationMs: 1000, targetMs: 5000 })).toBe(1);
+    expect(computeStars({ mistakes: 0, hints: 0, revealed: 0 })).toBe(3);
+    expect(computeStars({ mistakes: 0, hints: 2, revealed: 0 })).toBe(2);
+    expect(computeStars({ mistakes: 1, hints: 1, revealed: 0 })).toBe(2);
+    expect(computeStars({ mistakes: 2, hints: 0, revealed: 0 })).toBe(1);
+    expect(computeStars({ mistakes: 0, hints: 0, revealed: 1 })).toBe(1);
+  });
+
+  it('feedback: diz o que faltou para 3 estrelas e elogia sem cobrar tempo', () => {
+    const base = { activities: 3, perfect: 2, mistakes: 1, hints: 1, revealed: 0, walkout: false, fast: false };
+    const f2 = performanceFeedback({ ...base, stars: 2 });
+    expect(f2.notes).toContain('2 de 3 atividades de primeira');
+    expect(f2.notes).toContain('Para ⭐⭐⭐: evitar 1 erro e não usar a dica.');
+    const f3 = performanceFeedback({ ...base, stars: 3, perfect: 3, mistakes: 0, hints: 0, fast: true });
+    expect(f3.headline).toContain('rápido');
+    expect(f3.notes.some((n) => n.startsWith('Para'))).toBe(false);
+    expect(performanceFeedback({ ...base, stars: 1, mistakes: 3, walkout: true }).notes.some((n) => n.startsWith('Para'))).toBe(false);
     expect(levelFromXp(250).level).toBe(3);
   });
 });
