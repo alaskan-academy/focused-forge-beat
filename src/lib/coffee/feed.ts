@@ -1,5 +1,6 @@
 // Texto do mural a partir das linhas de coffee_activity (kind + data).
 import { CHARACTER_BY_ID } from '@/content/coffee';
+import { SUDOKU_THEMES } from '@/content/coffee/sudokuWords';
 import type { FeedEntry } from './store/types';
 
 export const UPGRADE_NAMES: Record<string, string> = { cat_corner: 'Cantinho do gato' };
@@ -25,6 +26,11 @@ export function feedText(e: FeedEntry, nameOf: (userId: string | null) => string
       return char ? `${who} conversou com ${char.name} ${stars}` : `${who} atendeu um cliente ${stars}`;
     case 'contributed':
       return `${who} colocou ${d.amount ?? 0} 🪙 no ${UPGRADE_NAMES[d.upgrade ?? ''] ?? 'projeto do café'}`;
+    case 'puzzle': {
+      const p = e.data as { size?: number; theme?: string };
+      const theme = SUDOKU_THEMES.find((t) => t.id === p.theme);
+      return `${who} resolveu o Sudoku ${p.size ?? '?'}×${p.size ?? '?'}${theme ? ` de ${theme.name_pt.toLowerCase()} ${theme.emoji}` : ''} ${stars}`;
+    }
     case 'upgrade_done':
       return `${who} completou o ${UPGRADE_NAMES[d.upgrade ?? ''] ?? 'projeto do café'}! 🎉`;
     default:

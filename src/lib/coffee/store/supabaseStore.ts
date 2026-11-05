@@ -7,8 +7,11 @@ import { normalizeAppearance, type Appearance } from '../character';
 import type { ArcState } from '../arcs';
 import type { VocabState } from '../srs';
 import type { Pronoun } from '@/content/coffee/personalize';
+import { dayKey, type SudokuProgress, type SudokuPuzzle, type SudokuSize } from '../sudoku';
 import type {
   CafeCustomer,
+  CustomItem,
+  CustomItemInput,
   CoffeeStore,
   FeedEntry,
   FinishInput,
@@ -16,6 +19,9 @@ import type {
   PlayerRow,
   Position,
   PresenceHandle,
+  PuzzleFinish,
+  PuzzleReward,
+  PuzzleRow,
   RemotePresence,
   Snapshot,
   UpgradeState,
@@ -42,6 +48,17 @@ const toPlayer = (r: Row): PlayerRow => ({
   last_theme: (r.last_theme as string | null) ?? null,
 });
 
+const toPuzzle = (r: Row): PuzzleRow => ({
+  id: r.id as string,
+  day: r.day as string,
+  size: r.size as SudokuSize,
+  data: r.data as SudokuPuzzle,
+  // progresso vazio ({}) vira null: o app cria um novo ao começar
+  progress: r.progress && (r.progress as SudokuProgress).filled ? (r.progress as SudokuProgress) : null,
+  status: r.status === 'done' ? 'done' : 'playing',
+  stars: (r.stars as number | null) ?? null,
+});
+
 export class SupabaseStore implements CoffeeStore {
   private cafeId: string | null = null;
   private listeners = new Set<() => void>();
@@ -66,7 +83,8 @@ export class SupabaseStore implements CoffeeStore {
       this.openDbChannel();
     }
 
-    const [cafe, members, players, customers, items, arcs, feed, upgrades] = await Promise.all([
+    const yesterday = dayKey(new Date(Date.now() - 86_400_000));
+    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom] = await Promise.all([
       db.from('coffee_cafes').select('id, name, invite_code, reputation').eq('id', cid).single(),
       db.from('coffee_members').select('user_id, joined_at').eq('cafe_id', cid).order('joined_at'),
       db.from('coffee_players').select('*').eq('cafe_id', cid),
@@ -79,6 +97,8 @@ export class SupabaseStore implements CoffeeStore {
       db.from('coffee_player_arcs').select('*').eq('user_id', this.userId),
       db.from('coffee_activity').select('id, user_id, kind, data, created_at').eq('cafe_id', cid).order('created_at', { ascending: false }).limit(30),
       db.from('coffee_upgrades').select('id, key, cost, funded, completed_at, coffee_upgrade_contributions(user_id, amount)').eq('cafe_id', cid),
+      db.from('coffee_puzzles').select('id, day, size, data, progress, status, stars').eq('user_id', this.userId).gte('day', yesterday),
+      db.from('coffee_custom_items').select('id, user_id, en, pt, example, source, created_at').eq('cafe_id', cid).order('created_at', { ascending: false }),
     ]);
 
     const cafeRow = check(cafe) as Row;
@@ -144,6 +164,9 @@ export class SupabaseStore implements CoffeeStore {
       ),
       feed: ((check(feed) as Row[]) ?? []).map((f) => f as unknown as FeedEntry),
       upgrade,
+      // sem a tabela (migration ainda não aplicada) a mesa só fica vazia; o resto do café funciona
+      puzzles: puzzles.error ? [] : ((puzzles.data as Row[]) ?? []).map(toPuzzle),
+      customItems: custom.error ? [] : ((custom.data as unknown as CustomItem[]) ?? []),
     };
   }
 
@@ -211,6 +234,47 @@ export class SupabaseStore implements CoffeeStore {
     check(await db.rpc('coffee_contribute', { p_upgrade: upgradeId, p_amount: amount }));
   }
 
+  // ── mesa de jogos ─────────────────────────────────────────────────────────
+
+  async startPuzzle(size: SudokuSize, puzzle: SudokuPuzzle): Promise<PuzzleRow> {
+    return toPuzzle(check(await db.rpc('coffee_start_puzzle', { p_size: size, p_theme: puzzle.theme, p_data: puzzle })) as Row);
+  }
+
+  async savePuzzleProgress(id: string, progress: SudokuProgress) {
+    check(await db.from('coffee_puzzles').update({ progress: progress, updated_at: new Date().toISOString() }).eq('id', id));
+  }
+
+  async finishPuzzle(id: string, input: PuzzleFinish): Promise<PuzzleReward> {
+    return check(
+      await db.rpc('coffee_finish_puzzle', {
+        p_puzzle: id,
+        p_stars: input.stars,
+        p_mistakes: input.mistakes,
+        p_hints: input.hints,
+        p_words: input.words,
+        p_progress: input.progress,
+      }),
+    ) as PuzzleReward;
+  }
+
+  // ── caderninho escrito à mão ──────────────────────────────────────────────
+
+  async addCustomItem(input: CustomItemInput): Promise<CustomItem> {
+    if (!this.cafeId) throw new Error('Sem café');
+    return check(
+      await db
+        .from('coffee_custom_items')
+        .insert({ cafe_id: this.cafeId, user_id: this.userId, ...input })
+        .select('id, user_id, en, pt, example, source, created_at')
+        .single(),
+    ) as CustomItem;
+  }
+
+  async deleteCustomItem(id: string) {
+    check(await db.from('coffee_custom_items').delete().eq('id', id).eq('user_id', this.userId));
+    check(await db.from('coffee_player_items').delete().eq('user_id', this.userId).eq('item_id', 'u:' + id));
+  }
+
   subscribe(cb: () => void) {
     this.listeners.add(cb);
     return () => this.listeners.delete(cb);
@@ -232,11 +296,11 @@ export class SupabaseStore implements CoffeeStore {
   }
 
   // Presença: quem está online agora e onde está o personagem de cada um.
-  joinPresence(self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle {
-    if (!this.cafeId) return { move() {}, leave() {} };
+  // Recebe o id do café de quem chama (não depende de load() já ter rodado nesta instância).
+  joinPresence(cafeId: string, self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle {
     const positions = new Map<string, Position>();
     let last: Position | null = null;
-    const channel = db.channel(`coffee-presence-${this.cafeId}`, { config: { presence: { key: this.userId }, broadcast: { self: false } } });
+    const channel = db.channel(`coffee-presence-${cafeId}`,{ config: { presence: { key: this.userId }, broadcast: { self: false } } });
 
     const emit = () => {
       const state = channel.presenceState<{ user_id: string; name: string; appearance: Appearance | null }>();

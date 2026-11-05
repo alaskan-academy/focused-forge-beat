@@ -1,4 +1,4 @@
-// Gato do café (Mochi) e o Cantinho do gato, desenhados em código (placeholder).
+// Gato do café (Elias) e o Cantinho do gato, desenhados em código (placeholder).
 // Quadros do gato (16×12, olhando para a direita): 0-1 andando, 2 sentado, 3 dormindo.
 
 export const CAT_W = 16;

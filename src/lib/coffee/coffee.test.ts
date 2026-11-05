@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CUSTOMER_SPOTS, DOOR, MAP_ROWS, MAP_W, PLAYER_START, findPath, isWalkable, serveTiles } from './map';
 import { BOX_INTERVAL_DAYS, isDue, newToday, review, type VocabState } from './srs';
 import { DEFAULT_APPEARANCE, appearanceFromSeed, normalizeAppearance } from './character';
 import { checkFreeWrite, checkGroup, checkOrder, checkTyped, computeStars, emptySelection, encounterCoins, gapMode, gradeOf, levelFromXp, performanceFeedback } from './activities';
 import { feedText } from './feed';
 import { chunkStatus } from './chunkSchedule';
+import { UPDATE_NOTES, buildIdFromHtml, currentBuildId, latestBuildId, pickUpdateNote } from './updateCheck';
 import { CHUNKS } from '@/content/coffee/chunks';
 import { applyEncounter, chapterStatus, emptyArc, heartsDelta } from './arcs';
 import { bubbleFor, planEncounter, sceneItems, type PlayerContext } from './director';
@@ -358,5 +359,29 @@ describe('personagem', () => {
 
   it('aparência por semente é determinística', () => {
     expect(appearanceFromSeed(42)).toEqual(appearanceFromSeed(42));
+  });
+});
+
+describe('aviso de versão nova', () => {
+  it('lê o id da versão no index.html e no documento', () => {
+    expect(buildIdFromHtml('<script type="module" crossorigin src="/assets/index-Cw4kMdaz.js"></script>')).toBe('/assets/index-Cw4kMdaz.js');
+    expect(buildIdFromHtml('<script src="/src/main.tsx"></script>')).toBeNull();
+    const doc = new DOMParser().parseFromString('<html><head><script src="/assets/index-Ab_1.js"></script></head></html>', 'text/html');
+    expect(currentBuildId(doc)).toBe('/assets/index-Ab_1.js');
+  });
+
+  it('busca a versão publicada sem cache', async () => {
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit) => new Response('<script src="/assets/index-NEW1.js"></script>'));
+    expect(await latestBuildId(fetcher as unknown as typeof fetch)).toBe('/assets/index-NEW1.js');
+    expect(fetcher.mock.calls[0][1]).toMatchObject({ cache: 'no-store' });
+  });
+
+  it('sorteia entre os 5 avisos; o da fofoca só com parceiro e com o nome dele', () => {
+    expect(UPDATE_NOTES).toHaveLength(5);
+    const seen = new Set(Array.from({ length: 5 }, (_, i) => pickUpdateNote('Jessica', () => i / 5).title));
+    expect(seen.size).toBe(5);
+    expect(pickUpdateNote('Jessica', () => 0.99).body).toContain('Jessica já está jogando');
+    for (let i = 0; i < 4; i++) expect(pickUpdateNote(null, () => i / 4 + 0.01).body).not.toContain('{partner}');
+    expect(UPDATE_NOTES[0].body).toContain('Elias');
   });
 });

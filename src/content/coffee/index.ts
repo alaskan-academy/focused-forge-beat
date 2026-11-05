@@ -18,6 +18,7 @@ import { MORE_ORDERS } from './orders-more';
 import { TALKS as BASE_TALKS } from './talks';
 import { MORE_TALKS } from './talks-more';
 import { VOCAB } from './vocab';
+import { SUDOKU_WORDS } from './sudokuWords';
 import { isLine, type Character, type Level, type Scene, type Theme } from './types';
 
 export const CHARACTERS: Character[] = [maya, tom, gary, priya, parker, junAlex, sofia, ben, luna, dana];
@@ -30,7 +31,7 @@ export { HANDOFFS };
 // Item de aprendizagem (vocabulário ou gramática), como o SRS e o caderninho enxergam.
 export type LearnItem = {
   id: string;
-  kind: 'vocab' | 'grammar' | 'chunk';
+  kind: 'vocab' | 'grammar' | 'chunk' | 'word' | 'mine'; // word = Sudoku (w:...) · mine = anotada à mão (u:...)
   label: string; // como aparece no caderninho
   pt: string;
   level: Level;
@@ -43,6 +44,8 @@ export const ITEMS: Record<string, LearnItem> = Object.fromEntries([
   ...VOCAB.map((v) => [v.id, { id: v.id, kind: 'vocab', label: v.en, pt: v.pt, level: v.level, theme: v.theme, en: v.en } as LearnItem]),
   ...GRAMMAR.map((g) => [g.id, { id: g.id, kind: 'grammar', label: g.name, pt: g.pt, level: g.level, example: g.example } as LearnItem]),
   ...CHUNKS.map((c) => [c.id, { id: c.id, kind: 'chunk', label: c.en, pt: c.pt, level: c.level, en: c.en, example: c.examples[0]?.en } as LearnItem]),
+  // palavras do Sudoku que ainda não existem em vocab.ts
+  ...SUDOKU_WORDS.filter((w) => !w.vocab).map((w) => [`w:${w.id}`, { id: `w:${w.id}`, kind: 'word', label: w.en, pt: w.pt, level: w.level, en: w.en, example: w.gap.replace('___', w.en) } as LearnItem]),
 ]);
 
 // (as despedidas entram com marcadores {partner}/{sub}…; veja personalize.ts)

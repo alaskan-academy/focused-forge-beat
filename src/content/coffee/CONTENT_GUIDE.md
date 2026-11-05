@@ -147,9 +147,28 @@ Nas perguntas de escolha a resposta certa vem **primeiro** (o jogo embaralha). `
 
 **Registros:** varie de propósito: cliente grosso e seco, formal ("Would it be possible…", "I was wondering if…"), muito informal ("bro", "no cap", "gonna", "kinda") e irônico. Uma boa atividade de registro tem uma resposta certa no tom adequado e uma errada só por **tom** (formal demais para um "yo, dude", ou grosseira com um cliente formal).
 
+## 6c. Sudoku de inglês (`sudokuWords.ts`)
+
+A mesa de jogos monta Sudokus com palavras de um **tema**. As casas iniciais não mostram a palavra, só uma **pista**; o jogador descobre a palavra e preenche o resto em inglês.
+
+```ts
+// w(id, en, pt, emoji, definição em inglês, frase com lacuna, nível?, id do vocab.ts?)
+w('cat', 'cat', 'gato', '🐱', 'A small pet that says "meow".', 'Elias is the ___ of our café.'),
+w('latte', 'latte', 'café com leite (latte)', '🥤', 'Espresso with a lot of hot milk.', 'A large oat milk ___, please.', 'A2', 'latte'),
+```
+
+- **Tema:** pelo menos **9 palavras** (o 9×9 usa 9 de uma vez); emojis e palavras sem repetir dentro do tema.
+- **As 4 pistas:** `emoji` (imagem), `pt` (tradução), `def` (definição simples em inglês) e `gap` (frase com `___`).
+  - A **definição e a frase não podem conter a palavra** (o teste reprova).
+  - A tradução vira pista sem a parte em inglês: "mocha (café com chocolate)" mostra "café com chocolate". Se só sobrar inglês (ex.: "banana"), essa palavra não recebe pista de tradução.
+  - A frase precisa ter **uma** resposta natural dentro do tema ("I drink ___ every morning" serviria para várias bebidas: prefira algo que só uma encaixe).
+- **Palavra que já existe em `vocab.ts`:** passe o id no último campo. A revisão (SRS) usa o mesmo item, sem duplicar.
+- **Palavra nova:** vira o item de revisão `w:<id>`. Não renomeie ids depois de publicado.
+- **Dificuldade:** o jogo escolhe o tipo de pista pela caixa da palavra no SRS. Palavras novas ganham imagem/tradução; as dominadas, definição e lacuna. No 4×4 tudo fica um pouco mais fácil.
+
 ## 7. Checklist antes de publicar
 
-- [ ] `npx vitest run src/content` passa.
+- [ ] `npx vitest run src/content src/lib/coffee/sudoku.test.ts` passa.
 - [ ] Toda cena tem atividade; toda fala tem `pt`.
 - [ ] Cada atividade tem uma única resposta claramente certa.
 - [ ] Inglês natural, frases curtas; cerca de 80–90% A2.

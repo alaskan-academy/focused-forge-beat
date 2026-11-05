@@ -89,6 +89,10 @@ function AuthGate() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+      {/* página de teste do Coffee Cats (dados no navegador); só existe no modo de desenvolvimento */}
+      {import.meta.env.DEV && (
+        <Route path="/coffee-dev" element={<Suspense fallback={null}><CoffeeCatsPage local /></Suspense>} />
+      )}
       <Route path="/*" element={<ProtectedLayout />} />
     </Routes>
   );

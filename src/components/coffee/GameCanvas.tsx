@@ -11,7 +11,7 @@ type Props = {
   objectBadges: GameState['objectBadges'];
   inputEnabled: boolean;
   onInteract: (customerId: string) => void;
-  onObject?: (id: 'chalkboard' | 'bookshelf') => void;
+  onObject?: (id: 'chalkboard' | 'bookshelf' | 'gametable') => void;
   onMove?: (p: { x: number; y: number; dir: Direction }) => void;
 };
 

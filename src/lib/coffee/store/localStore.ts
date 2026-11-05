@@ -6,6 +6,7 @@ import { encounterCoins, xpFor } from '../activities';
 import { appearanceFromSeed } from '../character';
 import type { ArcState } from '../arcs';
 import type { VocabState } from '../srs';
+import { PUZZLE_COINS, dayKey, type SudokuProgress, type SudokuPuzzle, type SudokuSize } from '../sudoku';
 import {
   CHARACTER_CHANCE,
   CAT_CORNER,
@@ -13,12 +14,16 @@ import {
   QUEUE_CAP,
   SPAWN_EVERY_SEC,
   type CafeCustomer,
+  type CustomItem,
+  type CustomItemInput,
   type CoffeeStore,
   type FeedEntry,
   type FinishInput,
   type Partner,
   type PlayerRow,
   type PresenceHandle,
+  type PuzzleFinish,
+  type PuzzleRow,
   type Snapshot,
   type UpgradeState,
 } from './types';
@@ -31,6 +36,8 @@ type Data = {
   arcs: Record<string, ArcState>;
   feed: FeedEntry[];
   upgrade: UpgradeState;
+  puzzles: PuzzleRow[];
+  custom: CustomItem[];
   last_spawn_at: string;
   clock_offset_ms: number;
 };
@@ -48,6 +55,11 @@ function fresh(): Data {
     arcs: {},
     feed: [{ id: 'f0', user_id: USER, kind: 'opened_cafe', data: {}, created_at: new Date().toISOString() }],
     upgrade: { id: 'local-upgrade', key: CAT_CORNER.key, cost: CAT_CORNER.cost, funded: 0, completed_at: null, contributions: {} },
+    puzzles: [],
+    // uma anotação da "Jessica" de teste, para experimentar o copiar
+    custom: [
+      { id: 'local-partner-1', user_id: PARTNER.user_id, en: 'break a leg', pt: 'boa sorte (antes de uma apresentação)', example: 'Your interview is today? Break a leg!', source: 'aula de inglês', created_at: new Date().toISOString() },
+    ],
     // café novo abre com ~2 clientes esperando
     last_spawn_at: new Date(Date.now() - 2 * SPAWN_EVERY_SEC * 1000).toISOString(),
     clock_offset_ms: 0,
@@ -71,7 +83,7 @@ export class LocalStore implements CoffeeStore {
   }
 
   async load(): Promise<Snapshot> {
-    const { me, partner, customers, items, arcs, feed, upgrade } = this.data;
+    const { me, partner, customers, items, arcs, feed, upgrade, puzzles, custom } = this.data;
     return {
       cafe: { id: 'local', name: 'Coffee Cats', invite_code: 'LOCAL1', reputation: 0, members: [USER, ...(partner ? [partner.user_id] : [])] },
       feed: [...feed],
@@ -81,6 +93,8 @@ export class LocalStore implements CoffeeStore {
       customers: customers.map(({ leave_at, claimed_at, ...c }) => c),
       items: { ...items },
       arcs: { ...arcs },
+      puzzles: puzzles.map((p) => ({ ...p })),
+      customItems: custom.map((c) => ({ ...c })),
     };
   }
 
@@ -177,6 +191,54 @@ export class LocalStore implements CoffeeStore {
     this.write();
   }
 
+  // ── mesa de jogos (mesmas regras de coffee_start_puzzle / coffee_finish_puzzle) ──
+
+  async startPuzzle(size: SudokuSize, puzzle: SudokuPuzzle): Promise<PuzzleRow> {
+    const day = dayKey(this.now());
+    let row = this.data.puzzles.find((p) => p.day === day && p.size === size);
+    if (!row) {
+      row = { id: newId(), day, size, data: puzzle, progress: null, status: 'playing', stars: null };
+      this.data.puzzles = [row, ...this.data.puzzles].slice(0, 20);
+      this.write(false);
+    }
+    return { ...row };
+  }
+
+  async savePuzzleProgress(id: string, progress: SudokuProgress) {
+    const row = this.data.puzzles.find((p) => p.id === id && p.status === 'playing');
+    if (!row) return;
+    row.progress = progress;
+    this.write(false);
+  }
+
+  async finishPuzzle(id: string, input: PuzzleFinish) {
+    const row = this.data.puzzles.find((p) => p.id === id && p.status === 'playing');
+    if (!row) throw new Error('puzzle not found or already finished');
+    const coins = PUZZLE_COINS[row.size];
+    const xp = input.stars * 5 + Math.min(10, Math.max(1, input.words)) * 5;
+    Object.assign(row, { status: 'done', stars: input.stars, progress: input.progress });
+    this.data.me.coins += coins;
+    this.data.me.xp += xp;
+    this.log(USER, 'puzzle', { size: row.size, stars: input.stars, theme: row.data.theme, mistakes: input.mistakes, hints: input.hints });
+    this.write();
+    return { coins, xp, total_coins: this.data.me.coins, total_xp: this.data.me.xp };
+  }
+
+  // ── caderninho escrito à mão ──────────────────────────────────────────────
+
+  async addCustomItem(input: CustomItemInput): Promise<CustomItem> {
+    const item: CustomItem = { id: newId(), user_id: USER, ...input, created_at: this.now().toISOString() };
+    this.data.custom = [item, ...this.data.custom];
+    this.write();
+    return { ...item };
+  }
+
+  async deleteCustomItem(id: string) {
+    this.data.custom = this.data.custom.filter((c) => !(c.id === id && c.user_id === USER));
+    delete this.data.items['u:' + id];
+    this.write();
+  }
+
   // café local já existe; criar/entrar não se aplicam
   async createCafe() {}
   async joinCafe() {}
@@ -227,6 +289,17 @@ export class LocalStore implements CoffeeStore {
     if (characterId) this.data.customers = this.data.customers.filter((c) => c.character_id !== characterId);
     if (this.data.customers.length >= CUSTOMER_SPOTS.length) this.data.customers.shift();
     this.addCustomer(characterId);
+    this.write();
+  }
+
+  // apaga os puzzles (para testar um "dia novo" na mesa de jogos)
+  resetPuzzles() {
+    this.data.puzzles = [];
+    this.write();
+  }
+
+  addXp(n: number) {
+    this.data.me.xp += n;
     this.write();
   }
 
@@ -296,6 +369,8 @@ export class LocalStore implements CoffeeStore {
       d.me = { ...f.me, ...d.me };
       if (d.partner) d.partner = { ...PARTNER, ...d.partner, appearance: d.partner.appearance ?? PARTNER.appearance };
       d.customers = d.customers.map((c) => ({ ...c, served_by: c.served_by ?? [] }));
+      d.puzzles = d.puzzles ?? [];
+      d.custom = d.custom ?? fresh().custom;
       return d;
     } catch {
       return null;

@@ -34,6 +34,12 @@ export default function DevPanel({ store }: { store: LocalStore }) {
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.advanceDays(1))}>
           ⏩ +1 dia
         </button>
+        <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.resetPuzzles())}>
+          ♟️ Sudoku novo
+        </button>
+        <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.addXp(150))}>
+          +150 XP
+        </button>
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.addCoins(50))}>
           +50 🪙
         </button>

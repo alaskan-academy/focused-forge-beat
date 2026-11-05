@@ -415,7 +415,7 @@ export const CHUNKS: Chunk[] = [
     level: 'A2+',
     examples: [
       { en: 'Gotta go. Catch you later!', pt: 'Tenho que ir. Até mais!' },
-      { en: 'Catch you later, Mochi!', pt: 'Até mais, Mochi!' },
+      { en: 'Catch you later, Elias!', pt: 'Até mais, Elias!' },
     ],
     exercise: ex(
       choose('ex', ['c:catch_you_later', 'g:register_informal'], [

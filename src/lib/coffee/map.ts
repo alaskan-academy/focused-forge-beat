@@ -6,7 +6,7 @@ export const TILE = 16;
 // Legenda:
 //  W parede   . chão   R tapete   D porta (chão)
 //  C balcão   M máquina de café   S prateleira   P planta   T mesa
-//  c cadeira (andável)   K almofada do gato (andável)
+//  c cadeira (andável)   K almofada do gato (andável)   G mesa de jogos (tabuleiro xadrez)
 export const MAP_ROWS = [
   'WWWWWWWWWWWWWWWWWWWW',
   'WWWWWWWWWWWWWWWWWWWW',
@@ -20,16 +20,16 @@ export const MAP_ROWS = [
   'W..................W',
   'WP...cTc.....cTc..PW',
   'W..................W',
-  'W..................W',
+  'W.cGc..............W',
   'WWWWWWWWWDDWWWWWWWWW',
 ] as const;
 
 export const MAP_W = MAP_ROWS[0].length;
 export const MAP_H = MAP_ROWS.length;
 
-export type TileChar = 'W' | '.' | 'R' | 'D' | 'C' | 'M' | 'S' | 'P' | 'T' | 'c' | 'K';
+export type TileChar = 'W' | '.' | 'R' | 'D' | 'C' | 'M' | 'S' | 'P' | 'T' | 'c' | 'K' | 'G';
 
-const SOLID = new Set<string>(['W', 'C', 'M', 'S', 'P', 'T']);
+const SOLID = new Set<string>(['W', 'C', 'M', 'S', 'P', 'T', 'G']);
 
 export function tileAt(x: number, y: number): TileChar {
   if (y < 0 || y >= MAP_H || x < 0 || x >= MAP_W) return 'W';
@@ -143,10 +143,15 @@ export const CAT_BED: Point = { x: 16, y: 2 };
 export const CAT_SCRATCHER: Point = { x: 15, y: 2 };
 
 // Objetos com que dá para interagir. `x/y` = tile do objeto; `serve` = de onde o jogador interage.
-export type Interactable = { id: 'chalkboard' | 'bookshelf'; x: number; y: number; serve: Point[] };
+export type Interactable = { id: 'chalkboard' | 'bookshelf' | 'gametable'; x: number; y: number; serve: Point[] };
 export const INTERACTABLES: Interactable[] = [
   // quadro-negro na parede atrás do balcão (chunk do dia)
   { id: 'chalkboard', x: 9, y: 1, serve: [{ x: 9, y: 2 }, { x: 8, y: 2 }] },
   // estante de livros (dicas dos grandes nomes do ensino)
   { id: 'bookshelf', x: 5, y: 2, serve: [{ x: 4, y: 3 }, { x: 5, y: 3 }, { x: 6, y: 2 }] },
+  // mesa de jogos com tabuleiro xadrez (Sudoku de inglês)
+  { id: 'gametable', x: 3, y: 12, serve: [{ x: 3, y: 11 }, { x: 2, y: 11 }, { x: 4, y: 11 }, { x: 2, y: 12 }, { x: 4, y: 12 }] },
 ];
+
+// Onde o Elias às vezes deita (em cima de móveis, fora do caminho)
+export const CAT_PERCHES: Point[] = [{ x: 3, y: 12 }];

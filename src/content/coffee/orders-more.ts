@@ -174,8 +174,8 @@ export const MORE_ORDERS: Scene[] = [
   ord('ord-complaint-04', 'complaint', 'cats', 'A2+', [
     say("Excuse me, there's a cat in my chair. I'm not complaining. Just... informing.", 'Com licença, tem um gato na minha cadeira. Não tô reclamando. Só... informando.', 'thinking'),
     choose('reply', ['g:can_could_requests'], [
-      ok("Ah, that's Mochi! I can move her, or you can share the chair.", say("I'll share. She was here first.", 'Vou dividir. Ela chegou primeiro.', 'love')),
-      no("Ah, that's Mochi! I can to move her.", 'Depois de "can", o verbo vem sem "to".'),
+      ok("Ah, that's Elias! I can move him, or you can share the chair.", say("I'll share. He was here first.", 'Vou dividir. Ele chegou primeiro.', 'love')),
+      no("Ah, that's Elias! I can to move him.", 'Depois de "can", o verbo vem sem "to".'),
       no('Cats have priority here. Find another chair.', 'Engraçado, mas grosseiro com o cliente.'),
     ]),
   ]),

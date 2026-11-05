@@ -141,7 +141,7 @@ export default function ReviewDeck({ states, now, onGrade, onClose }: Props) {
   );
 }
 
-const KIND_LABEL: Record<LearnItem['kind'], string> = { vocab: 'Expressão', chunk: 'Chunk', grammar: 'Gramática' };
+const KIND_LABEL: Record<LearnItem['kind'], string> = { vocab: 'Expressão', chunk: 'Chunk', grammar: 'Gramática', word: 'Palavra', mine: '✍️ Minha anotação' };
 
 function Front({ item, mode }: { item: LearnItem; mode: Mode }) {
   if (item.kind === 'grammar') {

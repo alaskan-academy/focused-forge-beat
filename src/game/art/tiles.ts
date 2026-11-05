@@ -17,9 +17,10 @@ export const TILE_INDEX = {
   chair: 11,
   cushion: 12,
   window: 13,
+  gameTable: 14,
 } as const;
 
-const COUNT = 14;
+const COUNT = 15;
 
 type R = (x: number, y: number, w: number, h: number, c: string) => void;
 
@@ -158,6 +159,17 @@ draw[TILE_INDEX.table] = (r) => {
   r(7, 6, 1, 1, '#7d4f33');
 };
 
+// mesa de jogos: tampo de madeira com tabuleiro xadrez e duas peças
+draw[TILE_INDEX.gameTable] = (r) => {
+  r(2, 12, 12, 3, C.shadow);
+  r(1, 3, 14, 9, '#8f5e3d');
+  r(1, 1, 14, 9, '#b07a52');
+  r(3, 2, 10, 7, '#5e3a24');
+  for (let y = 0; y < 3; y++) for (let x = 0; x < 4; x++) r(4 + x * 2, 3 + y * 2, 2, 2, (x + y) % 2 ? '#3d2a22' : '#f2ead8');
+  r(5, 2, 1, 2, '#e07a5f');
+  r(10, 6, 1, 2, '#81b29a');
+};
+
 draw[TILE_INDEX.chair] = (r) => {
   r(4, 12, 8, 2, C.shadow);
   r(4, 6, 8, 6, '#7a5c45');
@@ -214,6 +226,7 @@ export function buildLayers(): { ground: number[][]; objects: number[][] } {
         T: TILE_INDEX.table,
         c: TILE_INDEX.chair,
         K: TILE_INDEX.cushion,
+        G: TILE_INDEX.gameTable,
       };
       o.push(obj[t] ?? -1);
     }

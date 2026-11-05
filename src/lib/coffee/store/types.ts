@@ -5,6 +5,7 @@ import type { Appearance, Direction } from '../character';
 import type { ArcState } from '../arcs';
 import type { Grade, VocabState } from '../srs';
 import type { Pronoun } from '@/content/coffee/personalize';
+import type { SudokuProgress, SudokuPuzzle, SudokuSize } from '../sudoku';
 
 export type CafeCustomer = {
   id: string;
@@ -55,7 +56,35 @@ export type Snapshot = {
   arcs: Record<string, ArcState>;
   feed: FeedEntry[];
   upgrade: UpgradeState | null;
+  puzzles: PuzzleRow[]; // meus puzzles de hoje e de ontem (mesa de jogos)
+  customItems: CustomItem[]; // caderninho escrito à mão (meus e da outra pessoa, para copiar)
 };
+
+// Palavra anotada à mão no caderninho. Na revisão o item é `u:<id>` (ver content/coffee/custom.ts).
+export type CustomItem = {
+  id: string;
+  user_id: string;
+  en: string;
+  pt: string;
+  example: string | null;
+  source: string | null; // de onde veio (aula, série, música…)
+  created_at: string;
+};
+export type CustomItemInput = Pick<CustomItem, 'en' | 'pt' | 'example' | 'source'>;
+
+// Puzzle do dia (mesa de jogos). `day` = data no horário de Brasília (AAAA-MM-DD).
+export type PuzzleRow = {
+  id: string;
+  day: string;
+  size: SudokuSize;
+  data: SudokuPuzzle;
+  progress: SudokuProgress | null;
+  status: 'playing' | 'done';
+  stars: number | null;
+};
+
+export type PuzzleFinish = { stars: 1 | 2 | 3; mistakes: number; hints: number; words: number; progress: SudokuProgress };
+export type PuzzleReward = { coins: number; xp: number; total_coins: number; total_xp: number };
 
 export type FinishInput = {
   customerId: string;
@@ -96,8 +125,15 @@ export interface CoffeeStore {
   // conclui o atendimento; clientes recorrentes continuam no café até todos conversarem com eles
   finish(input: FinishInput): Promise<FinishResult>;
   contribute(upgradeId: string, amount: number): Promise<void>;
+  // mesa de jogos: começa (ou devolve o de hoje, se já existe), salva o andamento e conclui
+  startPuzzle(size: SudokuSize, puzzle: SudokuPuzzle): Promise<PuzzleRow>;
+  savePuzzleProgress(id: string, progress: SudokuProgress): Promise<void>;
+  finishPuzzle(id: string, input: PuzzleFinish): Promise<PuzzleReward>;
+  // caderninho escrito à mão (cada um o seu)
+  addCustomItem(input: CustomItemInput): Promise<CustomItem>;
+  deleteCustomItem(id: string): Promise<void>;
   subscribe(cb: () => void): () => void;
-  joinPresence(self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle;
+  joinPresence(cafeId: string, self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle;
 }
 
 // Regras de chegada (iguais às da função SQL coffee_spawn_arrivals).

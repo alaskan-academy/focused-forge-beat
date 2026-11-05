@@ -6,7 +6,11 @@ import { applyEncounter, chapterStatus, heartsDelta } from '@/lib/coffee/arcs';
 import { bubbleFor, planEncounter, sceneActivities, type Encounter } from '@/lib/coffee/director';
 import { newToday, review, type Grade, type VocabState } from '@/lib/coffee/srs';
 import type { Theme } from '@/content/coffee/types';
-import type { CafeCustomer, CoffeeStore, Position, RemotePresence, Snapshot } from '@/lib/coffee/store/types';
+import type { CafeCustomer, CoffeeStore, Position, PuzzleRow, RemotePresence, Snapshot } from '@/lib/coffee/store/types';
+import { dayKey, makePuzzle, puzzleFeedback, puzzleStars, totals, wordGrades, type PuzzleSummary, type SudokuProgress, type SudokuSize } from '@/lib/coffee/sudoku';
+import { SUDOKU_WORD_BY_ID } from '@/content/coffee/sudokuWords';
+import { customItemId, registerCustomItems } from '@/content/coffee/custom';
+import type { CustomItemInput } from '@/lib/coffee/store/types';
 import type { Appearance } from '@/lib/coffee/character';
 import type { EncounterSummary } from './DialogueOverlay';
 
@@ -24,7 +28,14 @@ export function useCoffeeGame(store: CoffeeStore) {
   const snap = loaded ?? null;
   const snapRef = useRef<Snapshot | null>(null);
   snapRef.current = snap;
-  const setSnap = setLoaded;
+  // as palavras escritas à mão entram no registro de itens antes de qualquer tela usar o snapshot
+  const setSnap = useCallback(
+    (s: Snapshot | null) => {
+      if (s) registerCustomItems(s.customItems.filter((c) => c.user_id === store.userId));
+      setLoaded(s);
+    },
+    [store],
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -222,6 +233,73 @@ export function useCoffeeGame(store: CoffeeStore) {
     [store, refresh],
   );
 
+  // ── mesa de jogos (Sudoku de inglês) ────────────────────────────────────
+  // O puzzle do dia nasce com semente (jogador + dia + tamanho) e fica salvo; reabrir devolve o mesmo.
+  const startPuzzle = useCallback(
+    async (size: SudokuSize): Promise<PuzzleRow> => {
+      const s = snapRef.current!;
+      const now = store.now();
+      const today = dayKey(now);
+      const existing = s.puzzles.find((p) => p.day === today && p.size === size);
+      if (existing) return existing;
+      const row = await store.startPuzzle(size, makePuzzle(size, s.items, now, `${store.userId}:${today}:${size}`));
+      await refresh();
+      return row;
+    },
+    [store, refresh],
+  );
+
+  const savePuzzle = useCallback((id: string, progress: SudokuProgress) => store.savePuzzleProgress(id, progress), [store]);
+
+  const finishPuzzle = useCallback(
+    async (row: PuzzleRow, progress: SudokuProgress): Promise<PuzzleSummary> => {
+      const s = snapRef.current!;
+      const now = store.now();
+      const grades = wordGrades(row.data, progress, SUDOKU_WORD_BY_ID);
+      await store.saveItems(grades.map((g) => review(s.items[g.item_id], g.item_id, g.grade, now)));
+      const stars = puzzleStars(progress);
+      const t = totals(progress);
+      const reward = await store.finishPuzzle(row.id, { stars, mistakes: t.mistakes, hints: t.hints, words: row.data.words.length, progress });
+      await refresh();
+      const clean = row.data.words.filter((id) => !progress.mistakes[id] && !progress.hints[id]).length;
+      return {
+        stars,
+        coins: reward.coins,
+        xp: reward.xp,
+        items: grades.map((g) => g.item_id),
+        weak: grades.filter((g) => g.grade !== 'good').map((g) => g.item_id),
+        feedback: puzzleFeedback(stars, clean, row.data.words.length, t),
+      };
+    },
+    [store, refresh],
+  );
+
+  // ── caderninho escrito à mão ────────────────────────────────────────────
+  // Palavra nova já entra na revisão (vencida agora, caixa 1) para aparecer em "Revisar".
+  const addWord = useCallback(
+    async (input: CustomItemInput) => {
+      const clean: CustomItemInput = {
+        en: input.en.trim(),
+        pt: input.pt.trim(),
+        example: input.example?.trim() || null,
+        source: input.source?.trim() || null,
+      };
+      const item = await store.addCustomItem(clean);
+      const now = store.now().toISOString();
+      await store.saveItems([{ item_id: customItemId(item), box: 1, due_at: now, correct: 0, wrong: 0, first_seen_at: now, last_seen_at: now }]);
+      await refresh();
+    },
+    [store, refresh],
+  );
+
+  const deleteWord = useCallback(
+    async (id: string) => {
+      await store.deleteCustomItem(id);
+      await refresh();
+    },
+    [store, refresh],
+  );
+
   // ── melhoria compartilhada ──────────────────────────────────────────────
   const contribute = useCallback(
     async (amount: number) => {
@@ -239,17 +317,17 @@ export function useCoffeeGame(store: CoffeeStore) {
   const myName = snap?.me.display_name;
   const myLook = snap?.me.appearance ?? null;
   const lookKey = JSON.stringify(myLook);
-  const hasCafe = !!snap;
+  const cafeId = snap?.cafe.id;
   useEffect(() => {
-    if (!hasCafe || !myName) return;
-    presence.current = store.joinPresence({ name: myName, appearance: JSON.parse(lookKey) as Appearance | null }, setOthers);
+    if (!cafeId || !myName) return;
+    presence.current = store.joinPresence(cafeId, { name: myName, appearance: JSON.parse(lookKey) as Appearance | null }, setOthers);
     return () => {
       presence.current?.leave();
       presence.current = null;
       setOthers([]);
     };
-  }, [store, hasCafe, myName, lookKey]);
+  }, [store, cafeId, myName, lookKey]);
   const move = useCallback((p: Position) => presence.current?.move(p), []);
 
-  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move };
+  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord };
 }

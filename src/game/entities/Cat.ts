@@ -5,7 +5,8 @@ import { feetToTile, tileToFeet } from './Walker';
 
 type State = 'sit' | 'walk' | 'sleep';
 
-// Mochi: passeia pelo café, senta e dorme na almofada (ou na cama do Cantinho, quando existir).
+// Elias: passeia pelo café, senta e dorme na almofada (ou na cama do Cantinho, quando existir).
+// Às vezes sobe num móvel (`perches`, ex.: a mesa de jogos) e dorme lá em cima.
 export class Cat {
   sprite: Phaser.GameObjects.Sprite;
   private path: Point[] = [];
@@ -14,7 +15,9 @@ export class Cat {
   private sleepSpots: Point[];
   private zzz: Phaser.GameObjects.Text;
 
-  constructor(private scene: Phaser.Scene, start: Point, sleepSpots: Point[]) {
+  private perch: Point | null = null; // móvel onde vai deitar (ou está deitado)
+
+  constructor(private scene: Phaser.Scene, start: Point, sleepSpots: Point[], private perches: Point[] = []) {
     // a textura 'cat' é criada pela cena; aqui só recortamos os quadros (uma vez)
     if (!scene.anims.exists('cat-walk')) {
       const tex = scene.textures.get('cat');
@@ -70,7 +73,13 @@ export class Cat {
     const roll = Math.random();
     let target: Point | null = null;
     let sleepAfter = false;
-    if (roll < 0.3 && this.sleepSpots.length) {
+    this.perch = null;
+    if (roll < 0.1 && this.perches.length) {
+      // sobe num móvel: anda até o lado dele (o caminho para no vizinho andável) e pula
+      target = this.perches[Math.floor(Math.random() * this.perches.length)];
+      this.perch = target;
+      sleepAfter = true;
+    } else if (roll < 0.35 && this.sleepSpots.length) {
       target = this.sleepSpots[Math.floor(Math.random() * this.sleepSpots.length)];
       sleepAfter = true;
     } else {
@@ -79,7 +88,16 @@ export class Cat {
         if (isWalkable(p.x, p.y)) target = p;
       }
     }
-    const from = feetToTile(this.sprite.x, this.sprite.y - 2);
+    let from = feetToTile(this.sprite.x, this.sprite.y - 2);
+    // descendo de um móvel: começa do primeiro vizinho andável
+    if (!isWalkable(from.x, from.y)) {
+      const near = [{ x: from.x, y: from.y - 1 }, { x: from.x - 1, y: from.y }, { x: from.x + 1, y: from.y }, { x: from.x, y: from.y + 1 }].find((p) => isWalkable(p.x, p.y));
+      if (near) {
+        from = near;
+        const p = tileToFeet(near);
+        this.sprite.setPosition(p.x, p.y + 2);
+      }
+    }
     this.path = target ? findPath(from, target) : [];
     this.sleepNext = sleepAfter;
     if (this.path.length) {
@@ -92,6 +110,11 @@ export class Cat {
 
   private arrive(time: number) {
     this.sprite.stop();
+    if (this.sleepNext && this.perch) {
+      // pula para cima do móvel
+      const p = tileToFeet(this.perch);
+      this.scene.tweens.add({ targets: this.sprite, x: p.x, y: p.y - 2, duration: 260, ease: 'Quad.out' });
+    }
     if (this.sleepNext) {
       this.state = 'sleep';
       this.sprite.setFrame(3);

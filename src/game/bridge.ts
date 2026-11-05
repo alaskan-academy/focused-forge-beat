@@ -39,13 +39,13 @@ export type GameState = {
   // melhoria compartilhada concluída: cama e arranhador aparecem no mapa
   catCorner: boolean;
   // selo sobre objetos interativos (ex.: chunk novo no quadro-negro)
-  objectBadges: Partial<Record<'chalkboard' | 'bookshelf', 'alert' | null>>;
+  objectBadges: Partial<Record<'chalkboard' | 'bookshelf' | 'gametable', 'alert' | null>>;
 };
 
 export type GameEvents = {
   interact: { customerId: string };
   // interagiu com um objeto do café (quadro-negro, estante)
-  object: { id: 'chalkboard' | 'bookshelf' };
+  object: { id: 'chalkboard' | 'bookshelf' | 'gametable' };
   // posição do meu personagem (em pixels), para a presença em tempo real
   move: { x: number; y: number; dir: Direction };
   ready: undefined;

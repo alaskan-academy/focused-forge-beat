@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { appearanceFromSeed, type Direction } from '@/lib/coffee/character';
-import { CAT_BED, CAT_CUSHION, CAT_SCRATCHER, DOOR, INTERACTABLES, type Interactable, MAP_H, MAP_W, PLAYER_START, TILE, findPath, isWalkable, serveTiles, spotById, type Point } from '@/lib/coffee/map';
+import { CAT_BED, CAT_CUSHION, CAT_PERCHES, CAT_SCRATCHER, DOOR, INTERACTABLES, type Interactable, MAP_H, MAP_W, PLAYER_START, TILE, findPath, isWalkable, serveTiles, spotById, type Point } from '@/lib/coffee/map';
 import { buildCatBed, buildCatSheet, buildScratcher } from '../art/cat';
 import { buildChalkboard } from '../art/decor';
 import { buildLayers, buildTilesetCanvas } from '../art/tiles';
@@ -74,13 +74,13 @@ export class CafeScene extends Phaser.Scene {
       this.add.image(bed.x, bed.y + 3, 'cat-bed').setOrigin(0.5, 1).setDepth(2).setVisible(false),
       this.add.image(post.x, post.y + 3, 'cat-scratcher').setOrigin(0.5, 1).setDepth(100 + post.y).setVisible(false),
     ];
-    this.cat = new Cat(this, { x: 17, y: 3 }, [CAT_CUSHION]);
+    this.cat = new Cat(this, { x: 17, y: 3 }, [CAT_CUSHION], CAT_PERCHES);
 
     // objetos interativos: quadro-negro na parede + selos (❗) sobre eles
     const board = INTERACTABLES.find((o) => o.id === 'chalkboard')!;
     this.add.image(board.x * TILE + TILE / 2, board.y * TILE + 1, 'chalkboard').setOrigin(0.5, 0).setDepth(2);
     for (const o of INTERACTABLES) {
-      const badge = this.add.image(o.x * TILE + TILE / 2, o.y * TILE + (o.id === 'chalkboard' ? 2 : -1), 'icon:alert').setOrigin(0.5, 1).setDepth(9_800).setVisible(false);
+      const badge = this.add.image(o.x * TILE + TILE / 2, o.y * TILE + (o.id === 'chalkboard' ? 2 : o.id === 'gametable' ? 1 : -1), 'icon:alert').setOrigin(0.5, 1).setDepth(9_800).setVisible(false);
       this.objectBadges.set(o.id, badge);
     }
 

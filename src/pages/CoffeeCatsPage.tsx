@@ -11,9 +11,13 @@ import CafeBoard from '@/components/coffee/CafeBoard';
 import CafeSetup from '@/components/coffee/CafeSetup';
 import ChunkBoard from '@/components/coffee/ChunkBoard';
 import Bookshelf from '@/components/coffee/Bookshelf';
+import GameTable from '@/components/coffee/GameTable';
+import { UNLOCK_LEVEL, dayKey, type SudokuSize } from '@/lib/coffee/sudoku';
 import ReviewDeck from '@/components/coffee/ReviewDeck';
 import { dueItems } from '@/lib/coffee/review';
 import MusicControl from '@/components/coffee/MusicControl';
+import UpdateNotice from '@/components/coffee/UpdateNotice';
+import { useNewVersion } from '@/components/coffee/useNewVersion';
 import { chunkStatus } from '@/lib/coffee/chunkSchedule';
 import { useCoffeeGame, type ActiveEncounter } from '@/components/coffee/useCoffeeGame';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,15 +52,18 @@ function Center({ children }: { children: React.ReactNode }) {
 // `local`: página de teste sem login (dados no navegador). Sem ele, o café é o compartilhado no Supabase.
 export default function CoffeeCatsPage({ local = false }: { local?: boolean }) {
   const { user } = useAuth();
-  const store = useMemo<CoffeeStore | null>(() => (local ? getLocalStore() : user ? new SupabaseStore(user.id) : null), [local, user]);
+  // o Supabase entrega um objeto `user` novo a cada renovação de token; o store depende só do id
+  const userId = user?.id;
+  const store = useMemo<CoffeeStore | null>(() => (local ? getLocalStore() : userId ? new SupabaseStore(userId) : null), [local, userId]);
   if (!store) return null;
   return <CoffeeCatsGame key={local ? 'local' : user!.id} store={store} defaultName={user?.email?.split('@')[0] ?? ''} />;
 }
 
 function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultName: string }) {
-  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move } = useCoffeeGame(store);
+  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord } = useCoffeeGame(store);
   const [chunks, setChunks] = useState(false);
   const [books, setBooks] = useState(false);
+  const [table, setTable] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [chunkNoticeClosed, setChunkNoticeClosed] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -65,17 +72,29 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
   const [info, setInfo] = useState<InfoTopic | null>(null);
   const [active, setActive] = useState<ActiveEncounter | null>(null);
   const [starting, setStarting] = useState(false);
+  const newVersion = useNewVersion();
+  const [laterFor, setLaterFor] = useState<string | null>(null);
+  // não interrompe um atendimento: o aviso espera a conversa acabar
+  const showUpdate = !!newVersion && laterFor !== newVersion && !active;
 
   const appearance = useMemo(() => (snap?.me.appearance ? normalizeAppearance(snap.me.appearance) : null), [snap?.me.appearance]);
   const firstVisit = !!snap && !appearance;
-  const overlayOpen = firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing;
+  const overlayOpen = firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table;
 
   // chunk do dia (a cada 12 h) e itens vencidos para a revisão
   const now = store.now();
   const chunkReady = !!snap && chunkStatus(snap.items, now).available;
   const dueCount = snap ? dueItems(snap.items, now).length : 0;
-  const objectBadges = useMemo(() => ({ chalkboard: chunkReady ? ('alert' as const) : null }), [chunkReady]);
   const level = levelFromXp(snap?.me.xp ?? 0);
+  // mesa de jogos: ❗ enquanto houver um Sudoku liberado que ainda não foi resolvido hoje
+  const today = dayKey(now);
+  const puzzleReady =
+    !!snap &&
+    ([4, 6] as SudokuSize[]).some((size) => level.level >= UNLOCK_LEVEL[size] && !snap.puzzles.some((p) => p.day === today && p.size === size && p.status === 'done'));
+  const objectBadges = useMemo(
+    () => ({ chalkboard: chunkReady ? ('alert' as const) : null, gametable: puzzleReady ? ('alert' as const) : null }),
+    [chunkReady, puzzleReady],
+  );
 
   // a outra pessoa: andando se estiver online, senão parada no cantinho dela
   const sceneOthers = useMemo<SceneOther[]>(() => {
@@ -146,7 +165,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
           inputEnabled={!overlayOpen}
           objectBadges={objectBadges}
           onInteract={onInteract}
-          onObject={(id) => (id === 'chalkboard' ? setChunks(true) : setBooks(true))}
+          onObject={(id) => (id === 'chalkboard' ? setChunks(true) : id === 'gametable' ? setTable(true) : setBooks(true))}
           onMove={move}
         />
       )}
@@ -226,7 +245,8 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
         </div>
       )}
       {/* aviso do chunk do dia (a cada 12 h) */}
-      {appearance && chunkReady && !chunkNoticeClosed && !overlayOpen && (
+      {showUpdate && <UpdateNotice version={newVersion!} partner={snap?.partner?.display_name ?? null} onLater={() => setLaterFor(newVersion)} />}
+      {appearance && chunkReady && !chunkNoticeClosed && !overlayOpen && !showUpdate && (
         <div className="pointer-events-none absolute inset-x-0 top-16 flex justify-center px-3">
           <div className="cc-panel pointer-events-auto flex items-center gap-3 px-4 py-2.5 animate-in fade-in slide-in-from-top-2 duration-500">
             <span className="text-2xl">🧠</span>
@@ -257,7 +277,19 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
         </Center>
       )}
 
-      {journal && snap && <Journal states={snap.items} arcs={snap.arcs} now={store.now()} onClose={() => setJournal(false)} />}
+      {journal && snap && (
+        <Journal
+          states={snap.items}
+          arcs={snap.arcs}
+          now={store.now()}
+          customItems={snap.customItems}
+          userId={store.userId}
+          partnerName={snap.partner?.display_name ?? null}
+          onAddWord={addWord}
+          onDeleteWord={deleteWord}
+          onClose={() => setJournal(false)}
+        />
+      )}
       {board && snap && <CafeBoard snap={snap} now={store.now()} onContribute={contribute} onClose={() => setBoard(false)} />}
       {info && snap && <InfoPanel snap={snap} topic={info} onClose={() => setInfo(null)} />}
       {chunks && snap && (
@@ -270,6 +302,20 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
         />
       )}
       {books && <Bookshelf onClose={() => setBooks(false)} />}
+      {table && snap && (
+        <GameTable
+          puzzles={snap.puzzles}
+          states={snap.items}
+          level={level.level}
+          coins={snap.me.coins}
+          now={now}
+          onStart={startPuzzle}
+          onSave={savePuzzle}
+          onFinish={finishPuzzle}
+          onSpend={spend}
+          onClose={() => setTable(false)}
+        />
+      )}
       {reviewing && snap && <ReviewDeck states={snap.items} now={now} onGrade={(id, grade) => gradeItems([{ itemId: id, grade }])} onClose={() => setReviewing(false)} />}
 
       {active && snap && (
