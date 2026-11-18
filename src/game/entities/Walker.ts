@@ -121,6 +121,12 @@ export class Walker {
     this.syncDepth();
   }
 
+  // parado: "respira" de leve (escala vertical), cada um num ritmo próprio
+  private breathPhase = Math.random() * Math.PI * 2;
+  breathe(time: number) {
+    this.sprite.setScale(1, this.moving ? 1 : 1 + 0.03 * Math.sin(time / 600 + this.breathPhase));
+  }
+
   stop() {
     this.path = [];
     this.onArrive = undefined;

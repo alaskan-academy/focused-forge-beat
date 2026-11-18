@@ -64,6 +64,8 @@ export class Cat {
       this.decide(time);
     }
     this.sprite.setDepth(100 + this.sprite.y);
+    // respira (mais devagar quando dorme)
+    this.sprite.setScale(1, this.state === 'walk' ? 1 : 1 + (this.state === 'sleep' ? 0.05 : 0.03) * Math.sin(time / (this.state === 'sleep' ? 900 : 500)));
     if (this.state === 'sleep') {
       this.zzz.setVisible(true).setPosition(this.sprite.x + 5, this.sprite.y - 16 - ((time / 400) % 4)).setDepth(9_500);
     } else this.zzz.setVisible(false);

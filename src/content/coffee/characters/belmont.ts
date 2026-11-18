@@ -48,7 +48,7 @@ const belmont: Character = {
   look: {
     skin: '#d98c7a',
     hair: { style: 'curto', color: '#1f1414' },
-    shirt: { style: 'manga longa', color: '#6b1f2a' },
+    shirt: { style: 'terno', color: '#6b1f2a' },
     pants: { style: 'calça', color: '#2a1a1f' },
     shoes: { style: 'bota', color: '#120c0c' },
     horns: true,

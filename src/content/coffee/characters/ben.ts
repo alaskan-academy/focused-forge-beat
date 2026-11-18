@@ -11,6 +11,7 @@ const ben: Character = {
     shirt: { style: 'camiseta', color: '#c4554d' },
     pants: { style: 'calça', color: '#3d405b' },
     shoes: { style: 'tênis', color: '#3d405b' },
+    cap: true,
   },
   personality_pt: 'Irônico e autodepreciativo. Faz piada de tudo, principalmente de si mesmo.',
   bio_pt: 'Ben acabou de ser demitido. Está se preparando para entrevistas de emprego, com muito café e pouco dinheiro.',

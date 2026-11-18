@@ -8,7 +8,7 @@ const parker: Character = {
   look: {
     skin: '#f6d3b3',
     hair: { style: 'curto', color: '#d8d2c4' },
-    shirt: { style: 'manga longa', color: '#3d405b' },
+    shirt: { style: 'cardigã', color: '#3d405b' },
     pants: { style: 'calça', color: '#7a5c45' },
     shoes: { style: 'bota', color: '#2b1d16' },
   },

@@ -176,6 +176,10 @@ Personagem especial: não entra na fila de clientes, aparece uma vez por dia par
 - **Escolha pessoal:** `choose_reply` com `either: true` aceita mais de uma resposta certa, cada uma com `value` (ex.: "I did." = `me`, "She did." = `partner`).
 - **Achar o erro** (`spot(...)`): marque a palavra errada com `*asteriscos*` e dê a frase certa e o porquê.
 
+## 6e. Pronúncia (IPA) — `ipa.ts`
+
+O IPA é montado **por palavra**: cada palavra nova de vocabulário, chunk ou Sudoku precisa estar em `WORD_IPA` (inglês americano). O teste `ipa.test.ts` lista o que falta. Palavras gramaticais têm forma forte e fraca (`to` → `['tu', 'tə']`): a fraca é usada dentro das expressões. Pronúncias especiais de sequência ("used to" → /ˈjustə/) vão em `PAIRS`. O 🔊 usa a voz do próprio navegador.
+
 ## 7. Checklist antes de publicar
 
 - [ ] `npx vitest run src/content src/lib/coffee/sudoku.test.ts` passa.

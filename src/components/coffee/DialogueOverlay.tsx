@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight, Languages, Phone, X } from 'lucide-react';
+import { ChevronRight, Languages, Phone, Volume2, X } from 'lucide-react';
+import { ipaFor } from '@/content/coffee/ipa';
+import { canSpeak, speak } from '@/lib/coffee/speech';
 import { cn } from '@/lib/utils';
 import { ITEMS } from '@/content/coffee';
 import { MOOD_EMOJI, isLine, type Line, type Mood } from '@/content/coffee/types';
@@ -237,11 +239,18 @@ function Bubble({
         <HintedText text={e.text} revealed={revealedWords} onWord={onWord} />
         {showPt && e.pt && <div className="mt-1 border-t border-dashed border-[#e6d2ad] pt-1 text-xs italic text-[#7d4f33]">{e.pt}</div>}
       </div>
-      {e.pt && !showPt && (
-        <button type="button" onClick={onTranslate} className="ml-1 mt-0.5 inline-flex items-center gap-1 text-[11px] text-[#7d4f33]/70 hover:text-[#7d4f33]">
-          <Languages className="h-3 w-3" /> traduzir · {HINT_LINE_COST}🪙
-        </button>
-      )}
+      <span className="ml-1 mt-0.5 inline-flex items-center gap-2">
+        {canSpeak() && (
+          <button type="button" onClick={() => speak(e.text)} className="inline-flex items-center gap-1 text-[11px] text-[#7d4f33]/70 hover:text-[#7d4f33]" aria-label="Ouvir a fala">
+            <Volume2 className="h-3 w-3" /> ouvir
+          </button>
+        )}
+        {e.pt && !showPt && (
+          <button type="button" onClick={onTranslate} className="inline-flex items-center gap-1 text-[11px] text-[#7d4f33]/70 hover:text-[#7d4f33]">
+            <Languages className="h-3 w-3" /> traduzir · {HINT_LINE_COST}🪙
+          </button>
+        )}
+      </span>
     </div>
   );
 }
@@ -288,7 +297,12 @@ function HintedText({ text, revealed, onWord }: { text: string; revealed: Set<st
             title={revealed.has(p.id) ? ITEMS[p.id].pt : `ver tradução · ${HINT_WORD_COST}🪙`}
           >
             {p.text}
-            {revealed.has(p.id) && <span className="ml-1 rounded bg-[#f2cc8f]/60 px-1 text-[11px] text-[#5e4433]">{ITEMS[p.id].pt}</span>}
+            {revealed.has(p.id) && (
+              <span className="ml-1 rounded bg-[#f2cc8f]/60 px-1 text-[11px] text-[#5e4433]">
+                {ITEMS[p.id].pt}
+                {ipaFor(ITEMS[p.id].en ?? ITEMS[p.id].label) && <span className="ml-1 font-mono text-[#5b6ea8]">{ipaFor(ITEMS[p.id].en ?? ITEMS[p.id].label)}</span>}
+              </span>
+            )}
           </button>
         ) : (
           <span key={i}>{p.text}</span>

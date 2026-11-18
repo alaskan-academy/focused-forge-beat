@@ -16,10 +16,16 @@ export type Appearance = {
   pants: { style: PantsStyle; color: string };
   shoes: { style: ShoeStyle; color: string };
   horns?: boolean; // chifrinhos (o Belmont tem; qualquer um pode usar)
+  glasses?: boolean; // óculos
+  cap?: boolean; // boné (na cor da roupa)
+  apron?: boolean; // avental de barista
 };
 
-export const HAIR_STYLES = ['curto', 'longo', 'coque', 'cacheado'] as const;
-export const SHIRT_STYLES = ['camiseta', 'regata', 'manga longa', 'moletom'] as const;
+export const ACCESSORIES = ['horns', 'glasses', 'cap', 'apron'] as const;
+export type Accessory = (typeof ACCESSORIES)[number];
+
+export const HAIR_STYLES = ['curto', 'longo', 'coque', 'cacheado', 'rabo de cavalo', 'black power', 'careca'] as const;
+export const SHIRT_STYLES = ['camiseta', 'regata', 'manga longa', 'moletom', 'terno', 'cardigã'] as const;
 export const PANTS_STYLES = ['calça', 'short', 'saia'] as const;
 export const SHOE_STYLES = ['tênis', 'bota', 'sandália'] as const;
 export type HairStyle = (typeof HAIR_STYLES)[number];
@@ -51,7 +57,7 @@ export function normalizeAppearance(raw: unknown): Appearance {
     shirt: { style: pick(r.shirt?.style, SHIRT_STYLES, d.shirt.style), color: color(r.shirt?.color, d.shirt.color) },
     pants: { style: pick(r.pants?.style, PANTS_STYLES, d.pants.style), color: color(r.pants?.color, d.pants.color) },
     shoes: { style: pick(r.shoes?.style, SHOE_STYLES, d.shoes.style), color: color(r.shoes?.color, d.shoes.color) },
-    ...(r.horns === true ? { horns: true } : {}),
+    ...Object.fromEntries(ACCESSORIES.filter((k) => r[k] === true).map((k) => [k, true])),
   };
 }
 
@@ -75,7 +81,7 @@ export function appearanceFromSeed(seed: number): Appearance {
 }
 
 export function appearanceKey(a: Appearance): string {
-  return [a.skin, a.hair.style, a.hair.color, a.shirt.style, a.shirt.color, a.pants.style, a.pants.color, a.shoes.style, a.shoes.color, a.horns ? 'horns' : ''].join('|');
+  return [a.skin, a.hair.style, a.hair.color, a.shirt.style, a.shirt.color, a.pants.style, a.pants.color, a.shoes.style, a.shoes.color, ...ACCESSORIES.filter((k) => a[k])].join('|');
 }
 
 // ── Desenho ─────────────────────────────────────────────────────────────────
@@ -92,15 +98,87 @@ const side = (p: Pose) => p.dir === 'left' || p.dir === 'right';
 const legLift = (p: Pose) => ({ l: p.step === 1 ? -1 : 0, r: p.step === -1 ? -1 : 0 });
 
 // chifrinhos curvos acima da cabeça (mesmo desenho de frente, de costas e de lado)
-const HORN_COLOR = '#e9dcc5';
+const HORN_COLOR = '#b3393a';
 const drawHorns: PartFn = (px, _rect, p) => {
   const b = p.bob;
   px(5, 2 + b);
-  px(4, 1 + b);
-  px(4, 0 + b, 'light');
+  px(5, 1 + b, 'light');
   px(10, 2 + b);
-  px(11, 1 + b);
-  px(11, 0 + b, 'light');
+  px(10, 1 + b, 'light');
+};
+
+// Detalhes com cor própria (olhos, óculos, gravata): pintados por cima, sem a tonalidade da camada.
+type Fixed = (x: number, y: number, color: string) => void;
+const EYE = '#2b1d1a';
+function drawFace(fx: Fixed, p: Pose, skin: string) {
+  const b = p.bob;
+  const blush = toneColor(skin, 'shade');
+  if (p.dir === 'down') {
+    // olhos de 2 px de altura (mais expressivos que o ponto antigo)
+    fx(6, 7 + b, EYE);
+    fx(6, 8 + b, EYE);
+    fx(9, 7 + b, EYE);
+    fx(9, 8 + b, EYE);
+    fx(5, 9 + b, blush);
+    fx(10, 9 + b, blush);
+  } else if (p.dir === 'left') {
+    fx(5, 7 + b, EYE);
+    fx(5, 8 + b, EYE);
+    fx(6, 9 + b, blush);
+  } else if (p.dir === 'right') {
+    fx(10, 7 + b, EYE);
+    fx(10, 8 + b, EYE);
+    fx(9, 9 + b, blush);
+  }
+}
+
+function drawGlasses(fx: Fixed, p: Pose) {
+  const b = p.bob;
+  const frame = '#3d2a22';
+  const lens = '#a8d8ea';
+  if (p.dir === 'down') {
+    for (const x of [5, 8]) {
+      fx(x, 7 + b, frame);
+      fx(x + 1, 7 + b, lens);
+      fx(x + 2, 7 + b, frame);
+    }
+    fx(5, 6 + b, frame);
+    fx(10, 6 + b, frame);
+  } else if (p.dir === 'left') {
+    fx(4, 7 + b, frame);
+    fx(5, 7 + b, lens);
+    fx(6, 7 + b, frame);
+    fx(7, 7 + b, frame);
+  } else if (p.dir === 'right') {
+    fx(11, 7 + b, frame);
+    fx(10, 7 + b, lens);
+    fx(9, 7 + b, frame);
+    fx(8, 7 + b, frame);
+  }
+}
+
+// boné: copa na cor da roupa e aba para a frente
+const drawCap: PartFn = (_px, rect, p) => {
+  const b = p.bob;
+  rect(4, 1 + b, 8, 3);
+  rect(4, 1 + b, 8, 1, 'light');
+  if (p.dir === 'down') rect(4, 4 + b, 8, 1, 'shade');
+  else if (p.dir === 'left') rect(2, 4 + b, 4, 1, 'shade');
+  else if (p.dir === 'right') rect(10, 4 + b, 4, 1, 'shade');
+};
+
+// avental de barista (frente) com alça no pescoço
+const APRON = '#3d405b';
+const drawApron: PartFn = (_px, rect, p) => {
+  const b = p.bob;
+  if (p.dir === 'down') {
+    rect(5, 12 + b, 6, 6);
+    rect(6, 11 + b, 1, 1, 'light');
+    rect(9, 11 + b, 1, 1, 'light');
+    rect(6, 14 + b, 4, 1, 'light');
+  } else if (side(p)) {
+    rect(p.dir === 'left' ? 5 : 8, 12 + b, 3, 6);
+  } else rect(4, 14 + b, 8, 1, 'shade');
 };
 
 const drawBody: PartFn = (px, rect, p) => {
@@ -109,15 +187,7 @@ const drawBody: PartFn = (px, rect, p) => {
   rect(5, 3 + b, 6, 8);
   rect(4, 4 + b, 8, 6);
   rect(5, 10 + b, 6, 1, 'shade');
-  if (p.dir === 'down') {
-    px(6, 7 + b, 'dark');
-    px(9, 7 + b, 'dark');
-    px(5, 8 + b, 'light');
-    px(10, 8 + b, 'light');
-  } else if (p.dir === 'left') {
-    px(5, 7 + b, 'dark');
-    rect(3, 7 + b, 1, 2);
-  }
+  if (p.dir === 'left') rect(3, 7 + b, 1, 2); // nariz de perfil
   // braços
   if (side(p)) {
     const swing = p.step * 1;
@@ -171,7 +241,44 @@ const shirts: Record<ShirtStyle, PartFn> = {
     }
     if (p.dir === 'up') rect(5, 10 + b, 6, 2, 'shade'); // capuz nas costas
   },
+  // terno: paletó na cor escolhida, camisa branca e gravata (pintadas em drawSuitFront)
+  terno: (px, rect, p) => {
+    const b = p.bob;
+    torso(rect, p);
+    rect(side(p) ? 5 : 4, 17 + b, side(p) ? 6 : 8, 1, 'dark');
+    if (side(p)) rect(7 + p.step, 12 + b, 2, 5, 'shade');
+    else {
+      rect(3, 11 + b, 1, 6, 'shade');
+      rect(12, 11 + b, 1, 6, 'shade');
+    }
+  },
+  // cardigã: aberto na frente, com botões
+  cardigã: (px, rect, p) => {
+    const b = p.bob;
+    torso(rect, p);
+    if (side(p)) rect(7 + p.step, 12 + b, 2, 5, 'shade');
+    else {
+      rect(3, 11 + b, 1, 6, 'shade');
+      rect(12, 11 + b, 1, 6, 'shade');
+      if (p.dir === 'down') {
+        rect(7, 11 + b, 2, 6, 'light');
+        px(6, 13 + b, 'dark');
+        px(6, 15 + b, 'dark');
+      }
+    }
+  },
 };
+
+function drawSuitFront(fx: Fixed, p: Pose) {
+  if (p.dir !== 'down') return;
+  const b = p.bob;
+  fx(7, 11 + b, '#fffaf0');
+  fx(8, 11 + b, '#fffaf0');
+  fx(7, 12 + b, '#fffaf0');
+  fx(8, 12 + b, '#c4554d');
+  fx(8, 13 + b, '#c4554d');
+  fx(8, 14 + b, '#a8423b');
+}
 
 function torso(rect: Rect, p: Pose) {
   const b = p.bob;
@@ -283,6 +390,37 @@ const hairs: Record<HairStyle, PartFn> = {
       rect(12, 3 + b, 2, 6, 'shade');
     }
   },
+  'rabo de cavalo': (px, rect, p) => {
+    const b = p.bob;
+    rect(4, 2 + b, 8, 3);
+    rect(4, 2 + b, 8, 1, 'light');
+    if (p.dir === 'up') {
+      rect(4, 2 + b, 8, 7);
+      rect(7, 9 + b, 2, 4, 'shade');
+    } else if (p.dir === 'left') {
+      rect(8, 4 + b, 4, 3);
+      rect(12, 5 + b, 2, 5, 'shade');
+    } else if (p.dir === 'right') {
+      rect(4, 4 + b, 4, 3);
+      rect(2, 5 + b, 2, 5, 'shade');
+    } else {
+      px(4, 5 + b);
+      px(11, 5 + b);
+    }
+  },
+  'black power': (px, rect, p) => {
+    const b = p.bob;
+    rect(2, 0 + b, 12, 5);
+    rect(3, 0 + b, 10, 1, 'light');
+    if (p.dir === 'up') rect(2, 0 + b, 12, 10);
+    else if (p.dir === 'left') rect(8, 4 + b, 6, 5);
+    else if (p.dir === 'right') rect(2, 4 + b, 6, 5);
+    else {
+      rect(2, 4 + b, 2, 5, 'shade');
+      rect(12, 4 + b, 2, 5, 'shade');
+    }
+  },
+  careca: () => {},
 };
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -324,8 +462,19 @@ export function drawCharacterFrame(ctx: CanvasRenderingContext2D, a: Appearance,
   layer(shoes[a.shoes.style], a.shoes.color);
   layer(pants[a.pants.style], a.pants.color);
   layer(shirts[a.shirt.style], a.shirt.color);
+  if (a.apron) layer(drawApron, APRON);
   layer(hairs[a.hair.style], a.hair.color);
+  if (a.cap) layer(drawCap, a.shirt.color);
   if (a.horns) layer(drawHorns, HORN_COLOR);
+  // rosto e detalhes de cor própria
+  const fixed: Fixed = (x, y, color) => {
+    if (x < 0 || y < 0 || x >= FRAME_W || y >= FRAME_H) return;
+    grid[y * FRAME_W + (flip ? FRAME_W - 1 - x : x)] = color;
+  };
+  const hairCoversFace = drawPose.dir === 'up';
+  if (!hairCoversFace) drawFace(fixed, drawPose, a.skin);
+  if (a.glasses && !hairCoversFace) drawGlasses(fixed, drawPose);
+  if (a.shirt.style === 'terno' && !a.apron) drawSuitFront(fixed, drawPose);
 
   // contorno escuro em volta da silhueta
   const filled = (x: number, y: number) => x >= 0 && y >= 0 && x < FRAME_W && y < FRAME_H && grid[y * FRAME_W + x] !== null && grid[y * FRAME_W + x] !== OUTLINE;

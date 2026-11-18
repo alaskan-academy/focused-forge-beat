@@ -10,10 +10,18 @@ import {
   SHOE_STYLES,
   SKIN_COLORS,
   appearanceFromSeed,
+  type Accessory,
   type Appearance,
 } from '@/lib/coffee/character';
 import type { Pronoun } from '@/content/coffee/personalize';
 import CharacterPreview from './CharacterPreview';
+
+const ACCESSORY_LABELS: [Accessory, string][] = [
+  ['glasses', '👓 Óculos'],
+  ['cap', '🧢 Boné'],
+  ['apron', '☕ Avental'],
+  ['horns', '😈 Chifres'],
+];
 
 export type Profile = { name: string; pronoun: Pronoun };
 
@@ -61,17 +69,27 @@ export default function CharacterCreator({ initial, profile, title = 'Seu person
         >
           <Shuffle className="h-3.5 w-3.5" /> Sortear
         </button>
-        <button
-          type="button"
-          onClick={() => setA((cur) => {
-            const { horns, ...rest } = cur;
-            return horns ? rest : { ...rest, horns: true };
-          })}
-          className={cn('cc-chip mb-1', a.horns && 'cc-chip-on')}
-          title="Chifrinhos (estilo Belmont)"
-        >
-          😈 Chifres
-        </button>
+      </div>
+
+      {/* acessórios (liga/desliga) */}
+      <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+        {ACCESSORY_LABELS.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() =>
+              setA((cur) => {
+                const next = { ...cur };
+                if (next[key]) delete next[key];
+                else next[key] = true;
+                return next;
+              })
+            }
+            className={cn('cc-chip', a[key] && 'cc-chip-on')}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="mt-4 flex flex-wrap justify-center gap-1.5">

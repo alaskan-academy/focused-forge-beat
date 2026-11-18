@@ -5,6 +5,7 @@ import { CHARACTERS, ITEMS, ITEM_EXAMPLES } from '@/content/coffee';
 import { MAX_HEARTS, MILESTONES, chapterStatus, isSpecial, type ArcState } from '@/lib/coffee/arcs';
 import { MAX_BOX, type VocabState } from '@/lib/coffee/srs';
 import CharacterPreview from './CharacterPreview';
+import Pron from './Pron';
 import belmont from '@/content/coffee/characters/belmont';
 import { customItemId, isCustomId, sameWord } from '@/content/coffee/custom';
 import type { CustomItem, CustomItemInput } from '@/lib/coffee/store/types';
@@ -136,6 +137,7 @@ export default function Journal({ states, arcs, now, customItems = [], userId, p
                       </span>
                       <Mastery box={s.box} />
                     </div>
+                    {item.kind !== 'grammar' && <Pron text={item.en ?? item.label} className="mt-0.5" />}
                     <div className="text-sm opacity-80">{item.pt}</div>
                     {ITEM_EXAMPLES[item.id] && <div className="mt-0.5 text-xs italic opacity-60">“{ITEM_EXAMPLES[item.id]}”</div>}
                     {customById[item.id] && (
@@ -301,6 +303,7 @@ function PartnerWords({
             <li key={w.id} className="cc-card flex items-start justify-between gap-2 py-2 opacity-90">
               <div className="min-w-0">
                 <div className="font-semibold">{w.en}</div>
+                <Pron text={w.en} />
                 <div className="text-sm opacity-80">{w.pt}</div>
                 {w.example && <div className="mt-0.5 text-xs italic opacity-60">“{w.example}”</div>}
               </div>

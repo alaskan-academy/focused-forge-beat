@@ -34,6 +34,18 @@ export default function DevPanel({ store }: { store: LocalStore }) {
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.advanceDays(1))}>
           ⏩ +1 dia
         </button>
+        {(
+          [
+            ['🌅 Manhã', 8],
+            ['🌇 Fim de tarde', 17],
+            ['🌙 Noite', 22],
+            ['🕒 Hora real', null],
+          ] as [string, number | null][]
+        ).map(([label, h]) => (
+          <button key={label} type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={() => window.dispatchEvent(new CustomEvent('coffee-hour', { detail: h }))}>
+            {label}
+          </button>
+        ))}
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.callLandlord())}>
           😈 Chamar o Belmont
         </button>

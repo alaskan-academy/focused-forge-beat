@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { ITEMS, ITEM_EXAMPLES, type LearnItem } from '@/content/coffee';
 import { CHUNK_BY_ID } from '@/content/coffee/chunks';
 import { dueItems } from '@/lib/coffee/review';
+import Pron from './Pron';
 import type { Grade, VocabState } from '@/lib/coffee/srs';
 
 export const REVIEW_SESSION = 20;
@@ -95,10 +96,12 @@ export default function ReviewDeck({ states, now, onGrade, onClose }: Props) {
                   {total} feitos · {queue.length} restando
                 </span>
               </div>
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setFlipped(true)}
-                className="flex min-h-[200px] w-full flex-col items-center justify-center rounded-2xl border-2 border-[#e6d2ad] bg-white p-5 text-center shadow-sm transition-transform active:scale-[0.99]"
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setFlipped(true)}
+                className="flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-[#e6d2ad] bg-white p-5 text-center shadow-sm transition-transform active:scale-[0.99]"
               >
                 <Front item={current} mode={mode} />
                 {flipped ? (
@@ -108,7 +111,7 @@ export default function ReviewDeck({ states, now, onGrade, onClose }: Props) {
                 ) : (
                   <div className="mt-4 text-xs opacity-50">Tente responder em voz alta, depois toque para virar</div>
                 )}
-              </button>
+              </div>
               {flipped && (
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button type="button" disabled={busy} onClick={() => grade('fail')} className="rounded-xl bg-[#f6d5cb] px-2 py-2.5 text-sm font-semibold text-[#8a3a26]">
@@ -157,7 +160,15 @@ function Front({ item, mode }: { item: LearnItem; mode: Mode }) {
       </>
     );
   }
-  return mode === 'en-pt' ? <div className="cc-title text-2xl">{item.label}</div> : <div className="text-xl font-semibold">{item.pt}</div>;
+  // em inglês na frente: dá para ouvir antes de virar (sem mostrar o IPA ainda)
+  return mode === 'en-pt' ? (
+    <div className="flex items-center gap-1">
+      <span className="cc-title text-2xl">{item.label}</span>
+      <Pron text={item.en ?? item.label} showIpa={false} />
+    </div>
+  ) : (
+    <div className="text-xl font-semibold">{item.pt}</div>
+  );
 }
 
 function Back({ item, mode }: { item: LearnItem; mode: Mode }) {
@@ -174,6 +185,7 @@ function Back({ item, mode }: { item: LearnItem; mode: Mode }) {
   return (
     <>
       <div className={mode === 'pt-en' ? 'cc-title text-2xl' : 'text-lg font-semibold'}>{mode === 'en-pt' ? item.pt : item.label}</div>
+      <Pron text={item.en ?? item.label} className="mt-1" />
       {chunk && <div className="mt-1 text-xs opacity-70">{chunk.when_pt}</div>}
       {example && <div className="mt-2 text-sm italic opacity-75">“{example}”</div>}
     </>

@@ -11,6 +11,7 @@ const priya: Character = {
     shirt: { style: 'moletom', color: '#9b6fae' },
     pants: { style: 'calça', color: '#3d405b' },
     shoes: { style: 'tênis', color: '#f2ead8' },
+    glasses: true,
   },
   personality_pt: 'Sarcástica, cansada e muito engraçada. Fala de código como se fosse novela.',
   bio_pt: 'Priya é desenvolvedora de software e sonha em largar tudo para virar confeiteira.',

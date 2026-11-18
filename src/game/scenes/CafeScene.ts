@@ -3,7 +3,9 @@ import { appearanceFromSeed, type Direction } from '@/lib/coffee/character';
 import { CAT_BED, CAT_CUSHION, CAT_PERCHES, CAT_SCRATCHER, DOOR, INTERACTABLES, type Interactable, MAP_H, MAP_W, PLAYER_START, TILE, findPath, isWalkable, serveTiles, spotById, type Point } from '@/lib/coffee/map';
 import { buildCatBed, buildCatSheet, buildScratcher } from '../art/cat';
 import { buildChalkboard } from '../art/decor';
-import { buildLayers, buildTilesetCanvas } from '../art/tiles';
+import { WINDOW_X, buildLayers, buildTilesetCanvas } from '../art/tiles';
+import { Ambience } from '../effects/Ambience';
+import kenneyIndoorUrl from '../art/kenney/roguelike-indoor.png';
 import { ICON_SIZE, buildIconCanvas } from '../art/icons';
 import type { GameBridge, GameState, SceneCustomer, SceneOther } from '../bridge';
 import { Cat } from '../entities/Cat';
@@ -44,6 +46,11 @@ export class CafeScene extends Phaser.Scene {
     this.bridge = data.bridge;
   }
 
+  // pacote Kenney "Roguelike Indoors" (CC0): móveis e decoração
+  preload() {
+    this.load.image('kenney-indoor', kenneyIndoorUrl);
+  }
+
   create() {
     // texturas geradas em código (placeholder)
     this.textures.addCanvas('cafe-tiles', buildTilesetCanvas());
@@ -55,12 +62,16 @@ export class CafeScene extends Phaser.Scene {
 
     const map = this.make.tilemap({ tileWidth: TILE, tileHeight: TILE, width: MAP_W, height: MAP_H });
     const tileset = map.addTilesetImage('cafe', 'cafe-tiles', TILE, TILE, 0, 0)!;
-    const { ground, objects } = buildLayers();
+    // folha do Kenney: 16×16 com 1 px de espaço entre as peças
+    const kenney = map.addTilesetImage('kenney', 'kenney-indoor', TILE, TILE, 0, 1)!;
+    const { ground, furniture, objects } = buildLayers();
     const g = map.createBlankLayer('ground', tileset)!.setDepth(0);
+    const fu = map.createBlankLayer('furniture', kenney)!.setDepth(1);
     const o = map.createBlankLayer('objects', tileset)!.setDepth(1);
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
         g.putTileAt(ground[y][x], x, y);
+        if (furniture[y][x] >= 0) fu.putTileAt(furniture[y][x], x, y);
         if (objects[y][x] >= 0) o.putTileAt(objects[y][x], x, y);
       }
 
@@ -75,6 +86,19 @@ export class CafeScene extends Phaser.Scene {
       this.add.image(post.x, post.y + 3, 'cat-scratcher').setOrigin(0.5, 1).setDepth(100 + post.y).setVisible(false),
     ];
     this.cat = new Cat(this, { x: 17, y: 3 }, [CAT_CUSHION], CAT_PERCHES);
+
+    // vapor, luz das janelas e cor da hora do dia (horário de Brasília)
+    new Ambience(this, {
+      machine: { x: 1.6 * TILE, y: 2 * TILE + 2 },
+      windows: [...WINDOW_X],
+      lamps: [
+        { x: 13 * TILE + 8, y: 1 * TILE + 6 },
+        { x: 16 * TILE + 8, y: 1 * TILE + 6 },
+        { x: 9 * TILE + 8, y: 1 * TILE + 8 },
+        { x: 4 * TILE + 8, y: 4 * TILE + 6 },
+        { x: 3 * TILE + 8, y: 12 * TILE },
+      ],
+    });
 
     // objetos interativos: quadro-negro na parede + selos (❗) sobre eles
     const board = INTERACTABLES.find((o) => o.id === 'chalkboard')!;
@@ -362,10 +386,13 @@ export class CafeScene extends Phaser.Scene {
     }
 
     this.cat.update(time, dt);
+    this.player.breathe(time);
+    for (const v of this.customers.values()) v.walker.breathe(time);
 
     for (const v of this.others.values()) {
       const target = v.data.online && v.data.pos ? v.data.pos : { ...tileToFeet(v.data.corner), dir: 'down' as Direction };
       v.walker.moveTowards(target.x, target.y, dt, target.dir);
+      v.walker.breathe(time);
       v.tag.setPosition(Math.round(v.walker.x), Math.round(v.walker.y + 1)).setDepth(8_000 + v.walker.y);
     }
 

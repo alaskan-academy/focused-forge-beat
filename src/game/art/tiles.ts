@@ -18,9 +18,13 @@ export const TILE_INDEX = {
   cushion: 12,
   window: 13,
   gameTable: 14,
+  // objetos em cima do balcão (desenhados sobre o balcão do Kenney)
+  register: 15,
+  pastryCase: 16,
+  cups: 17,
 } as const;
 
-const COUNT = 15;
+const COUNT = 18;
 
 type R = (x: number, y: number, w: number, h: number, c: string) => void;
 
@@ -53,14 +57,20 @@ const C = {
 
 const draw: ((r: R) => void)[] = [];
 
+// Piso: tábuas de madeira mais escura que os móveis do Kenney (para os móveis se destacarem),
+// com veios suaves, emendas alternadas e um nó aqui e ali.
+const FLOOR = { base: '#9a6844', alt: '#a06e48', line: '#7f5434', grain: '#8e5f3d', light: '#ad7b53', knot: '#73492c' };
 const floor = (offset: number) => (r: R) => {
-  r(0, 0, 16, 16, C.wood);
-  for (let y = 0; y < 16; y += 4) {
-    r(0, y + 3, 16, 1, C.woodLine);
-    const seam = (y / 4 + offset) % 2 === 0 ? 5 : 12;
-    r(seam, y, 1, 3, C.woodDark);
+  for (let i = 0; i < 4; i++) {
+    const y = i * 4;
+    r(0, y, 16, 4, (i + offset) % 2 === 0 ? FLOOR.base : FLOOR.alt);
+    r(0, y + 3, 16, 1, FLOOR.line);
+    r(1, y, 5, 1, FLOOR.light);
+    const seam = (i + offset) % 2 === 0 ? 4 : 11;
+    r(seam, y, 1, 3, FLOOR.line);
+    r((seam + 6) % 16, y + 1, 3, 1, FLOOR.grain);
   }
-  r(2 + offset * 6, 1, 2, 1, '#c99369');
+  if (offset === 1) r(9, 6, 2, 1, FLOOR.knot);
 };
 draw[TILE_INDEX.floorA] = floor(0);
 draw[TILE_INDEX.floorB] = floor(1);
@@ -77,15 +87,27 @@ draw[TILE_INDEX.rug] = (r) => {
 draw[TILE_INDEX.wallTop] = (r) => {
   r(0, 0, 16, 16, C.wallTop);
   r(0, 0, 16, 1, C.wallTopLight);
+  r(0, 15, 16, 1, '#3a2924');
   r(3, 6, 2, 1, C.wallTopLight);
   r(11, 11, 2, 1, C.wallTopLight);
 };
 
+// Parede: papel de parede creme com losangos discretos, faixa de madeira e rodapé com painéis.
 const wallFace = (r: R) => {
-  r(0, 0, 16, 10, C.paper);
-  for (let x = 1; x < 16; x += 4) r(x, 0, 1, 10, C.paperStripe);
+  r(0, 0, 16, 9, C.paper);
+  for (let x = 0; x < 16; x += 4) {
+    r(x + 2, 2, 1, 1, C.paperStripe);
+    r(x + 1, 3, 3, 1, C.paperStripe);
+    r(x + 2, 4, 1, 1, C.paperStripe);
+    r(x, 7, 1, 1, '#ead9b8');
+  }
+  r(0, 8, 16, 1, '#b07a50');
+  r(0, 9, 16, 1, '#c99167');
   r(0, 10, 16, 6, C.wainscot);
-  r(0, 10, 16, 1, C.wainscotLight);
+  r(1, 11, 6, 4, C.wainscotLight);
+  r(9, 11, 6, 4, C.wainscotLight);
+  r(1, 11, 6, 1, '#b8805a');
+  r(9, 11, 6, 1, '#b8805a');
   r(0, 15, 16, 1, C.shadow);
 };
 draw[TILE_INDEX.wallFace] = wallFace;
@@ -114,6 +136,43 @@ draw[TILE_INDEX.counter] = (r) => {
   r(2, 8, 5, 6, C.counterFrontLight);
   r(9, 8, 5, 6, C.counterFrontLight);
   r(0, 15, 16, 1, C.shadow);
+};
+
+// caixa registradora (sobre o balcão)
+draw[TILE_INDEX.register] = (r) => {
+  r(3, 2, 10, 1, '#2b1d1a');
+  r(3, 3, 10, 5, '#5b6ea8');
+  r(4, 4, 8, 2, '#a8d8ea');
+  r(5, 4, 3, 1, '#fffaf0');
+  r(4, 7, 8, 1, '#3d405b');
+  r(2, 8, 12, 2, '#3d405b');
+  r(3, 8, 2, 1, '#e9c46a');
+};
+
+// vitrine de doces: cúpula de vidro com bolo e croissants
+draw[TILE_INDEX.pastryCase] = (r) => {
+  r(2, 1, 12, 8, 'rgba(214,240,247,0.55)');
+  r(2, 1, 12, 1, '#fffaf0');
+  r(2, 1, 1, 8, '#d6f0f7');
+  r(3, 5, 4, 3, '#e07a5f');
+  r(3, 5, 4, 1, '#f5c5c0');
+  r(8, 6, 5, 2, '#e9a65a');
+  r(9, 5, 3, 1, '#f2cc8f');
+  r(1, 9, 14, 1, '#7d4f33');
+};
+
+// pilha de xícaras e pires
+draw[TILE_INDEX.cups] = (r) => {
+  for (const [x, y] of [
+    [3, 4],
+    [8, 2],
+    [8, 6],
+  ] as const) {
+    r(x, y + 3, 6, 1, '#e6d2ad');
+    r(x + 1, y, 4, 3, '#fffaf0');
+    r(x + 1, y, 4, 1, '#e07a5f');
+    r(x + 5, y + 1, 1, 1, '#fffaf0');
+  }
 };
 
 draw[TILE_INDEX.machine] = (r) => {
@@ -201,37 +260,64 @@ export function buildTilesetCanvas(): HTMLCanvasElement {
   return canvas;
 }
 
-const WINDOW_X = new Set([12, 15]);
+export const WINDOW_X = new Set([12, 15]);
 
-// Converte o mapa de letras em duas camadas de índices: chão e objetos (-1 = vazio).
-export function buildLayers(): { ground: number[][]; objects: number[][] } {
+// Peças do pacote Kenney "Roguelike Indoors" (CC0; ver art/kenney/CREDITS.md). Índice = linha × 27 + coluna.
+export const KENNEY = {
+  counter: 441,
+  counterEnd: 442,
+  shelves: [478, 479, 480],
+  plants: [16, 17],
+  table: 87,
+  chairFacingRight: 57,
+  chairFacingLeft: 56,
+  rugTop: [232, 233, 233, 234],
+  rugBottom: [259, 260, 260, 261],
+  // decoração de parede (linha 1): quadros
+  // quadros e arandelas (candelabros de parede)
+  wallArt: { 3: 341, 6: 344, 7: 345, 11: 342, 13: 21, 16: 22, 17: 343 } as Record<number, number>,
+} as const;
+
+// o que fica em cima do balcão, pela coluna
+const COUNTER_PROPS: Record<number, number> = { 2: TILE_INDEX.cups, 4: TILE_INDEX.pastryCase, 7: TILE_INDEX.register };
+
+// Converte o mapa de letras em três camadas (-1 = vazio):
+//  ground: piso e paredes (arte própria) · furniture: móveis do Kenney · objects: objetos próprios do café
+export function buildLayers(): { ground: number[][]; furniture: number[][]; objects: number[][] } {
   const ground: number[][] = [];
+  const furniture: number[][] = [];
   const objects: number[][] = [];
+  const rugX0 = Array.from({ length: MAP_W }, (_, x) => x).find((x) => tileAt(x, 5) === 'R') ?? 0;
   for (let y = 0; y < MAP_H; y++) {
     const g: number[] = [];
+    const f: number[] = [];
     const o: number[] = [];
     for (let x = 0; x < MAP_W; x++) {
       const t = tileAt(x, y);
       const floorTile = (x * 7 + y * 3) % 5 === 0 ? TILE_INDEX.floorB : TILE_INDEX.floorA;
       if (t === 'W') g.push(y === 1 && x > 0 && x < MAP_W - 1 ? (WINDOW_X.has(x) ? TILE_INDEX.window : TILE_INDEX.wallFace) : TILE_INDEX.wallTop);
-      else if (t === 'R') g.push(TILE_INDEX.rug);
       else if (t === 'D') g.push(TILE_INDEX.doorMat);
       else g.push(floorTile);
 
-      const obj: Partial<Record<string, number>> = {
-        C: TILE_INDEX.counter,
-        M: TILE_INDEX.machine,
-        S: TILE_INDEX.shelf,
-        P: TILE_INDEX.plant,
-        T: TILE_INDEX.table,
-        c: TILE_INDEX.chair,
-        K: TILE_INDEX.cushion,
-        G: TILE_INDEX.gameTable,
-      };
-      o.push(obj[t] ?? -1);
+      let k = -1;
+      if (t === 'C') k = tileAt(x + 1, y) === 'C' ? KENNEY.counter : KENNEY.counterEnd;
+      else if (t === 'S') k = KENNEY.shelves[x % KENNEY.shelves.length];
+      else if (t === 'P') k = KENNEY.plants[(x + y) % 2];
+      else if (t === 'T') k = KENNEY.table;
+      else if (t === 'c') k = tileAt(x + 1, y) === 'T' ? KENNEY.chairFacingRight : KENNEY.chairFacingLeft;
+      else if (t === 'R') {
+        const i = Math.min(3, x - rugX0);
+        // o tapete do Kenney tem uma linha só: fica no meio da área do tapete
+        k = y === 6 ? KENNEY.rugTop[i] : -1;
+      } else if (y === 1 && t === 'W' && KENNEY.wallArt[x] !== undefined) k = KENNEY.wallArt[x];
+      f.push(k);
+
+      const own: Partial<Record<string, number>> = { M: TILE_INDEX.machine, K: TILE_INDEX.cushion, G: TILE_INDEX.gameTable };
+      o.push(own[t] ?? (t === 'C' ? (COUNTER_PROPS[x] ?? -1) : -1));
     }
     ground.push(g);
+    furniture.push(f);
     objects.push(o);
   }
-  return { ground, objects };
+  return { ground, furniture, objects };
 }
