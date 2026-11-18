@@ -617,6 +617,48 @@ export const CHUNKS: Chunk[] = [
     ],
     exercise: ex(gap('ex', ['c:dont_take_it_personally', 'g:aux_do'], 'player', "Don't ", 'take', ' it personally. He charges everyone.', 'Não leva pro lado pessoal. Ele cobra todo mundo.', ['take', 'took', 'taken'])),
   },
+  {
+    id: 'c:such_a_relief',
+    en: 'such a relief',
+    pt: 'que alívio',
+    when_pt: 'Quando um momento difícil ou tenso acaba bem.',
+    level: 'A2+',
+    examples: [
+      { en: 'You found the keys? Such a relief!', pt: 'Você achou as chaves? Que alívio!' },
+      { en: 'It was such a relief to finally get home.', pt: 'Foi um alívio enorme finalmente chegar em casa.' },
+    ],
+    exercise: ex(
+      choose('ex', ['c:such_a_relief', 'g:such_a'], [
+        ok('The test was easy? Such a relief!'),
+        no('The test was easy? Such relief a!', 'A ordem é SUCH A + substantivo: "such a relief".'),
+        no('The test was easy? A such relief!', 'O "such" vem antes do "a": "such a relief".'),
+      ]),
+    ),
+  },
+  {
+    id: 'c:theres_no_way',
+    en: "there's no way",
+    pt: 'de jeito nenhum / não tem como',
+    when_pt: 'Para dizer que algo é impossível ou que você não vai fazer de jeito nenhum.',
+    level: 'A2+',
+    examples: [
+      { en: "There's no way I'm waking up at 5 a.m.", pt: 'De jeito nenhum que eu vou acordar às 5 da manhã.' },
+      { en: "There's no way he ate eleven brigadeiros!", pt: 'Não tem como ele ter comido onze brigadeiros!' },
+    ],
+    exercise: ex(gap('ex', ['c:theres_no_way', 'g:there_is_are'], 'player', "There's no ", 'way', " I'm paying 40 coins for rent.", 'De jeito nenhum que eu vou pagar 40 moedas de aluguel.', ['way', 'how', 'road'])),
+  },
+  {
+    id: 'c:pack_your_bags',
+    en: "pack your bags",
+    pt: 'faz as malas',
+    when_pt: 'Para chamar alguém para viajar (ou, brincando, para ir embora).',
+    level: 'A2',
+    examples: [
+      { en: "Pack your bags and let's go to the beach!", pt: 'Faz as malas e vamos pra praia!' },
+      { en: 'I packed my bags in ten minutes.', pt: 'Fiz as malas em dez minutos.' },
+    ],
+    exercise: ex(build('ex', ['c:pack_your_bags', 'pack'], "Pack your bags and let's go!", 'Faz as malas e vamos!', ['packing', 'bag', 'went'])),
+  },
 ];
 
 export const CHUNK_BY_ID: Record<string, Chunk> = Object.fromEntries(CHUNKS.map((c) => [c.id, c]));

@@ -160,6 +160,23 @@ export const SUDOKU_THEMES: SudokuTheme[] = [
       w('drink', 'drink', 'beber', '🥤', 'To take water or juice into your mouth.', 'You should ___ more water.'),
     ],
   },
+  {
+    id: 'rescue',
+    name_pt: 'Resgate de animais',
+    emoji: '🦮',
+    words: [
+      w('street_dog', 'street dog', 'cachorro de rua', '🐕', 'A dog with no home that lives outside.', 'There is a ___ sleeping near the café door.', 'A2', 'street_dog'),
+      w('shelter', 'shelter', 'abrigo', '🏠', 'A safe place where animals without a home can stay.', 'We took the puppy to an animal ___.', 'A2+', 'shelter'),
+      w('rescue', 'rescue', 'resgatar', '🚑', 'To save someone from a dangerous situation.', 'Firefighters ___ cats from trees.', 'A2+', 'rescue'),
+      w('owner', 'owner', 'dono', '🙋', 'The person a pet belongs to.', 'Is this your dog? Where is its ___?', 'A2', 'owner'),
+      w('injured', 'injured', 'machucado', '🩹', 'Hurt, usually after an accident.', "The dog has a bad leg. It's ___.", 'A2+', 'injured'),
+      w('water_bowl', 'water bowl', 'pote de água', '💧', 'A small dish with something to drink for a pet.', "It's hot. Fill the dog's ___, please.", 'A2', 'water_bowl'),
+      w('animal_clinic', 'animal clinic', 'clínica veterinária', '🏥', 'A place where doctors help sick pets.', "The cat is sick. Let's go to the ___.", 'A2', 'animal_clinic'),
+      w('food_scraps', 'food scraps', 'restos de comida', '🍗', 'Small pieces left after a meal, for animals.', "Don't throw away the ___. The street dogs can eat them.", 'A2+', 'food_scraps'),
+      w('leftovers', 'leftovers', 'sobras (de comida)', '🥡', "Food from yesterday's dinner that you eat today.", "There's pizza from last night. Want some ___?", 'A2+'),
+      w('caring', 'caring', 'cuidadoso / carinhoso', '🤗', 'Kind and always ready to help others.', "She feeds every street cat. She's so ___.", 'A2+', 'caring'),
+    ],
+  },
 ];
 
 export const SUDOKU_WORDS: SudokuWord[] = SUDOKU_THEMES.flatMap((t) => t.words);

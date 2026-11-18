@@ -402,6 +402,21 @@ const belmont: Character = {
       ]),
       ask('met', ['g:aux_do'], 'Where did Belmont and Gerald meet?', ['at a tax office', 'in the cabin', 'at a café']),
     ]),
+    visit('belmont-v-such', [
+      say(
+        'Such a charming café. Such terrible coffee. And such a mess in the kitchen, darling.',
+        'Que café charmoso. Que café horrível. E que bagunça na cozinha, querido.',
+        'thinking',
+        B,
+      ),
+      spot('eyes', ['g:such_a'], 'You have such *a* beautiful eyes. That is why I forgive you.', 'You have such beautiful eyes. That is why I forgive you.', '"Eyes" é plural: "such beautiful eyes", sem "a".'),
+      say('I heard there was a leak in the kitchen yesterday. Is there a problem I should know about?', 'Fiquei sabendo que teve um vazamento na cozinha ontem. Tem algum problema que eu deveria saber?', 'thinking', B),
+      choose('leak', ['g:there_was_were', 'g:there_is_are'], [
+        ok("There was a leak, but there isn't a problem now.", say('A leak. In MY building. Rent just went up.', 'Um vazamento. No MEU prédio. O aluguel acabou de subir.', 'angry', B)),
+        no("There were a leak, but there isn't a problem now.", '"A leak" é singular: THERE WAS a leak.'),
+        no("It had a leak, but it don't have a problem now.", 'Para "teve/tem" use THERE WAS / THERE IS; e nunca "it don\'t".'),
+      ]),
+    ]),
   ],
 };
 

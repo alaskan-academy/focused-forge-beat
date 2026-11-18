@@ -17,6 +17,7 @@ import { ORDERS as BASE_ORDERS } from './orders';
 import { MORE_ORDERS } from './orders-more';
 import { TALKS as BASE_TALKS } from './talks';
 import { MORE_TALKS } from './talks-more';
+import { CLASS_TALKS } from './talks-class';
 import { VOCAB } from './vocab';
 import { SUDOKU_WORDS } from './sudokuWords';
 import { isLine, type Character, type Level, type Scene, type Theme } from './types';
@@ -25,7 +26,7 @@ export const CHARACTERS: Character[] = [maya, tom, gary, priya, parker, junAlex,
 export const CHARACTER_BY_ID: Record<string, Character> = Object.fromEntries(CHARACTERS.map((c) => [c.id, c]));
 
 export const ORDERS = [...BASE_ORDERS, ...MORE_ORDERS];
-export const TALKS = [...BASE_TALKS, ...MORE_TALKS];
+export const TALKS = [...BASE_TALKS, ...MORE_TALKS, ...CLASS_TALKS];
 export { HANDOFFS };
 
 // Item de aprendizagem (vocabulário ou gramática), como o SRS e o caderninho enxergam.
