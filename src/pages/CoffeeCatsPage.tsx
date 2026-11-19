@@ -21,6 +21,10 @@ import DecorBar from '@/components/coffee/DecorBar';
 import { useHouseDecor } from '@/components/coffee/useHouseDecor';
 import { ComfortChip, ComfortPanel, MorningCard } from '@/components/coffee/HouseComfort';
 import { houseComfort } from '@/lib/coffee/comfort';
+import PhonePanel from '@/components/coffee/PhonePanel';
+import TvPanel from '@/components/coffee/TvPanel';
+import { tvWatched } from '@/lib/coffee/tv';
+import type { Station } from '@/content/coffee/furniture';
 import { FURNITURE_BY_ID, variantName } from '@/content/coffee/furniture';
 import UpdateNotice from '@/components/coffee/UpdateNotice';
 import { useNewVersion } from '@/components/coffee/useNewVersion';
@@ -70,9 +74,12 @@ export default function CoffeeCatsPage({ local = false }: { local?: boolean }) {
 
 const NO_ITEMS: never[] = [];
 const NO_MEMBERS: string[] = [];
+const NO_NOTES: import('@/lib/coffee/store/types').Note[] = [];
 
 function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultName: string }) {
-  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning } = useCoffeeGame(store);
+  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward } = useCoffeeGame(store);
+  const [phone, setPhone] = useState(false);
+  const [tv, setTv] = useState(false);
   const [shop, setShop] = useState(false);
   const [comfortOpen, setComfortOpen] = useState(false);
   const [chunks, setChunks] = useState(false);
@@ -96,7 +103,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
   const comfort = useMemo(() => houseComfort(snap?.houseItems ?? []), [snap?.houseItems]);
   // bônus do dia ao acordar (depois de criar o personagem, sem interromper um atendimento)
   const showMorning = !!morning?.claimed && !firstVisit && !active;
-  const overlayOpen = showMorning || comfortOpen || firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table || shop;
+  const overlayOpen = phone || tv || showMorning || comfortOpen || firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table || shop;
 
   // chunk do dia (a cada 12 h) e itens vencidos para a revisão
   const now = store.now();
@@ -108,6 +115,31 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
   const puzzleReady =
     !!snap &&
     ([4, 6] as SudokuSize[]).some((size) => level.level >= UNLOCK_LEVEL[size] && !snap.puzzles.some((p) => p.day === today && p.size === size && p.status === 'done'));
+  // estações de estudo da casa: ❗ quando têm novidade
+  const notes = snap?.notes ?? NO_NOTES;
+  const myUserId = snap?.me.user_id ?? '';
+  const unreadNotes = notes.filter((n) => n.to_user === myUserId && !n.read_at).length;
+  const tvNew = !tvWatched(today) && !tv;
+  const stationBadges = useMemo(
+    () => ({ phone: unreadNotes > 0, tv: tvNew, pc: dueCount > 0, gametable: puzzleReady }),
+    [unreadNotes, tvNew, dueCount, puzzleReady],
+  );
+  const onStation = useCallback((st: Station) => {
+    if (st === 'pc') setReviewing(true);
+    else if (st === 'desk') setJournal(true);
+    else if (st === 'bookshelf') setBooks(true);
+    else if (st === 'gametable') setTable(true);
+    else if (st === 'phone') setPhone(true);
+    else if (st === 'tv') setTv(true);
+  }, []);
+  // ligação nova chegando: avisa (em qualquer lugar do jogo)
+  const partnerFirst = snap?.partner?.display_name ?? 'Alguém';
+  const [seenUnread, setSeenUnread] = useState(0);
+  useEffect(() => {
+    if (unreadNotes > seenUnread) toast(`📞 ${partnerFirst} te ligou! Vá até o telefone de casa para ouvir o recado.`);
+    setSeenUnread(unreadNotes);
+  }, [unreadNotes, seenUnread, partnerFirst]);
+
   const objectBadges = useMemo(
     () => ({ chalkboard: chunkReady ? ('alert' as const) : null, gametable: puzzleReady ? ('alert' as const) : null }),
     [chunkReady, puzzleReady],
@@ -236,6 +268,8 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
           houseItems={decor.sceneItems}
           decor={overlayOpen ? null : decor.view}
           onDecorTap={decor.onTap}
+          stationBadges={stationBadges}
+          onStation={onStation}
           onInteract={onInteract}
           onObject={(id) => (id === 'chalkboard' ? setChunks(true) : id === 'gametable' ? setTable(true) : setBooks(true))}
           onMove={move}
@@ -334,6 +368,10 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
         </div>
       )}
       {appearance && !overlayOpen && decor.active && <DecorBar decor={decor} onShop={() => setShop(true)} />}
+      {phone && snap && (
+        <PhonePanel me={snap.me.user_id} partnerName={snap.partner?.display_name ?? null} notes={notes} onSend={sendNote} onRead={readNotes} onClose={() => setPhone(false)} />
+      )}
+      {tv && <TvPanel day={today} onReward={tvReward} onClose={() => setTv(false)} />}
       {comfortOpen && <ComfortPanel comfort={comfort} onClose={() => setComfortOpen(false)} />}
       {showMorning && morning && snap && <MorningCard bonus={morning} name={snap.me.display_name} onClose={dismissMorning} />}
       {shop && snap && <HouseShop coins={snap.me.coins} level={level.level} onBuy={buy} onClose={() => setShop(false)} />}

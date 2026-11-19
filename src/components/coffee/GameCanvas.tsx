@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Appearance, Direction } from '@/lib/coffee/character';
 import type { Area, GameBridge, GameState, SceneCustomer, SceneOther } from '@/game/bridge';
+import type { Station } from '@/content/coffee/furniture';
 import type { GameHandle } from '@/game/createGame';
 
 type Props = {
@@ -13,6 +14,8 @@ type Props = {
   house: GameState['house'];
   houseItems: GameState['houseItems'];
   decor: GameState['decor'];
+  stationBadges: GameState['stationBadges'];
+  onStation?: (station: Station, id: string) => void;
   onDecorTap?: (p: { x: number; y: number }) => void;
   onInteract: (customerId: string) => void;
   onObject?: (id: 'chalkboard' | 'bookshelf' | 'gametable') => void;
@@ -21,10 +24,10 @@ type Props = {
 };
 
 // Canvas do Phaser. O motor é carregado sob demanda (import dinâmico), só quando a aba abre.
-export default function GameCanvas({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, onInteract, onObject, onMove, onArea, onDecorTap }: Props) {
+export default function GameCanvas({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, onInteract, onObject, onMove, onArea, onDecorTap, onStation }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const bridgeRef = useRef<GameBridge | null>(null);
-  const initial = useRef<GameState>({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor });
+  const initial = useRef<GameState>({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges });
   const interactRef = useRef(onInteract);
   interactRef.current = onInteract;
   const moveRef = useRef(onMove);
@@ -35,6 +38,8 @@ export default function GameCanvas({ appearance, customers, others, catCorner, o
   areaRef.current = onArea;
   const decorRef = useRef(onDecorTap);
   decorRef.current = onDecorTap;
+  const stationRef = useRef(onStation);
+  stationRef.current = onStation;
 
   useEffect(() => {
     let handle: GameHandle | null = null;
@@ -48,6 +53,7 @@ export default function GameCanvas({ appearance, customers, others, catCorner, o
       handle.bridge.on('object', ({ id }) => objectRef.current?.(id));
       handle.bridge.on('area', ({ area }) => areaRef.current?.(area));
       handle.bridge.on('decorTap', (p) => decorRef.current?.(p));
+      handle.bridge.on('station', ({ station, id }) => stationRef.current?.(station, id));
     });
     return () => {
       cancelled = true;
@@ -57,9 +63,9 @@ export default function GameCanvas({ appearance, customers, others, catCorner, o
   }, []);
 
   useEffect(() => {
-    initial.current = { appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor };
-    bridgeRef.current?.setState({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor });
-  }, [appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor]);
+    initial.current = { appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges };
+    bridgeRef.current?.setState({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges });
+  }, [appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges]);
 
   return <div ref={hostRef} className="absolute inset-0 touch-none select-none [&_canvas]:block" />;
 }

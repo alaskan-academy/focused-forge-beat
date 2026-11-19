@@ -7,9 +7,9 @@ import Pron from './Pron';
 export function ComfortChip({ comfort, onClick }: { comfort: number; onClick: () => void }) {
   const t = titleFor(comfort);
   return (
-    <button type="button" onClick={onClick} className="cc-hud flex items-center gap-1.5 text-sm" title="Conforto da casa">
+    <button type="button" onClick={onClick} className="cc-hud flex items-center gap-1.5 whitespace-nowrap text-sm" title="Conforto da casa">
       <span>{t.emoji}</span>
-      <span className="hidden sm:inline">{t.pt}</span>
+      <span className="hidden lg:inline">{t.pt}</span>
       <span className="rounded-md bg-[#efe0c4] px-1.5 text-xs font-bold">♥ {comfort}</span>
     </button>
   );

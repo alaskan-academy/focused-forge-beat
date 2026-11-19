@@ -403,8 +403,11 @@ export function useCoffeeGame(store: CoffeeStore) {
   useEffect(() => {
     if (!hasSnap || morningAsked.current) return;
     morningAsked.current = true;
+    // presentes primeiro (contam no conforto), depois o bônus do dia
     store
-      .claimMorningBonus()
+      .houseGifts()
+      .catch(() => 0)
+      .then(() => store.claimMorningBonus())
       .then(async (b) => {
         setMorning(b);
         if (b?.claimed) await refresh();
@@ -412,6 +415,28 @@ export function useCoffeeGame(store: CoffeeStore) {
       .catch(() => setMorning(null));
   }, [hasSnap, store, refresh]);
   const dismissMorning = useCallback(() => setMorning((m) => (m ? { ...m, claimed: false } : m)), []);
+
+  // ── estações: telefone e TV ───────────────────────────────────────────
+  const sendNote = useCallback(
+    async (body: string, heart: boolean) => {
+      const r = await store.sendNote(body, heart);
+      await refresh();
+      return r;
+    },
+    [store, refresh],
+  );
+  const readNotes = useCallback(async () => {
+    await store.readNotes();
+    await refresh();
+  }, [store, refresh]);
+  const tvReward = useCallback(
+    async (correct: number, total: number) => {
+      const r = await store.tvReward(correct, total);
+      await refresh();
+      return r;
+    },
+    [store, refresh],
+  );
 
   // ── melhoria compartilhada ──────────────────────────────────────────────
   const contribute = useCallback(
@@ -442,5 +467,5 @@ export function useCoffeeGame(store: CoffeeStore) {
   }, [store, cafeId, myName, lookKey]);
   const move = useCallback((p: Position) => presence.current?.move(p), []);
 
-  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning };
+  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward };
 }

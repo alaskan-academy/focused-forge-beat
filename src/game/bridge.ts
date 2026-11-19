@@ -2,6 +2,7 @@
 // jogo recebe teclado) e o jogo devolve eventos (ex.: "o jogador quer atender o cliente X").
 // Não importa Phaser, para o React não carregar o motor só por causa dos tipos.
 import type { Appearance, Direction } from '@/lib/coffee/character';
+import type { Station } from '@/content/coffee/furniture';
 
 // Lugares do jogo: o café e a casa de vocês (cenas diferentes do Phaser).
 export type Area = 'cafe' | 'house';
@@ -49,6 +50,8 @@ export type GameState = {
   houseItems: SceneHouseItem[];
   // modo decorar: prévia do móvel sendo colocado e o móvel selecionado (null = fora do modo)
   decor: DecorView | null;
+  // selo ❗ sobre as estações de estudo (ex.: recado novo no telefone)
+  stationBadges: Partial<Record<Station, boolean>>;
 };
 
 export type SceneHouseItem = { id: string; item_id: string; variant: number; x: number; y: number; flip: boolean; editable: boolean };
@@ -67,6 +70,8 @@ export type GameEvents = {
   area: { area: Area };
   // toque num tile no modo decorar
   decorTap: { x: number; y: number };
+  // usou uma estação de estudo da casa (computador, telefone, TV…)
+  station: { station: Station; id: string };
   ready: undefined;
 };
 

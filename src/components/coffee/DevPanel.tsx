@@ -75,6 +75,9 @@ export default function DevPanel({ store }: { store: LocalStore }) {
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" disabled={!store.hasPartner()} onClick={act(() => store.partnerDecorates())}>
           Jessica decora a sala
         </button>
+        <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" disabled={!store.hasPartner()} onClick={act(() => store.partnerCalls())}>
+          📞 Jessica liga
+        </button>
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.togglePartner())}>
           {store.hasPartner() ? 'Jogar sozinho' : 'Com a Jessica'}
         </button>

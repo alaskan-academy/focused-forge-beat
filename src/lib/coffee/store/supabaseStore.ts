@@ -20,6 +20,8 @@ import type {
   FinishInput,
   FinishResult,
   HouseItem,
+  Note,
+  DailyReward,
   PlayerRow,
   Position,
   PresenceHandle,
@@ -88,7 +90,7 @@ export class SupabaseStore implements CoffeeStore {
     }
 
     const yesterday = dayKey(new Date(Date.now() - 86_400_000));
-    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom, landlord, house] = await Promise.all([
+    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom, landlord, house, notes] = await Promise.all([
       db.from('coffee_cafes').select('id, name, invite_code, reputation').eq('id', cid).single(),
       db.from('coffee_members').select('user_id, joined_at').eq('cafe_id', cid).order('joined_at'),
       db.from('coffee_players').select('*').eq('cafe_id', cid),
@@ -105,6 +107,7 @@ export class SupabaseStore implements CoffeeStore {
       db.from('coffee_custom_items').select('id, user_id, en, pt, example, source, created_at').eq('cafe_id', cid).order('created_at', { ascending: false }),
       db.rpc('coffee_landlord_bill'),
       db.from('coffee_house_items').select('id, owner_id, item_id, variant, room, x, y, flip, created_at').eq('cafe_id', cid).order('created_at'),
+      db.from('coffee_notes').select('id, from_user, to_user, body, heart, created_at, read_at').eq('cafe_id', cid).order('created_at', { ascending: false }).limit(40),
     ]);
 
     const cafeRow = check(cafe) as Row;
@@ -177,6 +180,7 @@ export class SupabaseStore implements CoffeeStore {
       landlord: landlord.error ? null : ((landlord.data as LandlordBill | null) ?? null),
       // sem a tabela (migration não aplicada) a casa fica só com os móveis de fábrica
       houseItems: house.error ? [] : ((house.data as unknown as HouseItem[]) ?? []),
+      notes: notes.error ? [] : ((notes.data as unknown as Note[]) ?? []),
     };
   }
 
@@ -316,6 +320,31 @@ export class SupabaseStore implements CoffeeStore {
     this.notify();
   }
 
+  async houseGifts() {
+    const res = await db.rpc('coffee_house_gifts');
+    if (res.error) return 0;
+    const n = (res.data as number) ?? 0;
+    if (n > 0) this.notify();
+    return n;
+  }
+
+  async sendNote(body: string, heart: boolean) {
+    const res = check(await db.rpc('coffee_send_note', { p_body: body, p_heart: heart })) as DailyReward;
+    this.notify();
+    return res;
+  }
+
+  async readNotes() {
+    check(await db.rpc('coffee_read_notes'));
+    this.notify();
+  }
+
+  async tvReward(correct: number, total: number) {
+    const res = check(await db.rpc('coffee_tv_reward', { p_correct: correct, p_total: total })) as DailyReward;
+    this.notify();
+    return res;
+  }
+
   async claimMorningBonus(): Promise<MorningBonus | null> {
     const res = await db.rpc('coffee_house_morning');
     if (res.error) return null;
@@ -334,7 +363,7 @@ export class SupabaseStore implements CoffeeStore {
     if (this.dbChannel) db.removeChannel(this.dbChannel);
     const cid = this.cafeId!;
     let ch = db.channel(`coffee-db-${cid}`);
-    for (const table of ['coffee_customers', 'coffee_activity', 'coffee_upgrades', 'coffee_players', 'coffee_house_items'])
+    for (const table of ['coffee_customers', 'coffee_activity', 'coffee_upgrades', 'coffee_players', 'coffee_house_items', 'coffee_notes'])
       ch = ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `cafe_id=eq.${cid}` }, () => this.notify());
     this.dbChannel = ch.subscribe();
   }

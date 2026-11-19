@@ -3,7 +3,8 @@ import type { Direction } from '@/lib/coffee/character';
 import { TILE } from '@/lib/coffee/map';
 import { pathIn, type Point } from '@/lib/coffee/grid';
 import { BEDROOM_DOORS, CAFE_DOOR, FROM_CAFE, HOUSE_MAP, HOUSE_WINDOWS_X, SLEEP_SPOT, WAKE_UP } from '@/lib/coffee/house';
-import { FURNITURE_BY_ID, type Furniture } from '@/content/coffee/furniture';
+import { FURNITURE_BY_ID, type Furniture, type Station } from '@/content/coffee/furniture';
+import { ICON_SIZE, buildIconCanvas } from '../art/icons';
 import { buildHouseLayers, buildTilesetCanvas } from '../art/tiles';
 import { drawFurniture } from '../art/furniture';
 import kenneyIndoorUrl from '../art/kenney/roguelike-indoor.png';
@@ -13,7 +14,7 @@ import { Ambience } from '../effects/Ambience';
 import { fitCamera, layoutCamera } from './camera';
 
 type OtherView = { data: SceneOther; walker: Walker; tag: Phaser.GameObjects.Text };
-type ItemView = { data: SceneHouseItem; img: Phaser.GameObjects.Image };
+type ItemView = { data: SceneHouseItem; img: Phaser.GameObjects.Image; badge: Phaser.GameObjects.Image | null };
 
 // De onde o jogador chega: acordando no quarto (começo do dia) ou vindo do café.
 export type HouseSpawn = 'wake' | 'cafe';
@@ -37,6 +38,7 @@ export class HouseScene extends Phaser.Scene {
   private plates: Phaser.GameObjects.Text[] = [];
   private ghost!: Phaser.GameObjects.Image;
   private marks!: Phaser.GameObjects.Graphics;
+  private prompt!: Phaser.GameObjects.Image;
   private lastSent = { x: 0, y: 0, dir: 'up' as Direction, t: 0 };
   private leaving = false;
 
@@ -58,6 +60,9 @@ export class HouseScene extends Phaser.Scene {
 
   create() {
     if (!this.textures.exists('cafe-tiles')) this.textures.addCanvas('cafe-tiles', buildTilesetCanvas());
+    Object.keys(ICON_SIZE).forEach((name) => {
+      if (!this.textures.exists(`icon:${name}`)) this.textures.addCanvas(`icon:${name}`, buildIconCanvas(name));
+    });
 
     const map = this.make.tilemap({ tileWidth: TILE, tileHeight: TILE, width: HOUSE_MAP.w, height: HOUSE_MAP.h });
     const tileset = map.addTilesetImage('cafe', 'cafe-tiles', TILE, TILE, 0, 0)!;
@@ -91,6 +96,7 @@ export class HouseScene extends Phaser.Scene {
     // modo decorar: prévia do móvel e marcações dos tiles
     this.marks = this.add.graphics().setDepth(9_500);
     this.ghost = this.add.image(0, 0, '__DEFAULT').setOrigin(0, 0).setAlpha(0.75).setDepth(9_400).setVisible(false);
+    this.prompt = this.add.image(0, 0, 'icon:keyE').setOrigin(0.5, 1).setDepth(10_000).setVisible(false);
 
     // luz das janelas, hora do dia e vapor do fogão
     new Ambience(this, {
@@ -154,6 +160,7 @@ export class HouseScene extends Phaser.Scene {
     if (!prev || prev.house !== s.house) this.plates.forEach((p, i) => p.setText(s.house.roomNames[i] || 'Quarto').setVisible(!!s.house.roomNames[i]));
     if (!prev || prev.others !== s.others) this.syncOthers(s.others);
     if (!prev || prev.houseItems !== s.houseItems) this.syncItems(s.houseItems);
+    if (!prev || prev.houseItems !== s.houseItems || prev.stationBadges !== s.stationBadges) this.syncBadges(s.stationBadges);
     if (!prev || prev.decor !== s.decor || prev.houseItems !== s.houseItems) this.drawDecor(s.decor);
     if (prev && !!prev.decor !== !!s.decor) {
       if (s.decor) this.player.stop();
@@ -166,6 +173,7 @@ export class HouseScene extends Phaser.Scene {
     for (const [id, v] of this.items)
       if (!ids.has(id)) {
         v.img.destroy();
+        v.badge?.destroy();
         this.items.delete(id);
       }
     HOUSE_MAP.blocked.clear();
@@ -174,7 +182,7 @@ export class HouseScene extends Phaser.Scene {
       if (!f) continue;
       let v = this.items.get(it.id);
       if (!v) {
-        v = { data: it, img: this.add.image(0, 0, this.furnitureTexture(f, it.variant)).setOrigin(0, 0) };
+        v = { data: it, img: this.add.image(0, 0, this.furnitureTexture(f, it.variant)).setOrigin(0, 0), badge: null };
         this.items.set(it.id, v);
       }
       v.data = it;
@@ -185,6 +193,43 @@ export class HouseScene extends Phaser.Scene {
         .setDepth(depthOf(f, it.y));
       if (f.place === 'floor') for (let j = 0; j < f.h; j++) for (let i = 0; i < f.w; i++) HOUSE_MAP.blocked.add((it.y + j) * HOUSE_MAP.w + it.x + i);
     }
+  }
+
+  // ❗ sobre a primeira estação de cada tipo que tem novidade
+  private syncBadges(badges: Partial<Record<Station, boolean>>) {
+    const shown = new Set<Station>();
+    for (const v of this.items.values()) {
+      const f = FURNITURE_BY_ID[v.data.item_id];
+      const st = f?.station;
+      const on = !!st && !!badges[st] && !shown.has(st);
+      if (on && st) shown.add(st);
+      if (on && f && !v.badge) {
+        v.badge = this.add.image(0, 0, 'icon:alert').setOrigin(0.5, 1).setDepth(9_800);
+        this.tweens.add({ targets: v.badge, y: '-=2', duration: 600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      }
+      if (v.badge) {
+        v.badge.setVisible(on);
+        if (f) v.badge.setPosition(v.data.x * TILE + (f.w * TILE) / 2, v.data.y * TILE - 1);
+      }
+    }
+  }
+
+  // estação de estudo ao alcance do jogador (encostado no móvel, inclusive na diagonal)
+  private nearStation(): ItemView | null {
+    const t = this.player.tile;
+    for (const v of this.items.values()) {
+      const f = FURNITURE_BY_ID[v.data.item_id];
+      if (!f?.station) continue;
+      if (t.x >= v.data.x - 1 && t.x <= v.data.x + f.w && t.y >= v.data.y - 1 && t.y <= v.data.y + f.h) return v;
+    }
+    return null;
+  }
+
+  private useStation(v: ItemView) {
+    const f = FURNITURE_BY_ID[v.data.item_id];
+    if (!f?.station) return;
+    this.player.stop();
+    this.bridge.emit('station', { station: f.station, id: v.data.id });
   }
 
   // modo decorar: prévia (verde = cabe, vermelho = não cabe) e contorno do móvel selecionado
@@ -262,6 +307,22 @@ export class HouseScene extends Phaser.Scene {
       return;
     }
     if (!this.bridge.state.inputEnabled || this.leaving) return;
+    // tocou numa estação de estudo: anda até ela e usa
+    const st = [...this.items.values()].find((v) => {
+      const f = FURNITURE_BY_ID[v.data.item_id];
+      return !!f?.station && target.x >= v.data.x && target.x < v.data.x + f.w && target.y >= v.data.y && target.y < v.data.y + f.h;
+    });
+    if (st) {
+      if (this.nearStation() === st) {
+        this.useStation(st);
+        return;
+      }
+      this.player.path = pathIn(HOUSE_MAP, this.player.tile, target);
+      this.player.onArrive = () => {
+        if (this.nearStation() === st) this.useStation(st);
+      };
+      return;
+    }
     this.player.onArrive = undefined;
     this.player.path = pathIn(HOUSE_MAP, this.player.tile, target);
     const p = tileToFeet(target);
@@ -302,6 +363,15 @@ export class HouseScene extends Phaser.Scene {
 
     const t = this.player.tile;
     if (t.x === CAFE_DOOR.x && t.y === CAFE_DOOR.y) this.goToCafe();
+
+    // perto de uma estação: tecla E (ou espaço) para usar
+    const near = this.bridge.state.inputEnabled && !this.bridge.state.decor && !this.leaving ? this.nearStation() : null;
+    this.prompt.setVisible(!!near);
+    if (near) {
+      const f = FURNITURE_BY_ID[near.data.item_id];
+      this.prompt.setPosition(near.data.x * TILE + (f.w * TILE) / 2 + 9, Math.round(near.data.y * TILE + 2 + Math.sin(time / 220)));
+      if (Phaser.Input.Keyboard.JustDown(k.E) || Phaser.Input.Keyboard.JustDown(k.SPACE)) this.useStation(near);
+    }
 
     for (const v of this.others.values()) {
       const target = v.data.online && v.data.pos ? v.data.pos : { ...tileToFeet(v.data.corner), dir: 'down' as Direction };

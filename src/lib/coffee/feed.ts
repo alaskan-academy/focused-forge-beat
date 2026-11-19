@@ -44,6 +44,8 @@ export function feedText(e: FeedEntry, nameOf: (userId: string | null) => string
       const f = FURNITURE_BY_ID[h.item ?? ''];
       return f ? `${who} comprou: ${variantName(f, h.variant ?? 0)} (${f.pt}) 🛋️` : `${who} comprou um móvel 🛋️`;
     }
+    case 'note':
+      return `${who} ligou para agradecer 📞${(e.data as { heart?: boolean }).heart ? ' ❤️' : ''}`;
     case 'upgrade_done':
       return `${who} completou o ${UPGRADE_NAMES[d.upgrade ?? ''] ?? 'projeto do café'}! 🎉`;
     default:

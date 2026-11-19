@@ -66,7 +66,12 @@ export type Snapshot = {
   customItems: CustomItem[]; // caderninho escrito à mão (meus e da outra pessoa, para copiar)
   landlord: LandlordBill | null; // conta de hoje do Belmont (null = indisponível)
   houseItems: HouseItem[]; // móveis da casa (colocados e nas mochilas)
+  notes: Note[]; // recados do telefone (que eu mandei ou recebi), mais novos primeiro
 };
+
+// Recado do telefone: agradecimento em inglês para a outra pessoa.
+export type Note = { id: string; from_user: string; to_user: string; body: string; heart: boolean; created_at: string; read_at: string | null };
+export type DailyReward = { coins: number; total_coins: number };
 
 // Palavra anotada à mão no caderninho. Na revisão o item é `u:<id>` (ver content/coffee/custom.ts).
 export type CustomItem = {
@@ -150,6 +155,11 @@ export interface CoffeeStore {
   storeHouseItem(id: string): Promise<void>;
   // bônus do dia ao acordar (pelo conforto da casa); null = indisponível (migration não aplicada)
   claimMorningBonus(): Promise<MorningBonus | null>;
+  // estações de estudo: presentes (PC, telefone, TV, estante), recados e episódio da TV
+  houseGifts(): Promise<number>;
+  sendNote(body: string, heart: boolean): Promise<DailyReward>;
+  readNotes(): Promise<void>;
+  tvReward(correct: number, total: number): Promise<DailyReward>;
   subscribe(cb: () => void): () => void;
   joinPresence(cafeId: string, self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle;
 }

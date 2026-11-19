@@ -24,6 +24,8 @@ import {
   type CustomItemInput,
   type CoffeeStore,
   type FeedEntry,
+  type Note,
+  type DailyReward,
   type FinishInput,
   type Partner,
   type PlayerRow,
@@ -46,6 +48,8 @@ type Data = {
   custom: CustomItem[];
   house: HouseItem[];
   bonus_day: string | null; // último dia em que ganhou o bônus ao acordar
+  notes: Note[];
+  rewards: string[]; // "tipo:dia" das recompensas diárias já ganhas
   // Belmont: mesmas regras de coffee_landlord_compute/pay
   landlord: { debt: number; visits: number; last_visit_day: string | null; booked_by_me: boolean | null; earned_since: number; errors_since: number; active_day: string | null };
   last_spawn_at: string;
@@ -68,6 +72,8 @@ function fresh(): Data {
     puzzles: [],
     house: [],
     bonus_day: null,
+    notes: [],
+    rewards: [],
     landlord: { debt: 0, visits: 0, last_visit_day: null, booked_by_me: null, earned_since: 0, errors_since: 0, active_day: null },
     // uma anotação da "Jessica" de teste, para experimentar o copiar
     custom: [
@@ -96,7 +102,7 @@ export class LocalStore implements CoffeeStore {
   }
 
   async load(): Promise<Snapshot> {
-    const { me, partner, customers, items, arcs, feed, upgrade, puzzles, custom, house } = this.data;
+    const { me, partner, customers, items, arcs, feed, upgrade, puzzles, custom, house, notes } = this.data;
     const landlord = this.landlordBill();
     return {
       cafe: { id: 'local', name: 'Coffee Cats', invite_code: 'LOCAL1', reputation: 0, members: [USER, ...(partner ? [partner.user_id] : [])] },
@@ -111,6 +117,7 @@ export class LocalStore implements CoffeeStore {
       customItems: custom.map((c) => ({ ...c })),
       landlord,
       houseItems: house.map((h) => ({ ...h })),
+      notes: notes.map((n) => ({ ...n })),
     };
   }
 
@@ -368,6 +375,74 @@ export class LocalStore implements CoffeeStore {
     this.write();
   }
 
+  // ── estações de estudo (mesmas regras de coffee_house_gifts / send_note / tv_reward) ──
+
+  async houseGifts() {
+    const idx = Math.max(0, this.members().indexOf(USER));
+    const room: RoomId = idx === 0 ? 'bedroom0' : 'bedroom1';
+    const gifts = [
+      { gift: 'pc', item: 'computer', personal: true, room, x: idx === 0 ? 10 : 22, y: 2 },
+      { gift: 'phone', item: 'telephone', personal: true, room, x: idx === 0 ? 9 : 21, y: 2 },
+      { gift: 'tv', item: 'television', personal: false, room: 'living' as RoomId, x: 3, y: 9 },
+      { gift: 'bookshelf', item: 'bookshelf', personal: false, room: 'living' as RoomId, x: 11, y: 9 },
+    ];
+    let added = 0;
+    for (const g of gifts) {
+      const has = this.data.house.some((h) => (h as HouseItem & { gift?: string }).gift === g.gift && (!g.personal || h.owner_id === USER));
+      if (has) continue;
+      const busy = this.data.house.some((h) => {
+        const f = FURNITURE_BY_ID[h.item_id];
+        return h.room && f?.place === 'floor' && g.x >= h.x && g.x < h.x + f.w && g.y >= h.y && g.y < h.y + f.h;
+      });
+      const it = { id: newId(), owner_id: USER, item_id: g.item, variant: 0, room: busy ? null : g.room, x: g.x, y: g.y, flip: false, created_at: this.now().toISOString(), gift: g.gift };
+      this.data.house.push(it);
+      added++;
+    }
+    if (added) this.write();
+    return added;
+  }
+
+  private reward(kind: string, coins: number): DailyReward {
+    const key = `${kind}:${dayKey(this.now())}`;
+    if (this.data.rewards.includes(key)) return { coins: 0, total_coins: this.data.me.coins };
+    this.data.rewards.push(key);
+    this.data.me.coins += coins;
+    return { coins, total_coins: this.data.me.coins };
+  }
+
+  async sendNote(body: string, heart: boolean) {
+    const p = this.data.partner;
+    if (!p) throw new Error('nobody to call');
+    const text = body.trim();
+    if (!text || text.length > 300) throw new Error('bad note');
+    this.data.notes = [{ id: newId(), from_user: USER, to_user: p.user_id, body: text, heart, created_at: this.now().toISOString(), read_at: null }, ...this.data.notes];
+    this.log(USER, 'note', { heart });
+    const r = this.reward('phone', 5);
+    this.write();
+    return r;
+  }
+
+  async readNotes() {
+    const now = this.now().toISOString();
+    for (const n of this.data.notes) if (n.to_user === USER && !n.read_at) n.read_at = now;
+    this.write();
+  }
+
+  async tvReward(correct: number, total: number) {
+    const r = this.reward('tv', correct * 2 >= Math.max(1, total) ? 5 : 2);
+    this.write();
+    return r;
+  }
+
+  // teste: a outra pessoa liga para agradecer
+  partnerCalls() {
+    const p = this.data.partner;
+    if (!p) return;
+    this.data.notes = [{ id: newId(), from_user: p.user_id, to_user: USER, body: 'Thank you for making me coffee every morning. You made my day!', heart: true, created_at: this.now().toISOString(), read_at: null }, ...this.data.notes];
+    this.log(p.user_id, 'note', { heart: true });
+    this.write();
+  }
+
   async claimMorningBonus(): Promise<MorningBonus> {
     const comfort = houseComfort(this.data.house);
     const level = comfortLevel(comfort);
@@ -523,6 +598,8 @@ export class LocalStore implements CoffeeStore {
       d.custom = d.custom ?? fresh().custom;
       d.house = d.house ?? [];
       d.bonus_day = d.bonus_day ?? null;
+      d.notes = d.notes ?? [];
+      d.rewards = d.rewards ?? [];
       d.landlord = { ...fresh().landlord, ...(d.landlord ?? {}) };
       return d;
     } catch {
