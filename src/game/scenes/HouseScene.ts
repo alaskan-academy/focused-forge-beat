@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { Direction } from '@/lib/coffee/character';
 import { TILE } from '@/lib/coffee/map';
 import { pathIn, type Point } from '@/lib/coffee/grid';
-import { BEDROOM_DOORS, CAFE_DOOR, FROM_CAFE, HOUSE_MAP, HOUSE_WINDOWS_X, SLEEP_SPOT, WAKE_UP } from '@/lib/coffee/house';
+import { BEDROOM_DOORS, CAFE_DOOR, FROM_CAFE, FROM_GARDEN, GARDEN_EXIT, HOUSE_MAP, HOUSE_WINDOWS_X, SLEEP_SPOT, WAKE_UP } from '@/lib/coffee/house';
 import { FURNITURE_BY_ID, type Furniture, type Station } from '@/content/coffee/furniture';
 import { ICON_SIZE, buildIconCanvas } from '../art/icons';
 import { buildHouseLayers, buildTilesetCanvas } from '../art/tiles';
@@ -17,7 +17,7 @@ type OtherView = { data: SceneOther; walker: Walker; tag: Phaser.GameObjects.Tex
 type ItemView = { data: SceneHouseItem; img: Phaser.GameObjects.Image; badge: Phaser.GameObjects.Image | null };
 
 // De onde o jogador chega: acordando no quarto (começo do dia) ou vindo do café.
-export type HouseSpawn = 'wake' | 'cafe';
+export type HouseSpawn = 'wake' | 'cafe' | 'garden';
 
 // profundidade: tapete logo acima do chão, parede atrás de tudo, móveis de chão pela linha de baixo
 function depthOf(f: Furniture, y: number) {
@@ -79,9 +79,9 @@ export class HouseScene extends Phaser.Scene {
       }
 
     const myRoom = this.bridge.state.house.myRoom;
-    const start = this.spawn === 'cafe' ? FROM_CAFE : WAKE_UP[myRoom];
+    const start = this.spawn === 'cafe' ? FROM_CAFE : this.spawn === 'garden' ? FROM_GARDEN : WAKE_UP[myRoom];
     this.player = new Walker(this, this.bridge.state.appearance, start, 72, HOUSE_MAP);
-    this.player.face(this.spawn === 'cafe' ? 'right' : 'down');
+    this.player.face(this.spawn === 'cafe' ? 'right' : this.spawn === 'garden' ? 'left' : 'down');
 
     // plaquinha com o nome na porta de cada quarto
     this.plates = BEDROOM_DOORS.map((d) =>
@@ -330,6 +330,15 @@ export class HouseScene extends Phaser.Scene {
     this.tweens.add({ targets: ring, scale: 0.3, alpha: 0, duration: 450, onComplete: () => ring.destroy() });
   }
 
+  // pisou na porta da cozinha: vai para o quintal (horta)
+  private goToGarden() {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.player.stop();
+    this.cameras.main.fadeOut(300, 36, 23, 15);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('garden', { bridge: this.bridge }));
+  }
+
   // pisou na porta da sala: volta para o café
   private goToCafe() {
     if (this.leaving) return;
@@ -363,6 +372,7 @@ export class HouseScene extends Phaser.Scene {
 
     const t = this.player.tile;
     if (t.x === CAFE_DOOR.x && t.y === CAFE_DOOR.y) this.goToCafe();
+    if (t.x === GARDEN_EXIT.x && t.y === GARDEN_EXIT.y) this.goToGarden();
 
     // perto de uma estação: tecla E (ou espaço) para usar
     const near = this.bridge.state.inputEnabled && !this.bridge.state.decor && !this.leaving ? this.nearStation() : null;

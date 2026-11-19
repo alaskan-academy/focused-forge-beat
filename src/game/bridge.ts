@@ -4,8 +4,8 @@
 import type { Appearance, Direction } from '@/lib/coffee/character';
 import type { Station } from '@/content/coffee/furniture';
 
-// Lugares do jogo: o café e a casa de vocês (cenas diferentes do Phaser).
-export type Area = 'cafe' | 'house';
+// Lugares do jogo: o café, a casa de vocês e o quintal com a horta (cenas diferentes do Phaser).
+export type Area = 'cafe' | 'house' | 'garden';
 
 export type SceneCustomer = {
   id: string;
@@ -52,7 +52,12 @@ export type GameState = {
   decor: DecorView | null;
   // selo ❗ sobre as estações de estudo (ex.: recado novo no telefone)
   stationBadges: Partial<Record<Station, boolean>>;
+  // horta: canteiros liberados e plantas de cada um (0 = esquerda, 1 = direita)
+  garden: SceneGarden;
 };
+
+export type ScenePlant = { id: string; owner: number; plot: number; crop_id: string; stage: number; thirsty: boolean; ready: boolean; mine: boolean };
+export type SceneGarden = { myIndex: number; names: [string, string]; plots: [number, number]; plants: ScenePlant[] };
 
 export type SceneHouseItem = { id: string; item_id: string; variant: number; x: number; y: number; flip: boolean; editable: boolean };
 export type DecorView = {
@@ -72,6 +77,9 @@ export type GameEvents = {
   decorTap: { x: number; y: number };
   // usou uma estação de estudo da casa (computador, telefone, TV…)
   station: { station: Station; id: string };
+  // horta: usou um canteiro (de quem e qual) ou a barraquinha de sementes
+  gardenPlot: { owner: number; plot: number };
+  gardenStand: undefined;
   ready: undefined;
 };
 

@@ -2,7 +2,7 @@
 // pelos testes. O banco confere de novo o essencial (dono, quarto de quem, limites do cômodo).
 import { FURNITURE_BY_ID, type Furniture } from '@/content/coffee/furniture';
 import { charAt, walkable, type GameMap, type Point } from './grid';
-import { BEDROOM_DOORS, CAFE_DOOR, FROM_CAFE, HOUSE_MAP, HOUSE_WINDOWS_X, ROOMS, SLEEP_SPOT, WAKE_UP, type Room, type RoomId } from './house';
+import { BEDROOM_DOORS, CAFE_DOOR, FROM_CAFE, FROM_GARDEN, GARDEN_EXIT, HOUSE_MAP, HOUSE_WINDOWS_X, ROOMS, SLEEP_SPOT, WAKE_UP, type Room, type RoomId } from './house';
 
 // Um móvel comprado: na mochila (room null) ou colocado num cômodo (x, y = canto de cima à esquerda).
 export type HouseItem = {
@@ -35,6 +35,8 @@ const KEEP_FREE = new Set(
     ...SLEEP_SPOT,
     FROM_CAFE,
     CAFE_DOOR,
+    FROM_GARDEN,
+    GARDEN_EXIT,
     ...BEDROOM_DOORS.flatMap((d) => [d, { x: d.x, y: d.y - 1 }, { x: d.x, y: d.y + 1 }]),
     // passagem sala ↔ cozinha
     { x: 13, y: 12 },

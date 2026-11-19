@@ -5,6 +5,7 @@ import { makeMap, type GameMap, type Point } from './grid';
 // Legenda:
 //  W parede   . piso de madeira (quartos)   , taco (sala)   _ azulejo (cozinha)
 //  d vão de porta (andável)   E porta para o café (andável; pisar nela leva ao café)
+//  Q porta da cozinha para o quintal (andável; pisar nela leva à horta)
 //  B cama de casal (2×2)   X caixa de mudança   O sofá (2 tiles)   A poltrona
 //  F fogão   C bancada da cozinha
 export const HOUSE_ROWS = [
@@ -20,7 +21,7 @@ export const HOUSE_ROWS = [
   'W,,,,,,,,,,,,,WFCCCC___W',
   'W,,OO,A,,,,,,,W________W',
   'W,,,,,,,,,,,,,W________W',
-  'E,,,,,,,,,,,,,d________W',
+  'E,,,,,,,,,,,,,d________Q',
   'W,,,,,,,,,,,,,W________W',
   'W,,,,,,,,,,,,,W________W',
   'WWWWWWWWWWWWWWWWWWWWWWWW',
@@ -61,6 +62,10 @@ export const SLEEP_SPOT: Point[] = [
 // porta da casa para o café e onde o jogador aparece ao chegar do café
 export const CAFE_DOOR: Point = { x: 0, y: 12 };
 export const FROM_CAFE: Point = { x: 1, y: 12 };
+
+// porta da cozinha para o quintal e onde o jogador aparece ao voltar da horta
+export const GARDEN_EXIT: Point = { x: 23, y: 12 };
+export const FROM_GARDEN: Point = { x: 22, y: 12 };
 
 // janelas (raios de luz) no alto de cada quarto
 export const HOUSE_WINDOWS_X = [5, 8, 15, 18];

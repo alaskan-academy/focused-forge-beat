@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RoomId } from '@/lib/coffee/house';
 import type { MorningBonus } from '@/lib/coffee/comfort';
+import { CROP_BY_ID } from '@/lib/coffee/garden';
+import { pickSeedWord } from '@/lib/coffee/gardenWords';
 import { CHARACTERS, CHARACTER_BY_ID } from '@/content/coffee';
 import type { SceneCustomer } from '@/game/bridge';
 import { WALKOUT_MISTAKES, computeStars, performanceFeedback, targetMs, type ActivityResult } from '@/lib/coffee/activities';
@@ -398,6 +400,7 @@ export function useCoffeeGame(store: CoffeeStore) {
 
   // ── bônus ao acordar (uma vez por abertura do jogo; o servidor garante 1x por dia) ──
   const [morning, setMorning] = useState<MorningBonus | null>(null);
+  const [seedGift, setSeedGift] = useState<string[]>([]);
   const morningAsked = useRef(false);
   const hasSnap = !!snap;
   useEffect(() => {
@@ -407,13 +410,59 @@ export function useCoffeeGame(store: CoffeeStore) {
     store
       .houseGifts()
       .catch(() => 0)
-      .then(() => store.claimMorningBonus())
+      .then(() => store.gardenDaily().catch(() => [] as string[]))
+      .then((given) => {
+        setSeedGift(given);
+        return store.claimMorningBonus();
+      })
       .then(async (b) => {
         setMorning(b);
         if (b?.claimed) await refresh();
       })
       .catch(() => setMorning(null));
   }, [hasSnap, store, refresh]);
+  const dismissSeedGift = useCallback(() => setSeedGift([]), []);
+
+  // ── horta ───────────────────────────────────────────────────────────────
+  const plantSeed = useCallback(
+    async (plot: number, cropId: string) => {
+      const s = snapRef.current!;
+      const planted = new Set(s.garden.plants.map((p) => p.item_id));
+      const itemId = pickSeedWord(CROP_BY_ID[cropId]?.kind ?? 'herb', s.items, planted);
+      await store.plantSeed(plot, cropId, itemId);
+      await refresh();
+      return itemId;
+    },
+    [store, refresh],
+  );
+  const waterPlant = useCallback(
+    async (plantId: string) => {
+      const r = await store.waterPlant(plantId);
+      await refresh();
+      return r;
+    },
+    [store, refresh],
+  );
+  const harvestPlant = useCallback(
+    async (plantId: string) => {
+      const r = await store.harvestPlant(plantId);
+      await refresh();
+      return r;
+    },
+    [store, refresh],
+  );
+  const buySeed = useCallback(
+    async (cropId: string, qty: number) => {
+      await store.buySeed(cropId, qty);
+      await refresh();
+    },
+    [store, refresh],
+  );
+  const buyPlot = useCallback(async () => {
+    await store.buyPlot();
+    await refresh();
+  }, [store, refresh]);
+
   const dismissMorning = useCallback(() => setMorning((m) => (m ? { ...m, claimed: false } : m)), []);
 
   // ── estações: telefone e TV ───────────────────────────────────────────
@@ -472,5 +521,5 @@ export function useCoffeeGame(store: CoffeeStore) {
   }, [store, cafeId, myName, lookKey]);
   const move = useCallback((p: Position) => presence.current?.move(p), []);
 
-  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward };
+  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward, seedGift, dismissSeedGift, plantSeed, waterPlant, harvestPlant, buySeed, buyPlot };
 }

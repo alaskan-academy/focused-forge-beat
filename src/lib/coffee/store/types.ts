@@ -10,6 +10,7 @@ import type { LandlordBill, LandlordPayInput, LandlordPayResult } from '../landl
 import type { HouseItem } from '../houseItems';
 import type { RoomId } from '../house';
 import type { MorningBonus } from '../comfort';
+import type { Plant } from '../garden';
 
 export type { HouseItem } from '../houseItems';
 
@@ -67,7 +68,18 @@ export type Snapshot = {
   landlord: LandlordBill | null; // conta de hoje do Belmont (null = indisponível)
   houseItems: HouseItem[]; // móveis da casa (colocados e nas mochilas)
   notes: Note[]; // recados do telefone (que eu mandei ou recebi), mais novos primeiro
+  garden: GardenData; // horta do quintal
 };
+
+// Horta: meus canteiros, sementes e despensa; quantos canteiros a outra pessoa tem; plantas dos dois.
+export type GardenData = {
+  plots: number;
+  seeds: Record<string, number>;
+  pantry: Record<string, number>;
+  partnerPlots: number;
+  plants: Plant[];
+};
+export type HarvestResult = { coins: number; total_coins: number; crop: string; item: string };
 
 // Recado do telefone: agradecimento em inglês para a outra pessoa.
 export type Note = { id: string; from_user: string; to_user: string; body: string; heart: boolean; created_at: string; read_at: string | null };
@@ -117,7 +129,7 @@ export type FinishResult = { coins: number; tip: number; walkout: boolean; xp: n
 
 // Presença em tempo real: onde a outra pessoa está agora.
 // area: em que mapa a pessoa está (versões antigas não mandam: café)
-export type Area = 'cafe' | 'house';
+export type Area = 'cafe' | 'house' | 'garden';
 export type Position = { x: number; y: number; dir: Direction; area?: Area };
 export type RemotePresence = { user_id: string; name: string; appearance: Appearance | null; pos: Position | null };
 export type PresenceHandle = { move(p: Position): void; leave(): void };
@@ -162,6 +174,13 @@ export interface CoffeeStore {
   tvReward(correct: number, total: number): Promise<DailyReward>;
   // acertou "Where did you put the…?" (+1 🪙, até 5 por dia)
   prepReward(): Promise<DailyReward>;
+  // horta: sementes grátis do dia, barraquinha, plantar, regar, colher e canteiro extra
+  gardenDaily(): Promise<string[]>;
+  buySeed(cropId: string, qty: number): Promise<void>;
+  plantSeed(plot: number, cropId: string, itemId: string): Promise<void>;
+  waterPlant(plantId: string): Promise<{ changed: boolean; xp: number }>;
+  harvestPlant(plantId: string): Promise<HarvestResult>;
+  buyPlot(): Promise<void>;
   subscribe(cb: () => void): () => void;
   joinPresence(cafeId: string, self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle;
 }

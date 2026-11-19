@@ -7,11 +7,15 @@ export const CAT_FRAMES = 4;
 
 type R = (x: number, y: number, w: number, h: number, c: string) => void;
 
-const C = { fur: '#e8954a', dark: '#b8662a', light: '#f7c58f', out: '#3b2416', eye: '#2b1d1a', nose: '#e07a7a' };
+export type CatPalette = { fur: string; dark: string; light: string; out: string; eye: string; nose: string; flower?: string };
 
-const frames: ((r: R) => void)[] = [
+// Elias (laranja, do café) e a Mucego Frutífero (preta, da horta, com uma florzinha na orelha)
+export const ELIAS: CatPalette = { fur: '#e8954a', dark: '#b8662a', light: '#f7c58f', out: '#3b2416', eye: '#2b1d1a', nose: '#e07a7a' };
+export const MUCEGO: CatPalette = { fur: '#2c2733', dark: '#141118', light: '#433c4c', out: '#0b090d', eye: '#d8e65a', nose: '#e08a9a', flower: '#f29ec0' };
+
+const frames: ((r: R, C: CatPalette) => void)[] = [
   // andando A
-  (r) => {
+  (r, C) => {
     r(3, 5, 9, 4, C.fur);
     r(4, 5, 7, 1, C.light);
     r(11, 2, 4, 4, C.fur);
@@ -28,7 +32,7 @@ const frames: ((r: R) => void)[] = [
     r(8, 6, 1, 2, C.dark);
   },
   // andando B
-  (r) => {
+  (r, C) => {
     r(3, 5, 9, 4, C.fur);
     r(4, 5, 7, 1, C.light);
     r(11, 2, 4, 4, C.fur);
@@ -45,7 +49,7 @@ const frames: ((r: R) => void)[] = [
     r(8, 6, 1, 2, C.dark);
   },
   // sentado
-  (r) => {
+  (r, C) => {
     r(5, 4, 6, 7, C.fur);
     r(6, 5, 4, 5, C.light);
     r(6, 1, 5, 4, C.fur);
@@ -59,7 +63,7 @@ const frames: ((r: R) => void)[] = [
     r(6, 6, 1, 2, C.dark);
   },
   // dormindo (enroladinho)
-  (r) => {
+  (r, C) => {
     r(3, 6, 10, 5, C.fur);
     r(4, 5, 8, 1, C.fur);
     r(5, 7, 5, 2, C.light);
@@ -72,7 +76,7 @@ const frames: ((r: R) => void)[] = [
   },
 ];
 
-function outline(ctx: CanvasRenderingContext2D, ox: number) {
+function outline(ctx: CanvasRenderingContext2D, ox: number, C: CatPalette) {
   const img = ctx.getImageData(ox, 0, CAT_W, CAT_H);
   const filled = (x: number, y: number) => x >= 0 && y >= 0 && x < CAT_W && y < CAT_H && img.data[(y * CAT_W + x) * 4 + 3] > 0;
   ctx.fillStyle = C.out;
@@ -80,17 +84,25 @@ function outline(ctx: CanvasRenderingContext2D, ox: number) {
     for (let x = 0; x < CAT_W; x++) if (!filled(x, y) && (filled(x - 1, y) || filled(x + 1, y) || filled(x, y - 1) || filled(x, y + 1))) ctx.fillRect(ox + x, y, 1, 1);
 }
 
-export function buildCatSheet(): HTMLCanvasElement {
+export function buildCatSheet(C: CatPalette = ELIAS): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = CAT_W * CAT_FRAMES;
   canvas.height = CAT_H;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   frames.forEach((fn, i) => {
-    fn((x, y, w, h, c) => {
+    const r: R = (x, y, w, h, c) => {
       ctx.fillStyle = c;
       ctx.fillRect(i * CAT_W + x, y, w, h);
-    });
-    outline(ctx, i * CAT_W);
+    };
+    fn(r, C);
+    outline(ctx, i * CAT_W, C);
+    // florzinha na orelha (depois do contorno, para ficar por cima)
+    if (C.flower) {
+      const ear = i === 2 ? { x: 10, y: 0 } : i === 3 ? { x: 13, y: 3 } : { x: 14, y: 0 };
+      r(ear.x - 1, ear.y, 3, 1, C.flower);
+      r(ear.x, ear.y - 1 < 0 ? ear.y + 1 : ear.y - 1, 1, 1, C.flower);
+      r(ear.x, ear.y, 1, 1, '#f2cc8f');
+    }
   });
   return canvas;
 }

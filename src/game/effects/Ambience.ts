@@ -15,6 +15,9 @@ function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, d
   scene.textures.addCanvas(key, c);
 }
 
+// horário de teste vale para todas as cenas (café, casa, quintal) até voltar para a hora real
+let hourOverride: number | null = null;
+
 // machine: de onde sai vapor (opcional) · windows: colunas das janelas (linha 1) · size: tamanho do mapa em tiles
 type Options = { machine?: { x: number; y: number }; windows: number[]; lamps: { x: number; y: number }[]; size?: { w: number; h: number } };
 
@@ -23,11 +26,10 @@ export class Ambience {
   private beams: Phaser.GameObjects.Image[] = [];
   private lamps: Phaser.GameObjects.Image[] = [];
   private dust: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
-  private override: number | null = null;
   private timer: Phaser.Time.TimerEvent;
   private onHour = (e: Event) => {
     const h = (e as CustomEvent<number | null>).detail;
-    this.override = typeof h === 'number' ? h : null;
+    hourOverride = typeof h === 'number' ? h : null;
     this.apply();
   };
 
@@ -116,7 +118,7 @@ export class Ambience {
   }
 
   get phase(): DayPhase {
-    return phaseFor(this.override ?? brasiliaHour());
+    return phaseFor(hourOverride ?? brasiliaHour());
   }
 
   // aplica a fase atual com uma transição suave

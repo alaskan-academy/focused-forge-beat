@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, HelpCircle, Layers, Paintbrush, ScrollText, Shirt, Sofa, X } from 'lucide-react';
 import { toast } from 'sonner';
 import GameCanvas from '@/components/coffee/GameCanvas';
@@ -25,6 +25,10 @@ import PhonePanel from '@/components/coffee/PhonePanel';
 import TvPanel from '@/components/coffee/TvPanel';
 import { tvWatched } from '@/lib/coffee/tv';
 import type { Station } from '@/content/coffee/furniture';
+import { GardenPlotPanel, SeedStand } from '@/components/coffee/GardenPanels';
+import { CROP_BY_ID, plantNow } from '@/lib/coffee/garden';
+import { ITEMS } from '@/content/coffee';
+import type { SceneGarden } from '@/game/bridge';
 import { FURNITURE_BY_ID, variantName } from '@/content/coffee/furniture';
 import UpdateNotice from '@/components/coffee/UpdateNotice';
 import { useNewVersion } from '@/components/coffee/useNewVersion';
@@ -77,7 +81,9 @@ const NO_MEMBERS: string[] = [];
 const NO_NOTES: import('@/lib/coffee/store/types').Note[] = [];
 
 function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultName: string }) {
-  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward } = useCoffeeGame(store);
+  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward, seedGift, dismissSeedGift, plantSeed, waterPlant, harvestPlant, buySeed, buyPlot } = useCoffeeGame(store);
+  const [plotOpen, setPlotOpen] = useState<{ owner: number; plot: number } | null>(null);
+  const [standOpen, setStandOpen] = useState(false);
   const [phone, setPhone] = useState(false);
   const [tv, setTv] = useState(false);
   const [shop, setShop] = useState(false);
@@ -103,7 +109,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
   const comfort = useMemo(() => houseComfort(snap?.houseItems ?? []), [snap?.houseItems]);
   // bônus do dia ao acordar (depois de criar o personagem, sem interromper um atendimento)
   const showMorning = !!morning?.claimed && !firstVisit && !active;
-  const overlayOpen = phone || tv || showMorning || comfortOpen || firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table || shop;
+  const overlayOpen = !!plotOpen || standOpen || phone || tv || showMorning || comfortOpen || firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table || shop;
 
   // chunk do dia (a cada 12 h) e itens vencidos para a revisão
   const now = store.now();
@@ -158,6 +164,59 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
     return { myRoom: bedroomIndex(list, myId), roomNames: [nameOf(list[0]), nameOf(list[1])] as [string, string] };
   }, [members, myId, myName, partnerName]);
 
+  // ── horta: relógio (as plantas crescem sozinhas), estado para a cena e avisos ──
+  const [nowMs, setNowMs] = useState(() => store.now().getTime());
+  useEffect(() => {
+    const t = window.setInterval(() => setNowMs(store.now().getTime()), 30_000);
+    return () => window.clearInterval(t);
+  }, [store]);
+  useEffect(() => setNowMs(store.now().getTime()), [snap, store]);
+  const gardenData = snap?.garden;
+  const partnerUserId = snap?.partner?.user_id ?? null;
+  const myIdx = house.myRoom;
+  const sceneGarden = useMemo<SceneGarden>(() => {
+    const now = new Date(nowMs);
+    const plots: [number, number] = [6, 6];
+    plots[myIdx] = gardenData?.plots ?? 6;
+    plots[1 - myIdx] = gardenData?.partnerPlots ?? 6;
+    return {
+      myIndex: myIdx,
+      names: house.roomNames,
+      plots,
+      plants: (gardenData?.plants ?? []).map((p) => {
+        const v = plantNow(p, now);
+        const mine = p.owner_id === myId;
+        return { id: p.id, owner: mine ? myIdx : 1 - myIdx, plot: p.plot, crop_id: p.crop_id, stage: v.stage, thirsty: v.thirsty, ready: v.ready, mine };
+      }),
+    };
+  }, [gardenData, nowMs, myIdx, myId, house.roomNames]);
+  const myReady = sceneGarden.plants.filter((p) => p.mine && p.ready).length;
+  const myThirsty = sceneGarden.plants.filter((p) => p.mine && p.thirsty).length;
+
+  // sementes grátis do dia
+  useEffect(() => {
+    if (!seedGift.length) return;
+    toast(`🌱 Sementes grátis de hoje: ${seedGift.map((c) => CROP_BY_ID[c]?.en ?? c).join(', ')}. Plante no quintal (porta da cozinha)!`);
+    dismissSeedGift();
+  }, [seedGift, dismissSeedGift]);
+
+  // a outra pessoa regou uma planta minha
+  const wateredSeen = useRef<Record<string, string>>({});
+  useEffect(() => {
+    const plants = gardenData?.plants ?? [];
+    const seen = wateredSeen.current;
+    const first = Object.keys(seen).length === 0;
+    for (const p of plants) {
+      const stamp = `${p.last_watered_by}:${p.stage}:${p.watered}`;
+      if (!first && seen[p.id] && seen[p.id] !== stamp && p.owner_id === myId && p.last_watered_by && p.last_watered_by === partnerUserId)
+        toast(`💧 ${snap?.partner?.display_name ?? 'Alguém'} regou seu ${CROP_BY_ID[p.crop_id]?.en ?? 'canteiro'}!`);
+      seen[p.id] = stamp;
+    }
+  }, [gardenData, myId, partnerUserId, snap?.partner?.display_name]);
+
+  const onGardenPlot = useCallback((owner: number, plot: number) => setPlotOpen({ owner, plot }), []);
+  const onGardenStand = useCallback(() => setStandOpen(true), []);
+
   // móveis: modo decorar e lojinha
   // "Where did you put the…?": revisão da preposição e do móvel, e +1 🪙 quando acerta
   const onQuiz = useCallback(
@@ -210,6 +269,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
     const idx = Math.max(0, snap.cafe.members.indexOf(p.user_id));
     const theirArea = online ? (online.pos?.area ?? 'cafe') : null;
     if (online && theirArea !== area) return [];
+    if (!online && area === 'garden') return [];
     return [
       {
         id: p.user_id,
@@ -286,6 +346,9 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
           onDecorTap={decor.onTap}
           stationBadges={stationBadges}
           onStation={onStation}
+          garden={sceneGarden}
+          onGardenPlot={onGardenPlot}
+          onGardenStand={onGardenStand}
           onInteract={onInteract}
           onObject={(id) => (id === 'chalkboard' ? setChunks(true) : id === 'gametable' ? setTable(true) : setBooks(true))}
           onMove={move}
@@ -345,6 +408,12 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
             </button>
           </div>
           <div className="pointer-events-auto flex gap-2">
+            {(myReady > 0 || myThirsty > 0) && (
+              <span className="cc-hud flex items-center gap-1 whitespace-nowrap text-sm" title="Sua horta (quintal, pela porta da cozinha)">
+                🌱{myReady > 0 && <span>✨{myReady}</span>}
+                {myThirsty > 0 && <span>💧{myThirsty}</span>}
+              </span>
+            )}
             {area === 'house' && (
               <>
                 <ComfortChip comfort={comfort} onClick={() => setComfortOpen(true)} />
@@ -387,6 +456,75 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
       {phone && snap && (
         <PhonePanel me={snap.me.user_id} partnerName={snap.partner?.display_name ?? null} notes={notes} onSend={sendNote} onRead={readNotes} onClose={() => setPhone(false)} />
       )}
+      {plotOpen &&
+        snap &&
+        (() => {
+          const mine = plotOpen.owner === myIdx;
+          const ownerId = mine ? myId : partnerUserId;
+          const plant = snap.garden.plants.find((p) => p.owner_id === ownerId && p.plot === plotOpen.plot) ?? null;
+          const plots = mine ? snap.garden.plots : snap.garden.partnerPlots;
+          return (
+            <GardenPlotPanel
+              plot={plotOpen.plot}
+              mine={mine}
+              ownerName={house.roomNames[plotOpen.owner] || 'outra pessoa'}
+              locked={plotOpen.plot >= plots}
+              plots={plots}
+              plant={plant}
+              view={plant ? plantNow(plant, new Date(nowMs)) : null}
+              now={nowMs}
+              seeds={snap.garden.seeds}
+              coins={snap.me.coins}
+              onPlant={async (cropId) => {
+                const itemId = await plantSeed(plotOpen.plot, cropId);
+                toast(`🌱 Plantou ${CROP_BY_ID[cropId]?.en}! Palavra nova: "${ITEMS[itemId]?.en ?? itemId}"`);
+                return itemId;
+              }}
+              onWater={async () => {
+                if (!plant) return;
+                const r = await waterPlant(plant.id);
+                if (r.xp) toast(`💧 Você regou a planta da ${house.roomNames[plotOpen.owner]}! +${r.xp} XP`);
+              }}
+              onQuiz={(correct) => {
+                if (plant) void gradeItems([{ itemId: plant.item_id, grade: correct ? 'good' : 'fail' }]).catch(() => undefined);
+              }}
+              onHarvest={async () => {
+                if (!plant) return;
+                const r = await harvestPlant(plant.id);
+                void gradeItems([{ itemId: plant.item_id, grade: 'good' }]).catch(() => undefined);
+                toast(`🧺 Colheu ${CROP_BY_ID[r.crop]?.en}! +${r.coins} 🪙 · "${ITEMS[r.item]?.en ?? ''}" subiu na revisão`);
+              }}
+              onBuyPlot={async () => {
+                try {
+                  await buyPlot();
+                } catch {
+                  toast('Moedas insuficientes 🪙');
+                }
+              }}
+              onShop={() => {
+                setPlotOpen(null);
+                setStandOpen(true);
+              }}
+              onClose={() => setPlotOpen(null)}
+            />
+          );
+        })()}
+      {standOpen && snap && (
+        <SeedStand
+          coins={snap.me.coins}
+          level={level.level}
+          seeds={snap.garden.seeds}
+          pantry={snap.garden.pantry}
+          onBuy={async (cropId) => {
+            try {
+              await buySeed(cropId, 1);
+            } catch {
+              toast('Moedas insuficientes 🪙');
+            }
+          }}
+          onClose={() => setStandOpen(false)}
+        />
+      )}
       {tv && <TvPanel day={today} onReward={tvReward} onClose={() => setTv(false)} />}
       {comfortOpen && <ComfortPanel comfort={comfort} onClose={() => setComfortOpen(false)} />}
       {showMorning && morning && snap && <MorningCard bonus={morning} name={snap.me.display_name} onClose={dismissMorning} />}
@@ -394,7 +532,12 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
       {appearance && !overlayOpen && !decor.active && (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
           <div className="cc-hud text-xs font-medium opacity-90">
-            {area === 'house' ? (
+            {area === 'garden' ? (
+              <>
+                <span className="hidden md:inline">🌱 Toque num canteiro para plantar, regar ou colher · 🧺 barraquinha lá em cima · toque na Mucego 🐈‍⬛</span>
+                <span className="md:hidden">Toque num canteiro · toque na Mucego 🐈‍⬛</span>
+              </>
+            ) : area === 'house' ? (
               <>
                 <span className="hidden md:inline">WASD/setas para andar · 🛋️ Loja e 🎨 Decorar lá em cima · a porta da sala leva ao café ☕</span>
                 <span className="md:hidden">Toque para andar · a porta da sala leva ao café</span>

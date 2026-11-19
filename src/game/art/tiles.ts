@@ -3,6 +3,7 @@
 import { MAP_H, MAP_W, TILE, tileAt } from '@/lib/coffee/map';
 import { charAt } from '@/lib/coffee/grid';
 import { HOUSE_MAP, HOUSE_WINDOWS_X } from '@/lib/coffee/house';
+import { GARDEN_MAP } from '@/lib/coffee/garden';
 
 export const TILE_INDEX = {
   floorA: 0,
@@ -28,9 +29,18 @@ export const TILE_INDEX = {
   parquet: 18,
   kitchenTile: 19,
   movingBox: 20,
+  // quintal
+  grass: 21,
+  grassB: 22,
+  dirt: 23,
+  soil: 24,
+  water: 25,
+  tree: 26,
+  stallLeft: 27,
+  stallRight: 28,
 } as const;
 
-const COUNT = 21;
+const COUNT = 29;
 
 type R = (x: number, y: number, w: number, h: number, c: string) => void;
 
@@ -126,6 +136,71 @@ draw[TILE_INDEX.window] = (r) => {
   r(7, 2, 1, 6, C.woodDark);
   r(4, 5, 8, 1, C.woodDark);
 };
+
+// ── quintal ──
+draw[TILE_INDEX.grass] = (r) => {
+  r(0, 0, 16, 16, '#7fb35a');
+  r(3, 4, 1, 2, '#93c66a');
+  r(11, 9, 1, 2, '#93c66a');
+  r(7, 13, 1, 1, '#6a9c4a');
+  r(13, 2, 1, 1, '#6a9c4a');
+};
+draw[TILE_INDEX.grassB] = (r) => {
+  r(0, 0, 16, 16, '#7fb35a');
+  r(2, 10, 1, 2, '#93c66a');
+  r(9, 3, 1, 2, '#93c66a');
+  r(12, 12, 2, 1, '#f2e3a0');
+  r(5, 6, 1, 1, '#f29e9e');
+};
+draw[TILE_INDEX.dirt] = (r) => {
+  r(0, 0, 16, 16, '#c9a46c');
+  r(3, 3, 2, 1, '#b48d57');
+  r(10, 8, 2, 1, '#b48d57');
+  r(6, 12, 1, 1, '#dcbc88');
+};
+// canteiro: terra fofa com bordinha de madeira
+draw[TILE_INDEX.soil] = (r) => {
+  r(0, 0, 16, 16, '#7fb35a');
+  r(1, 2, 14, 13, '#7a5232');
+  r(2, 3, 12, 11, '#6a4529');
+  for (let y = 5; y < 14; y += 3) r(3, y, 10, 1, '#5a3a22');
+  r(1, 14, 14, 1, '#a8714f');
+};
+draw[TILE_INDEX.water] = (r) => {
+  r(0, 0, 16, 16, '#5bb0c4');
+  r(2, 4, 4, 1, '#9cd8e4');
+  r(9, 10, 5, 1, '#9cd8e4');
+  r(6, 13, 3, 1, '#4a96aa');
+};
+// árvore vista de cima: copa redonda sobre a grama
+draw[TILE_INDEX.tree] = (r) => {
+  r(0, 0, 16, 16, '#7fb35a');
+  r(7, 11, 2, 4, '#7d4f33');
+  r(2, 1, 12, 11, '#3d7a3f');
+  r(1, 3, 14, 7, '#3d7a3f');
+  r(3, 2, 6, 4, '#4f8a5b');
+  r(4, 3, 2, 1, '#6aa36f');
+  r(2, 12, 12, 2, 'rgba(30,50,20,0.35)');
+};
+// barraquinha de sementes (2 tiles): toldo listrado e bancada
+const stall = (r: R, left: boolean) => {
+  r(0, 0, 16, 16, '#7fb35a');
+  for (let x = 0; x < 16; x += 4) r(x, 1, 2, 5, '#e07a5f');
+  for (let x = 2; x < 16; x += 4) r(x, 1, 2, 5, '#fffaf0');
+  r(0, 6, 16, 1, '#c4554d');
+  r(0, 9, 16, 6, '#a8714f');
+  r(0, 9, 16, 1, '#c99a6a');
+  if (left) {
+    r(2, 7, 3, 2, '#e8b64c');
+    r(7, 7, 3, 2, '#6aa36f');
+  } else {
+    r(4, 7, 3, 2, '#d9463e');
+    r(9, 7, 3, 2, '#5a6fd0');
+  }
+  r(left ? 1 : 13, 6, 1, 9, '#7d4f33');
+};
+draw[TILE_INDEX.stallLeft] = (r) => stall(r, true);
+draw[TILE_INDEX.stallRight] = (r) => stall(r, false);
 
 draw[TILE_INDEX.doorMat] = (r) => {
   floor(0)(r);
@@ -391,7 +466,7 @@ export function buildHouseLayers(): { ground: number[][]; furniture: number[][];
       const t = at(x, y);
       const wood = (x * 7 + y * 3) % 5 === 0 ? TILE_INDEX.floorB : TILE_INDEX.floorA;
       if (t === 'W') g.push(y === 1 ? (HOUSE_WINDOWS_X.includes(x) ? TILE_INDEX.window : TILE_INDEX.wallFace) : y === 8 && x > 0 && x < HOUSE_MAP.w - 1 && x !== 14 ? TILE_INDEX.wallFace : TILE_INDEX.wallTop);
-      else if (t === 'E') g.push(TILE_INDEX.doorMat);
+      else if (t === 'E' || t === 'Q') g.push(TILE_INDEX.doorMat);
       else if (t === ',' || (t === 'd' && y > 8) || at(x, y) === 'O' || at(x, y) === 'A') g.push(TILE_INDEX.parquet);
       else if (t === '_' || t === 'F' || t === 'C') g.push(TILE_INDEX.kitchenTile);
       else g.push(wood);
@@ -413,4 +488,24 @@ export function buildHouseLayers(): { ground: number[][]; furniture: number[][];
     objects.push(o);
   }
   return { ground, furniture, objects };
+}
+
+// Quintal: só o chão (as plantas e a gatinha são sprites da cena).
+export function buildGardenLayers(): { ground: number[][] } {
+  const ground: number[][] = [];
+  for (let y = 0; y < GARDEN_MAP.h; y++) {
+    const g: number[] = [];
+    for (let x = 0; x < GARDEN_MAP.w; x++) {
+      const t = charAt(GARDEN_MAP, x, y);
+      if (t === 'T') g.push(TILE_INDEX.tree);
+      else if (t === 'p') g.push(TILE_INDEX.soil);
+      else if (t === 'w') g.push(TILE_INDEX.water);
+      else if (t === 'P') g.push(TILE_INDEX.dirt);
+      else if (t === 'K') g.push(TILE_INDEX.doorMat);
+      else if (t === 'S') g.push(charAt(GARDEN_MAP, x - 1, y) === 'S' ? TILE_INDEX.stallRight : TILE_INDEX.stallLeft);
+      else g.push((x * 7 + y * 5) % 9 === 0 ? TILE_INDEX.grassB : TILE_INDEX.grass);
+    }
+    ground.push(g);
+  }
+  return { ground };
 }

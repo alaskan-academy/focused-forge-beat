@@ -22,6 +22,8 @@ import type {
   HouseItem,
   Note,
   DailyReward,
+  GardenData,
+  HarvestResult,
   PlayerRow,
   Position,
   PresenceHandle,
@@ -90,7 +92,7 @@ export class SupabaseStore implements CoffeeStore {
     }
 
     const yesterday = dayKey(new Date(Date.now() - 86_400_000));
-    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom, landlord, house, notes] = await Promise.all([
+    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom, landlord, house, notes, gardens, plants] = await Promise.all([
       db.from('coffee_cafes').select('id, name, invite_code, reputation').eq('id', cid).single(),
       db.from('coffee_members').select('user_id, joined_at').eq('cafe_id', cid).order('joined_at'),
       db.from('coffee_players').select('*').eq('cafe_id', cid),
@@ -108,6 +110,8 @@ export class SupabaseStore implements CoffeeStore {
       db.rpc('coffee_landlord_bill'),
       db.from('coffee_house_items').select('id, owner_id, item_id, variant, room, x, y, flip, created_at').eq('cafe_id', cid).order('created_at'),
       db.from('coffee_notes').select('id, from_user, to_user, body, heart, created_at, read_at').eq('cafe_id', cid).order('created_at', { ascending: false }).limit(40),
+      db.from('coffee_garden').select('user_id, plots, seeds, pantry').eq('cafe_id', cid),
+      db.from('coffee_garden_plants').select('id, owner_id, plot, crop_id, item_id, stage, stage_started_at, watered, last_watered_by, planted_at').eq('cafe_id', cid),
     ]);
 
     const cafeRow = check(cafe) as Row;
@@ -181,6 +185,18 @@ export class SupabaseStore implements CoffeeStore {
       // sem a tabela (migration não aplicada) a casa fica só com os móveis de fábrica
       houseItems: house.error ? [] : ((house.data as unknown as HouseItem[]) ?? []),
       notes: notes.error ? [] : ((notes.data as unknown as Note[]) ?? []),
+      garden: (() => {
+        const rows = gardens.error ? [] : ((gardens.data as Row[]) ?? []);
+        const mine = rows.find((r) => r.user_id === this.userId);
+        const theirs = rows.find((r) => r.user_id !== this.userId);
+        return {
+          plots: (mine?.plots as number) ?? 6,
+          seeds: (mine?.seeds as Record<string, number>) ?? {},
+          pantry: (mine?.pantry as Record<string, number>) ?? {},
+          partnerPlots: (theirs?.plots as number) ?? 6,
+          plants: plants.error ? [] : ((plants.data as unknown as GardenData['plants']) ?? []),
+        } satisfies GardenData;
+      })(),
     };
   }
 
@@ -345,6 +361,43 @@ export class SupabaseStore implements CoffeeStore {
     return res;
   }
 
+  // ── horta ─────────────────────────────────────────────────────────────────
+
+  async gardenDaily() {
+    const res = await db.rpc('coffee_garden_daily');
+    if (res.error) return [];
+    const given = ((res.data as { given: string[] }).given ?? []) as string[];
+    if (given.length) this.notify();
+    return given;
+  }
+
+  async buySeed(cropId: string, qty: number) {
+    check(await db.rpc('coffee_garden_buy_seed', { p_crop: cropId, p_qty: qty }));
+    this.notify();
+  }
+
+  async plantSeed(plot: number, cropId: string, itemId: string) {
+    check(await db.rpc('coffee_garden_plant', { p_plot: plot, p_crop: cropId, p_item: itemId }));
+    this.notify();
+  }
+
+  async waterPlant(plantId: string) {
+    const res = check(await db.rpc('coffee_garden_water', { p_plant: plantId })) as { changed: boolean; xp: number };
+    this.notify();
+    return res;
+  }
+
+  async harvestPlant(plantId: string) {
+    const res = check(await db.rpc('coffee_garden_harvest', { p_plant: plantId })) as HarvestResult;
+    this.notify();
+    return res;
+  }
+
+  async buyPlot() {
+    check(await db.rpc('coffee_garden_buy_plot'));
+    this.notify();
+  }
+
   async prepReward() {
     const res = check(await db.rpc('coffee_prep_reward')) as DailyReward;
     if (res.coins) this.notify();
@@ -369,7 +422,7 @@ export class SupabaseStore implements CoffeeStore {
     if (this.dbChannel) db.removeChannel(this.dbChannel);
     const cid = this.cafeId!;
     let ch = db.channel(`coffee-db-${cid}`);
-    for (const table of ['coffee_customers', 'coffee_activity', 'coffee_upgrades', 'coffee_players', 'coffee_house_items', 'coffee_notes'])
+    for (const table of ['coffee_customers', 'coffee_activity', 'coffee_upgrades', 'coffee_players', 'coffee_house_items', 'coffee_notes', 'coffee_garden', 'coffee_garden_plants'])
       ch = ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `cafe_id=eq.${cid}` }, () => this.notify());
     this.dbChannel = ch.subscribe();
   }

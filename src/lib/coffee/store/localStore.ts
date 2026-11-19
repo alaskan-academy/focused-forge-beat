@@ -13,6 +13,7 @@ import { FURNITURE_BY_ID, minLevelOf } from '@/content/coffee/furniture';
 import { canEditRoom, type HouseItem } from '../houseItems';
 import type { RoomId } from '../house';
 import { COMFORT_TITLES, comfortLevel, houseComfort, type MorningBonus } from '../comfort';
+import { BASE_PLOTS, CROPS, CROP_BY_ID, KIND_INFO, MAX_PLOTS, plantNow, plotPrice, waterPlant as waterPlantRule, type Plant } from '../garden';
 import {
   CHARACTER_CHANCE,
   CAT_CORNER,
@@ -26,6 +27,8 @@ import {
   type FeedEntry,
   type Note,
   type DailyReward,
+  type GardenData,
+  type HarvestResult,
   type FinishInput,
   type Partner,
   type PlayerRow,
@@ -50,6 +53,7 @@ type Data = {
   bonus_day: string | null; // último dia em que ganhou o bônus ao acordar
   notes: Note[];
   rewards: string[]; // "tipo:dia" das recompensas diárias já ganhas
+  garden: { plots: number; seeds: Record<string, number>; pantry: Record<string, number>; seed_day: string | null; partnerPlots: number; plants: Plant[] };
   // Belmont: mesmas regras de coffee_landlord_compute/pay
   landlord: { debt: number; visits: number; last_visit_day: string | null; booked_by_me: boolean | null; earned_since: number; errors_since: number; active_day: string | null };
   last_spawn_at: string;
@@ -74,6 +78,7 @@ function fresh(): Data {
     bonus_day: null,
     notes: [],
     rewards: [],
+    garden: { plots: BASE_PLOTS, seeds: {}, pantry: {}, seed_day: null, partnerPlots: BASE_PLOTS, plants: [] },
     landlord: { debt: 0, visits: 0, last_visit_day: null, booked_by_me: null, earned_since: 0, errors_since: 0, active_day: null },
     // uma anotação da "Jessica" de teste, para experimentar o copiar
     custom: [
@@ -102,7 +107,7 @@ export class LocalStore implements CoffeeStore {
   }
 
   async load(): Promise<Snapshot> {
-    const { me, partner, customers, items, arcs, feed, upgrade, puzzles, custom, house, notes } = this.data;
+    const { me, partner, customers, items, arcs, feed, upgrade, puzzles, custom, house, notes, garden } = this.data;
     const landlord = this.landlordBill();
     return {
       cafe: { id: 'local', name: 'Coffee Cats', invite_code: 'LOCAL1', reputation: 0, members: [USER, ...(partner ? [partner.user_id] : [])] },
@@ -118,6 +123,7 @@ export class LocalStore implements CoffeeStore {
       landlord,
       houseItems: house.map((h) => ({ ...h })),
       notes: notes.map((n) => ({ ...n })),
+      garden: { plots: garden.plots, seeds: { ...garden.seeds }, pantry: { ...garden.pantry }, partnerPlots: garden.partnerPlots, plants: garden.plants.map((p) => ({ ...p })) } satisfies GardenData,
     };
   }
 
@@ -434,6 +440,118 @@ export class LocalStore implements CoffeeStore {
     return r;
   }
 
+  // ── horta (mesmas regras de coffee_garden_*) ─────────────────────────────
+
+  async gardenDaily() {
+    const g = this.data.garden;
+    const today = dayKey(this.now());
+    if (g.seed_day === today) return [];
+    const level = levelFromXp(this.data.me.xp).level;
+    const pick = (kinds: string[]) => {
+      const list = CROPS.filter((c) => kinds.includes(c.kind));
+      return list[Math.floor(Math.random() * list.length)].id;
+    };
+    const given: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const roll = Math.random();
+      given.push(i === 2 && level >= 5 && roll < 0.08 ? pick(['golden']) : i === 2 && level >= 3 && roll < 0.4 ? pick(['fruit']) : pick(['herb', 'veg']));
+    }
+    for (const c of given) g.seeds[c] = (g.seeds[c] ?? 0) + 1;
+    g.seed_day = today;
+    this.write();
+    return given;
+  }
+
+  async buySeed(cropId: string, qty: number) {
+    const crop = CROP_BY_ID[cropId];
+    if (!crop) throw new Error('unknown crop');
+    const k = KIND_INFO[crop.kind];
+    const n = Math.min(10, Math.max(1, qty));
+    if (levelFromXp(this.data.me.xp).level < k.minLevel) throw new Error('level too low');
+    if (this.data.me.coins < k.price * n) throw new Error('not enough coins');
+    this.data.me.coins -= k.price * n;
+    this.data.garden.seeds[cropId] = (this.data.garden.seeds[cropId] ?? 0) + n;
+    this.write();
+  }
+
+  async plantSeed(plot: number, cropId: string, itemId: string) {
+    const g = this.data.garden;
+    if (plot < 0 || plot >= g.plots) throw new Error('plot locked');
+    if (g.plants.some((p) => p.owner_id === USER && p.plot === plot)) throw new Error('plot busy');
+    if ((g.seeds[cropId] ?? 0) < 1) throw new Error('no seeds');
+    g.seeds[cropId] -= 1;
+    const now = this.now().toISOString();
+    g.plants.push({ id: newId(), owner_id: USER, plot, crop_id: cropId, item_id: itemId, stage: 0, stage_started_at: now, watered: false, last_watered_by: null, planted_at: now });
+    this.write();
+  }
+
+  // guarda o crescimento calculado (como coffee_garden_grow)
+  private grow(p: Plant) {
+    const v = plantNow(p, this.now());
+    if (v.stage !== p.stage) {
+      const dur = KIND_INFO[CROP_BY_ID[p.crop_id].kind].stageMinutes * 60_000;
+      Object.assign(p, { stage: v.stage, stage_started_at: new Date(v.nextAt ? v.nextAt - dur : this.now().getTime()).toISOString(), watered: false });
+    }
+  }
+
+  async waterPlant(plantId: string) {
+    const p = this.data.garden.plants.find((x) => x.id === plantId);
+    if (!p) throw new Error('plant not found');
+    this.grow(p);
+    if (p.stage >= 3 || p.watered) return { changed: false, xp: 0 };
+    Object.assign(p, waterPlantRule(p, this.now()), { last_watered_by: USER });
+    const xp = p.owner_id !== USER ? 2 : 0;
+    this.data.me.xp += xp;
+    this.write();
+    return { changed: true, xp };
+  }
+
+  async harvestPlant(plantId: string): Promise<HarvestResult> {
+    const g = this.data.garden;
+    const p = g.plants.find((x) => x.id === plantId);
+    if (!p) throw new Error('plant not found');
+    if (p.owner_id !== USER) throw new Error('not your plant');
+    this.grow(p);
+    if (p.stage < 3) throw new Error('not ready');
+    const crop = CROP_BY_ID[p.crop_id];
+    const coins = KIND_INFO[crop.kind].coins;
+    g.plants = g.plants.filter((x) => x.id !== plantId);
+    this.data.me.coins += coins;
+    g.pantry[crop.id] = (g.pantry[crop.id] ?? 0) + 1;
+    if (crop.kind === 'golden') this.log(USER, 'harvest', { crop: crop.id });
+    this.write();
+    return { coins, total_coins: this.data.me.coins, crop: crop.id, item: p.item_id };
+  }
+
+  async buyPlot() {
+    const g = this.data.garden;
+    if (g.plots >= MAX_PLOTS) throw new Error('max plots');
+    const price = plotPrice(g.plots);
+    if (this.data.me.coins < price) throw new Error('not enough coins');
+    this.data.me.coins -= price;
+    g.plots += 1;
+    this.write();
+  }
+
+  // teste: a outra pessoa planta um tomate (já com sede)
+  partnerPlants() {
+    const p = this.data.partner;
+    if (!p) return;
+    const g = this.data.garden;
+    const used = new Set(g.plants.filter((x) => x.owner_id === p.user_id).map((x) => x.plot));
+    const plot = [0, 1, 2, 3, 4, 5].find((i) => !used.has(i));
+    if (plot === undefined) return;
+    const now = this.now().toISOString();
+    g.plants.push({ id: newId(), owner_id: p.user_id, plot, crop_id: 'tomato', item_id: 'c:on_my_way', stage: 0, stage_started_at: now, watered: false, last_watered_by: null, planted_at: now });
+    this.write();
+  }
+
+  // teste: avança o relógio em horas (para ver a horta crescer)
+  advanceHours(h: number) {
+    this.data.clock_offset_ms += h * 3_600_000;
+    this.write();
+  }
+
   async prepReward() {
     const day = dayKey(this.now());
     const used = this.data.rewards.filter((r) => r.startsWith('prep') && r.endsWith(day)).length;
@@ -608,6 +726,7 @@ export class LocalStore implements CoffeeStore {
       d.bonus_day = d.bonus_day ?? null;
       d.notes = d.notes ?? [];
       d.rewards = d.rewards ?? [];
+      d.garden = { ...fresh().garden, ...(d.garden ?? {}) };
       d.landlord = { ...fresh().landlord, ...(d.landlord ?? {}) };
       return d;
     } catch {

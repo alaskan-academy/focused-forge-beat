@@ -1,9 +1,13 @@
 import Phaser from 'phaser';
-import { MAP_H, MAP_W, TILE, findPath, isWalkable, type Point } from '@/lib/coffee/map';
+import { CAFE_MAP, TILE, type Point } from '@/lib/coffee/map';
+import { pathIn, walkable, type GameMap } from '@/lib/coffee/grid';
 import { CAT_FRAMES, CAT_H, CAT_W } from '../art/cat';
 import { feetToTile, tileToFeet } from './Walker';
 
 type State = 'sit' | 'walk' | 'sleep';
+
+// textura (folha de quadros) e mapa onde o gato vive; padrão: o Elias no café
+export type CatOptions = { texture?: string; map?: GameMap };
 
 // Elias: passeia pelo café, senta e dorme na almofada (ou na cama do Cantinho, quando existir).
 // Às vezes sobe num móvel (`perches`, ex.: a mesa de jogos) e dorme lá em cima.
@@ -17,15 +21,21 @@ export class Cat {
 
   private perch: Point | null = null; // móvel onde vai deitar (ou está deitado)
 
-  constructor(private scene: Phaser.Scene, start: Point, sleepSpots: Point[], private perches: Point[] = []) {
-    // a textura 'cat' é criada pela cena; aqui só recortamos os quadros (uma vez)
-    if (!scene.anims.exists('cat-walk')) {
-      const tex = scene.textures.get('cat');
-      for (let f = 0; f < CAT_FRAMES; f++) tex.add(f, 0, f * CAT_W, 0, CAT_W, CAT_H);
-      scene.anims.create({ key: 'cat-walk', frames: [0, 1].map((frame) => ({ key: 'cat', frame })), frameRate: 6, repeat: -1 });
+  private map: GameMap;
+  private walkAnim: string;
+
+  constructor(private scene: Phaser.Scene, start: Point, sleepSpots: Point[], private perches: Point[] = [], opts: CatOptions = {}) {
+    const key = opts.texture ?? 'cat';
+    this.map = opts.map ?? CAFE_MAP;
+    this.walkAnim = `${key}-walk`;
+    // a textura é criada pela cena; aqui só recortamos os quadros (uma vez)
+    if (!scene.anims.exists(this.walkAnim)) {
+      const tex = scene.textures.get(key);
+      for (let f = 0; f < CAT_FRAMES; f++) if (!tex.has(String(f))) tex.add(f, 0, f * CAT_W, 0, CAT_W, CAT_H);
+      scene.anims.create({ key: this.walkAnim, frames: [0, 1].map((frame) => ({ key, frame })), frameRate: 6, repeat: -1 });
     }
     const p = tileToFeet(start);
-    this.sprite = scene.add.sprite(p.x, p.y + 2, 'cat', 2).setOrigin(0.5, 1);
+    this.sprite = scene.add.sprite(p.x, p.y + 2, key, 2).setOrigin(0.5, 1);
     this.sleepSpots = sleepSpots;
     this.zzz = scene.add
       .text(0, 0, 'z', { fontFamily: 'monospace', fontSize: '16px', color: '#fffaf0' })
@@ -86,25 +96,25 @@ export class Cat {
       sleepAfter = true;
     } else {
       for (let i = 0; i < 20 && !target; i++) {
-        const p = { x: 1 + Math.floor(Math.random() * (MAP_W - 2)), y: 2 + Math.floor(Math.random() * (MAP_H - 3)) };
-        if (isWalkable(p.x, p.y)) target = p;
+        const p = { x: 1 + Math.floor(Math.random() * (this.map.w - 2)), y: 2 + Math.floor(Math.random() * (this.map.h - 3)) };
+        if (walkable(this.map, p.x, p.y)) target = p;
       }
     }
     let from = feetToTile(this.sprite.x, this.sprite.y - 2);
     // descendo de um móvel: começa do primeiro vizinho andável
-    if (!isWalkable(from.x, from.y)) {
-      const near = [{ x: from.x, y: from.y - 1 }, { x: from.x - 1, y: from.y }, { x: from.x + 1, y: from.y }, { x: from.x, y: from.y + 1 }].find((p) => isWalkable(p.x, p.y));
+    if (!walkable(this.map, from.x, from.y)) {
+      const near = [{ x: from.x, y: from.y - 1 }, { x: from.x - 1, y: from.y }, { x: from.x + 1, y: from.y }, { x: from.x, y: from.y + 1 }].find((p) => walkable(this.map, p.x, p.y));
       if (near) {
         from = near;
         const p = tileToFeet(near);
         this.sprite.setPosition(p.x, p.y + 2);
       }
     }
-    this.path = target ? findPath(from, target) : [];
+    this.path = target ? pathIn(this.map, from, target) : [];
     this.sleepNext = sleepAfter;
     if (this.path.length) {
       this.state = 'walk';
-      this.sprite.play('cat-walk', true);
+      this.sprite.play(this.walkAnim, true);
     } else this.arrive(time);
   }
 
@@ -126,6 +136,22 @@ export class Cat {
       this.sprite.setFrame(2);
       this.until = time + 3_000 + Math.random() * 6_000;
     }
+  }
+
+  // vai até um lugar e senta lá (ex.: a Mucego do lado de uma planta pronta)
+  visit(target: Point) {
+    const from = feetToTile(this.sprite.x, this.sprite.y - 2);
+    const path = pathIn(this.map, from, target);
+    if (!path.length) return;
+    this.perch = null;
+    this.sleepNext = false;
+    this.path = path;
+    this.state = 'walk';
+    this.sprite.play(this.walkAnim, true);
+  }
+
+  get busy() {
+    return this.state === 'walk';
   }
 
   get tilePos(): Point {
