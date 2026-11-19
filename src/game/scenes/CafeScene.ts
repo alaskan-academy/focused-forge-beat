@@ -5,6 +5,8 @@ import { buildCatBed, buildCatSheet, buildScratcher } from '../art/cat';
 import { buildChalkboard } from '../art/decor';
 import { WINDOW_X, buildLayers, buildTilesetCanvas } from '../art/tiles';
 import { Ambience } from '../effects/Ambience';
+import { Shadows } from '../effects/Shadows';
+import { buildCafeGround } from '../art/houseWorld';
 import kenneyIndoorUrl from '../art/kenney/roguelike-indoor.png';
 import { ICON_SIZE, buildIconCanvas } from '../art/icons';
 import type { GameBridge, GameState, SceneCustomer, SceneOther } from '../bridge';
@@ -39,6 +41,7 @@ export class CafeScene extends Phaser.Scene {
   private lastSent = { x: 0, y: 0, dir: 'up' as Direction, t: 0 };
   private fromHouse = false;
   private leaving = false;
+  private shadows!: Shadows;
 
   constructor() {
     super('cafe');
@@ -77,19 +80,24 @@ export class CafeScene extends Phaser.Scene {
     const tileset = map.addTilesetImage('cafe', 'cafe-tiles', TILE, TILE, 0, 0)!;
     // folha do Kenney: 16×16 com 1 px de espaço entre as peças
     const kenney = map.addTilesetImage('kenney', 'kenney-indoor', TILE, TILE, 0, 1)!;
-    const { ground, furniture, objects } = buildLayers();
-    const g = map.createBlankLayer('ground', tileset)!.setDepth(0);
+    const { furniture, objects } = buildLayers();
+    // chão e paredes desenhados numa imagem só (piso de tábua larga, lajota atrás do balcão, papel amarelinho)
+    canvas('cafe-ground', () => buildCafeGround(WINDOW_X));
+    this.add.image(0, 0, 'cafe-ground').setOrigin(0, 0).setDepth(0);
+    this.cameras.main.setBackgroundColor('#5e3d2f');
     const fu = map.createBlankLayer('furniture', kenney)!.setDepth(1);
     const o = map.createBlankLayer('objects', tileset)!.setDepth(1);
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
-        g.putTileAt(ground[y][x], x, y);
         if (furniture[y][x] >= 0) fu.putTileAt(furniture[y][x], x, y);
         if (objects[y][x] >= 0) o.putTileAt(objects[y][x], x, y);
       }
 
     this.player = new Walker(this, this.bridge.state.appearance, this.fromHouse ? FROM_HOUSE : PLAYER_START, 72);
     this.player.face(this.fromHouse ? 'left' : 'up');
+    // sombra macia embaixo de quem anda
+    this.shadows = new Shadows(this);
+    this.shadows.track(this.player.sprite);
 
     // Cantinho do gato (aparece quando a melhoria compartilhada é concluída)
     const bed = tileToFeet(CAT_BED);
@@ -99,11 +107,14 @@ export class CafeScene extends Phaser.Scene {
       this.add.image(post.x, post.y + 3, 'cat-scratcher').setOrigin(0.5, 1).setDepth(100 + post.y).setVisible(false),
     ];
     this.cat = new Cat(this, { x: 17, y: 3 }, [CAT_CUSHION], CAT_PERCHES);
+    this.shadows.track(this.cat.sprite, 0.9);
 
     // vapor, luz das janelas e cor da hora do dia (horário de Brasília)
     new Ambience(this, {
       machine: { x: 1.6 * TILE, y: 2 * TILE + 2 },
       windows: [...WINDOW_X],
+      tintScale: 0.85,
+      pad: 600,
       lamps: [
         { x: 13 * TILE + 8, y: 1 * TILE + 6 },
         { x: 16 * TILE + 8, y: 1 * TILE + 6 },
@@ -179,6 +190,7 @@ export class CafeScene extends Phaser.Scene {
       if (!v) {
         const start = o.online && o.pos ? { x: Math.floor(o.pos.x / TILE), y: Math.floor(o.pos.y / TILE) } : o.corner;
         const walker = new Walker(this, o.appearance, start, 72);
+        this.shadows.track(walker.sprite);
         walker.face('down');
         const tag = this.add
           .text(0, 0, '', { fontFamily: '"Pixelify Sans", monospace', fontSize: '16px', color: '#fffaf0', backgroundColor: '#5b6ea8cc', padding: { x: 4, y: 1 } })
@@ -210,6 +222,7 @@ export class CafeScene extends Phaser.Scene {
       const spot = spotById(c.spotId);
       if (!spot) continue;
       const walker = new Walker(this, c.look ?? appearanceFromSeed(c.seed), c.arriving ? DOOR : spot, 48);
+      this.shadows.track(walker.sprite);
       const bubble = this.add.image(0, 0, 'icon:coffee').setOrigin(0.5, 1).setVisible(false);
       const nameTag = c.name
         ? this.add
@@ -405,6 +418,7 @@ export class CafeScene extends Phaser.Scene {
 
     this.cat.update(time, dt);
     this.player.breathe(time);
+    this.shadows.update();
 
     // pisou na porta da casa
     const pt = this.player.tile;

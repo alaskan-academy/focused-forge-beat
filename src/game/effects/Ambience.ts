@@ -19,7 +19,9 @@ function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, d
 let hourOverride: number | null = null;
 
 // machine: de onde sai vapor (opcional) · windows: colunas das janelas (linha 1) · size: tamanho do mapa em tiles
-type Options = { machine?: { x: number; y: number }; windows: number[]; lamps: { x: number; y: number }[]; size?: { w: number; h: number } };
+// pad: quanto a cor da hora passa das bordas do mapa (árvores que saem do mapa)
+// tintScale: força da cor da hora (1 = normal; o quintal usa menos para a noite não ficar tão escura)
+type Options = { machine?: { x: number; y: number }; windows: number[]; lamps: { x: number; y: number }[]; size?: { w: number; h: number }; tintScale?: number; pad?: number };
 
 export class Ambience {
   private overlay: Phaser.GameObjects.Rectangle;
@@ -27,6 +29,7 @@ export class Ambience {
   private lamps: Phaser.GameObjects.Image[] = [];
   private dust: Phaser.GameObjects.Particles.ParticleEmitter[] = [];
   private timer: Phaser.Time.TimerEvent;
+  private tintScale: number;
   private onHour = (e: Event) => {
     const h = (e as CustomEvent<number | null>).detail;
     hourOverride = typeof h === 'number' ? h : null;
@@ -37,6 +40,7 @@ export class Ambience {
     private scene: Phaser.Scene,
     opts: Options,
   ) {
+    this.tintScale = opts.tintScale ?? 1;
     canvasTexture(scene, 'fx-dot', 2, 2, (ctx) => {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 2, 2);
@@ -102,7 +106,7 @@ export class Ambience {
 
     // cor da hora do dia (multiplica as cores do café; fica abaixo dos nomes e balões)
     this.overlay = scene.add
-      .rectangle(0, 0, (opts.size?.w ?? MAP_W) * TILE, (opts.size?.h ?? MAP_H) * TILE, 0xffffff, 0)
+      .rectangle(-(opts.pad ?? 0), -(opts.pad ?? 0), (opts.size?.w ?? MAP_W) * TILE + (opts.pad ?? 0) * 2, (opts.size?.h ?? MAP_H) * TILE + (opts.pad ?? 0) * 2, 0xffffff, 0)
       .setOrigin(0, 0)
       .setBlendMode(Phaser.BlendModes.MULTIPLY)
       .setDepth(7_900);
@@ -125,7 +129,7 @@ export class Ambience {
   apply() {
     const look = PHASE_LOOK[this.phase];
     this.overlay.setFillStyle(look.tint, 1);
-    this.scene.tweens.add({ targets: this.overlay, alpha: look.tintAlpha, duration: 1200 });
+    this.scene.tweens.add({ targets: this.overlay, alpha: look.tintAlpha * this.tintScale, duration: 1200 });
     for (const b of this.beams) {
       b.setTint(look.beamTint);
       this.scene.tweens.add({ targets: b, alpha: look.beams, duration: 1200 });

@@ -3,8 +3,10 @@ import type { Direction } from '@/lib/coffee/character';
 import { TILE } from '@/lib/coffee/map';
 import { pathIn, type Point } from '@/lib/coffee/grid';
 import { isWater, shoreNear, waterNear } from '@/lib/coffee/fishing';
-import { FROM_HOUSE_TO_GARDEN, GARDEN_DOOR, GARDEN_MAP, GARDEN_SIGNS, MUCEGO_SPOTS, STAND, plotAt, plotTile } from '@/lib/coffee/garden';
-import { buildGardenLayers, buildTilesetCanvas } from '../art/tiles';
+import { FROM_HOUSE_TO_GARDEN, GARDEN_DOOR, GARDEN_MAP, GARDEN_ROWS, GARDEN_SIGNS, MUCEGO_SPOTS, STAND, plotAt, plotTile } from '@/lib/coffee/garden';
+import { STALL_H, TREE_KINDS, buildGardenGround, buildStall, buildTree } from '../art/gardenWorld';
+import { Shadows } from '../effects/Shadows';
+import { GardenLife } from '../effects/GardenLife';
 import { ACCESSORY_PAD, CAT_H, MUCEGO, buildCatSheetWithAccessory } from '../art/cat';
 import { drawThing } from '../art/gardenArt';
 import { THING_BY_ID } from '@/content/coffee/gardenShop';
@@ -48,6 +50,8 @@ export class GardenScene extends Phaser.Scene {
   private line!: Phaser.GameObjects.Graphics;
   private biteMark!: Phaser.GameObjects.Text;
   private leaving = false;
+  private life!: GardenLife;
+  private shadows!: Shadows;
 
   constructor() {
     super('garden');
@@ -64,16 +68,29 @@ export class GardenScene extends Phaser.Scene {
   }
 
   create() {
-    if (!this.textures.exists('cafe-tiles')) this.textures.addCanvas('cafe-tiles', buildTilesetCanvas());
+    if (!this.textures.exists('garden-ground')) this.textures.addCanvas('garden-ground', buildGardenGround());
+    if (!this.textures.exists('garden-stall')) this.textures.addCanvas('garden-stall', buildStall());
+    TREE_KINDS.forEach((k) => {
+      if (!this.textures.exists(`garden-tree:${k}`)) this.textures.addCanvas(`garden-tree:${k}`, buildTree(k));
+    });
     Object.keys(ICON_SIZE).forEach((name) => {
       if (!this.textures.exists(`icon:${name}`)) this.textures.addCanvas(`icon:${name}`, buildIconCanvas(name));
     });
 
-    const map = this.make.tilemap({ tileWidth: TILE, tileHeight: TILE, width: GARDEN_MAP.w, height: GARDEN_MAP.h });
-    const tileset = map.addTilesetImage('cafe', 'cafe-tiles', TILE, TILE, 0, 0)!;
-    const { ground } = buildGardenLayers();
-    const g = map.createBlankLayer('ground', tileset)!.setDepth(0);
-    for (let y = 0; y < GARDEN_MAP.h; y++) for (let x = 0; x < GARDEN_MAP.w; x++) g.putTileAt(ground[y][x], x, y);
+    // chão desenhado inteiro (grama, caminho, lago, canteiros elevados)
+    this.add.image(0, 0, 'garden-ground').setOrigin(0, 0).setDepth(0);
+    this.cameras.main.setBackgroundColor('#3f7a3c');
+    // árvores com volume na borda (a de baixo fica na frente de quem passa)
+    for (let y = 0; y < GARDEN_MAP.h; y++)
+      for (let x = 0; x < GARDEN_MAP.w; x++) {
+        if (GARDEN_ROWS[y][x] !== 'T') continue;
+        const k = TREE_KINDS[(x * 5 + y * 3) % 7 === 0 ? 1 : (x * 3 + y * 7) % 5 === 0 ? 2 : 0];
+        const ox = ((x * 13 + y * 7) % 5) - 2;
+        const bottom = y * TILE + TILE + ((x + y) % 2 ? 1 : -1);
+        this.add.image(x * TILE + 8 + ox, bottom, `garden-tree:${k}`).setOrigin(0.5, 1).setDepth(100 + bottom);
+      }
+    // barraquinha de sementes
+    this.add.image((STAND[0].x + 1) * TILE, (STAND[0].y + 1) * TILE + 1, 'garden-stall').setOrigin(0.5, 1).setDepth(100 + (STAND[0].y + 1) * TILE);
 
     this.player = new Walker(this, this.bridge.state.appearance, FROM_HOUSE_TO_GARDEN, 72, GARDEN_MAP);
     this.player.face('right');
@@ -93,7 +110,7 @@ export class GardenScene extends Phaser.Scene {
         this.locks.push(this.add.rectangle(t.x * TILE + 8, t.y * TILE + 8, 14, 13, 0x2a1d18, 0.45).setDepth(2));
       }
     this.add
-      .text(12 * TILE, 2 * TILE - 3, 'Seeds', { fontFamily: '"Pixelify Sans", monospace', fontSize: '16px', color: '#7d4f33', backgroundColor: '#fffaf0', padding: { x: 3, y: 0 } })
+      .text(12 * TILE, (STAND[0].y + 1) * TILE + 1 - STALL_H + 4, 'Seeds', { fontFamily: '"Pixelify Sans", monospace', fontSize: '16px', color: '#7d4f33', backgroundColor: '#fffaf0', padding: { x: 3, y: 0 } })
       .setOrigin(0.5, 1)
       .setScale(0.5)
       .setResolution(3)
@@ -135,7 +152,12 @@ export class GardenScene extends Phaser.Scene {
       .setDepth(10_600)
       .setVisible(false);
 
-    new Ambience(this, { windows: [], size: { w: GARDEN_MAP.w, h: GARDEN_MAP.h }, lamps: [{ x: 12 * TILE, y: 2 * TILE + 8 }] });
+    const ambience = new Ambience(this, { windows: [], size: { w: GARDEN_MAP.w, h: GARDEN_MAP.h }, lamps: [{ x: 12 * TILE, y: 2 * TILE + 8 }], tintScale: 0.85, pad: 600 });
+    this.life = new GardenLife(this, ambience);
+    // sombra macia embaixo de quem anda
+    this.shadows = new Shadows(this);
+    this.shadows.track(this.player.sprite);
+    this.shadows.track(this.cat.sprite, 0.9);
 
     const kb = this.input.keyboard!;
     this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE', false) as Record<string, Phaser.Input.Keyboard.Key>;
@@ -281,13 +303,13 @@ export class GardenScene extends Phaser.Scene {
       const t = plotTile(p.owner, p.plot);
       let v = this.plants.get(p.id);
       if (!v) {
-        v = { data: p, img: this.add.image(t.x * TILE, t.y * TILE, this.plantTexture(p.crop_id, p.stage)).setOrigin(0, 0).setDepth(100 + t.y * TILE + 10), icon: null };
+        v = { data: p, img: this.add.image(t.x * TILE, t.y * TILE - 2, this.plantTexture(p.crop_id, p.stage)).setOrigin(0, 0).setDepth(100 + t.y * TILE + 10), icon: null };
         this.plants.set(p.id, v);
         this.tweens.add({ targets: v.img, scaleY: { from: 0.4, to: 1 }, duration: 300, ease: 'Back.out' });
       }
       if (v.data.stage !== p.stage) this.tweens.add({ targets: v.img, scaleY: { from: 0.6, to: 1 }, duration: 300, ease: 'Back.out' });
       v.data = p;
-      v.img.setTexture(this.plantTexture(p.crop_id, p.stage)).setPosition(t.x * TILE, t.y * TILE);
+      v.img.setTexture(this.plantTexture(p.crop_id, p.stage)).setPosition(t.x * TILE, t.y * TILE - 2);
       // 💧 com sede · ✨ pronta para colher
       const mark = p.ready ? '✨' : p.thirsty ? '💧' : '';
       if (mark && !v.icon) {
@@ -337,6 +359,7 @@ export class GardenScene extends Phaser.Scene {
           .setScale(0.5)
           .setResolution(3);
         v = { data: o, walker, tag };
+        this.shadows.track(walker.sprite);
         this.others.set(o.id, v);
       }
       if (v.data.appearance !== o.appearance) v.walker.setAppearance(o.appearance);
@@ -451,6 +474,8 @@ export class GardenScene extends Phaser.Scene {
       this.player.moveBy(0, 0, dt);
     }
     this.player.breathe(time);
+    this.life.update(time, dt);
+    this.shadows.update();
 
     const t = this.player.tile;
     if (t.x === GARDEN_DOOR.x && t.y === GARDEN_DOOR.y) this.goHome();

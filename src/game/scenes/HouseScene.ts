@@ -6,6 +6,8 @@ import { BEDROOM_DOORS, CAFE_DOOR, FROM_CAFE, FROM_GARDEN, GARDEN_EXIT, HOUSE_MA
 import { FURNITURE_BY_ID, type Furniture, type Station } from '@/content/coffee/furniture';
 import { ICON_SIZE, buildIconCanvas } from '../art/icons';
 import { buildHouseLayers, buildTilesetCanvas } from '../art/tiles';
+import { buildHouseGround } from '../art/houseWorld';
+import { Shadows } from '../effects/Shadows';
 import { drawFurniture } from '../art/furniture';
 import kenneyIndoorUrl from '../art/kenney/roguelike-indoor.png';
 import type { DecorView, GameBridge, GameState, SceneHouseItem, SceneOther } from '../bridge';
@@ -14,7 +16,7 @@ import { Ambience } from '../effects/Ambience';
 import { fitCamera, layoutCamera } from './camera';
 
 type OtherView = { data: SceneOther; walker: Walker; tag: Phaser.GameObjects.Text };
-type ItemView = { data: SceneHouseItem; img: Phaser.GameObjects.Image; badge: Phaser.GameObjects.Image | null };
+type ItemView = { data: SceneHouseItem; img: Phaser.GameObjects.Image; badge: Phaser.GameObjects.Image | null; shadow: Phaser.GameObjects.Image | null };
 
 // De onde o jogador chega: acordando no quarto (começo do dia) ou vindo do café.
 export type HouseSpawn = 'wake' | 'cafe' | 'garden';
@@ -41,6 +43,7 @@ export class HouseScene extends Phaser.Scene {
   private prompt!: Phaser.GameObjects.Image;
   private lastSent = { x: 0, y: 0, dir: 'up' as Direction, t: 0 };
   private leaving = false;
+  private shadows!: Shadows;
 
   constructor() {
     super('house');
@@ -67,13 +70,14 @@ export class HouseScene extends Phaser.Scene {
     const map = this.make.tilemap({ tileWidth: TILE, tileHeight: TILE, width: HOUSE_MAP.w, height: HOUSE_MAP.h });
     const tileset = map.addTilesetImage('cafe', 'cafe-tiles', TILE, TILE, 0, 0)!;
     const kenney = map.addTilesetImage('kenney', 'kenney-indoor', TILE, TILE, 0, 1)!;
-    const { ground, furniture, objects } = buildHouseLayers();
-    const g = map.createBlankLayer('ground', tileset)!.setDepth(0);
+    const { furniture, objects } = buildHouseLayers();
+    if (!this.textures.exists('house-ground')) this.textures.addCanvas('house-ground', buildHouseGround());
+    this.add.image(0, 0, 'house-ground').setOrigin(0, 0).setDepth(0);
+    this.cameras.main.setBackgroundColor('#5e3d2f');
     const fu = map.createBlankLayer('furniture', kenney)!.setDepth(1);
     const o = map.createBlankLayer('objects', tileset)!.setDepth(1);
     for (let y = 0; y < HOUSE_MAP.h; y++)
       for (let x = 0; x < HOUSE_MAP.w; x++) {
-        g.putTileAt(ground[y][x], x, y);
         if (furniture[y][x] >= 0) fu.putTileAt(furniture[y][x], x, y);
         if (objects[y][x] >= 0) o.putTileAt(objects[y][x], x, y);
       }
@@ -103,6 +107,8 @@ export class HouseScene extends Phaser.Scene {
       machine: { x: 15 * TILE + 8, y: 9 * TILE + 2 },
       windows: HOUSE_WINDOWS_X,
       size: { w: HOUSE_MAP.w, h: HOUSE_MAP.h },
+      tintScale: 0.85,
+      pad: 600,
       lamps: [
         { x: 2 * TILE, y: 2 * TILE + 8 },
         { x: 21 * TILE, y: 2 * TILE + 8 },
@@ -110,6 +116,10 @@ export class HouseScene extends Phaser.Scene {
         { x: 17 * TILE, y: 10 * TILE },
       ],
     });
+
+    // sombra macia embaixo de quem anda
+    this.shadows = new Shadows(this);
+    this.shadows.track(this.player.sprite);
 
     const kb = this.input.keyboard!;
     this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE', false) as Record<string, Phaser.Input.Keyboard.Key>;
@@ -174,6 +184,7 @@ export class HouseScene extends Phaser.Scene {
       if (!ids.has(id)) {
         v.img.destroy();
         v.badge?.destroy();
+        v.shadow?.destroy();
         this.items.delete(id);
       }
     HOUSE_MAP.blocked.clear();
@@ -182,7 +193,7 @@ export class HouseScene extends Phaser.Scene {
       if (!f) continue;
       let v = this.items.get(it.id);
       if (!v) {
-        v = { data: it, img: this.add.image(0, 0, this.furnitureTexture(f, it.variant)).setOrigin(0, 0), badge: null };
+        v = { data: it, img: this.add.image(0, 0, this.furnitureTexture(f, it.variant)).setOrigin(0, 0), badge: null, shadow: null };
         this.items.set(it.id, v);
       }
       v.data = it;
@@ -191,6 +202,11 @@ export class HouseScene extends Phaser.Scene {
         .setPosition(it.x * TILE, it.y * TILE)
         .setFlipX(it.flip)
         .setDepth(depthOf(f, it.y));
+      // sombra macia no chão embaixo dos móveis de chão
+      if (f.place === 'floor') {
+        v.shadow ??= this.add.image(0, 0, 'soft-shadow').setDepth(1.7);
+        v.shadow.setPosition(it.x * TILE + (f.w * TILE) / 2, (it.y + f.h) * TILE - 1).setScale((f.w * TILE) / 14 + 0.1, 1.2);
+      }
       if (f.place === 'floor') for (let j = 0; j < f.h; j++) for (let i = 0; i < f.w; i++) HOUSE_MAP.blocked.add((it.y + j) * HOUSE_MAP.w + it.x + i);
     }
   }
@@ -289,6 +305,7 @@ export class HouseScene extends Phaser.Scene {
           .setScale(0.5)
           .setResolution(3);
         v = { data: o, walker, tag };
+        this.shadows.track(walker.sprite);
         this.others.set(o.id, v);
       }
       if (v.data.appearance !== o.appearance) v.walker.setAppearance(o.appearance);
@@ -369,6 +386,7 @@ export class HouseScene extends Phaser.Scene {
       this.player.moveBy(0, 0, dt);
     }
     this.player.breathe(time);
+    this.shadows.update();
 
     const t = this.player.tile;
     if (t.x === CAFE_DOOR.x && t.y === CAFE_DOOR.y) this.goToCafe();
