@@ -22,6 +22,8 @@ import { HOME_TALKS } from './talks-home';
 import { VOCAB } from './vocab';
 import { SUDOKU_WORDS } from './sudokuWords';
 import { FURNITURE } from './furniture';
+import { GLUE, fillGap } from './glue';
+import { PATTERNS } from './patterns';
 import { isLine, type Character, type Level, type Scene, type Theme } from './types';
 
 export const CHARACTERS: Character[] = [maya, tom, gary, priya, parker, junAlex, sofia, ben, luna, dana];
@@ -34,13 +36,15 @@ export { HANDOFFS };
 // Item de aprendizagem (vocabulário ou gramática), como o SRS e o caderninho enxergam.
 export type LearnItem = {
   id: string;
-  kind: 'vocab' | 'grammar' | 'chunk' | 'word' | 'mine'; // word = Sudoku (w:...) · mine = anotada à mão (u:...)
+  // word = Sudoku (w:...) · mine = anotada à mão (u:...) · glue = palavra-cola da horta (gl:...) · pattern = padrão do lago (pf:...)
+  kind: 'vocab' | 'grammar' | 'chunk' | 'word' | 'mine' | 'glue' | 'pattern';
   label: string; // como aparece no caderninho
   pt: string;
   level: Level;
   theme?: Theme;
   en?: string; // vocabulário e chunks: texto que aparece nas falas
   example?: string;
+  note?: string; // "por quê": a regra em uma linha (palavras-cola e padrões)
 };
 
 export const ITEMS: Record<string, LearnItem> = Object.fromEntries([
@@ -51,6 +55,13 @@ export const ITEMS: Record<string, LearnItem> = Object.fromEntries([
   ...SUDOKU_WORDS.filter((w) => !w.vocab).map((w) => [`w:${w.id}`, { id: `w:${w.id}`, kind: 'word', label: w.en, pt: w.pt, level: w.level, en: w.en, example: w.gap.replace('___', w.en) } as LearnItem]),
   // móveis da lojinha da casa (entram na revisão quando você compra)
   ...FURNITURE.map((f) => [`f:${f.id}`, { id: `f:${f.id}`, kind: 'word', label: f.en, pt: f.pt, level: 'A2', theme: 'home', en: f.en, example: f.desc } as LearnItem]),
+  // horta: palavras-cola · lago: padrões do dia a dia e os chunks de cada um
+  ...GLUE.map((w) => {
+    const gap = w.drills.find((d) => d[0].includes('___'));
+    return [w.id, { id: w.id, kind: 'glue', label: w.en, pt: w.pt, level: w.level, en: w.en.replace(/^∅ /, ''), example: gap ? fillGap(gap[0], gap[1]) : undefined, note: w.why } as LearnItem];
+  }),
+  ...PATTERNS.map((p) => [p.id, { id: p.id, kind: 'pattern', label: p.name, pt: p.pt, level: p.level, example: p.chunks[0]?.example, note: p.forms.join(' · ') } as LearnItem]),
+  ...PATTERNS.flatMap((p) => p.chunks.map((c) => [c.id, { id: c.id, kind: 'chunk', label: c.en, pt: c.pt, level: p.level, en: c.en, example: c.example } as LearnItem])),
 ]);
 
 // (as despedidas entram com marcadores {partner}/{sub}…; veja personalize.ts)

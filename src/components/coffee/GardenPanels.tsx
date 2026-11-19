@@ -6,6 +6,8 @@ import { waterQuiz } from '@/lib/coffee/gardenWords';
 import { canSpeak, speak } from '@/lib/coffee/speech';
 import { drawPlant } from '@/game/art/plants';
 import Pron from './Pron';
+import { QuizWhy, SentenceBuilder } from './LessonBits';
+import { GLUE_BY_ID, GLUE_GROUPS } from '@/content/coffee/glue';
 
 export function PlantPreview({ cropId, stage = 3, size = 40 }: { cropId: string; stage?: number; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -96,7 +98,7 @@ export function GardenPlotPanel(p: PlotProps) {
   if (!p.plant) {
     const have = CROPS.filter((c) => (p.seeds[c.id] ?? 0) > 0);
     return (
-      <Shell title="🌱 Canteiro vazio" sub={p.mine ? 'Cada semente traz uma palavra nova em inglês' : `Canteiro da ${p.ownerName}`} onClose={p.onClose}>
+      <Shell title="🌱 Canteiro vazio" sub={p.mine ? 'Cada semente traz uma palavra-cola: as palavrinhas que montam e ligam as frases' : `Canteiro da ${p.ownerName}`} onClose={p.onClose}>
         {!p.mine ? (
           <p className="text-sm opacity-70">Nada plantado aqui ainda.</p>
         ) : have.length === 0 ? (
@@ -165,16 +167,20 @@ export function GardenPlotPanel(p: PlotProps) {
       {/* com sede, a palavra fica escondida (senão entrega a resposta do exercício de regar) */}
       {word && !v.thirsty && (
         <div className="mt-3 rounded-xl border-2 border-dashed border-[#d4bf9a] px-3 py-2">
-          <div className="text-[11px] font-bold uppercase tracking-wide opacity-60">Palavra desta planta</div>
+          <div className="text-[11px] font-bold uppercase tracking-wide opacity-60">
+            {GLUE_BY_ID[word.id] ? `Palavra-cola · ${GLUE_GROUPS[GLUE_BY_ID[word.id].group].emoji} ${GLUE_GROUPS[GLUE_BY_ID[word.id].group].pt}` : 'Palavra desta planta'}
+          </div>
           <div className="flex flex-wrap items-center gap-x-2">
-            <span className="cc-title text-lg">{word.en}</span>
-            <Pron text={word.en ?? word.label} />
+            <span className="cc-title text-lg">{word.label}</span>
+            {word.en && <Pron text={word.en} />}
           </div>
           <div className="text-sm opacity-75">{word.pt}</div>
+          {word.note && <p className="mt-1 text-xs leading-snug opacity-75"><b>Por quê?</b> {word.note}</p>}
+          {word.example && GLUE_BY_ID[word.id] && <p className="mt-1 text-xs italic opacity-70">“{word.example}”</p>}
         </div>
       )}
 
-      {v.thirsty && !v.ready && <WaterQuizBox itemId={p.plant.item_id} stage={v.stage} onCorrect={() => run(p.onWater)} onAnswer={p.onQuiz} busy={busy} />}
+      {v.thirsty && !v.ready && <WaterQuizBox itemId={p.plant.item_id} stage={v.stage} golden={crop.kind === 'golden'} onCorrect={() => run(p.onWater)} onAnswer={p.onQuiz} busy={busy} />}
 
       {v.ready &&
         (p.mine ? (
@@ -189,9 +195,9 @@ export function GardenPlotPanel(p: PlotProps) {
 }
 
 // Regar = acertar um exercício rápido com a palavra da planta.
-function WaterQuizBox({ itemId, stage, onCorrect, onAnswer, busy }: { itemId: string; stage: number; onCorrect: () => void; onAnswer: (correct: boolean) => void; busy: boolean }) {
+function WaterQuizBox({ itemId, stage, golden, onCorrect, onAnswer, busy }: { itemId: string; stage: number; golden: boolean; onCorrect: () => void; onAnswer: (correct: boolean) => void; busy: boolean }) {
   const [round, setRound] = useState(0);
-  const q = useMemo(() => waterQuiz(itemId, stage + round), [itemId, stage, round]);
+  const q = useMemo(() => waterQuiz(itemId, stage + round, Math.random, golden), [itemId, stage, round, golden]);
   const [picked, setPicked] = useState<number | null>(null);
   useEffect(() => setPicked(null), [round]);
   if (!q) {
@@ -213,6 +219,20 @@ function WaterQuizBox({ itemId, stage, onCorrect, onAnswer, busy }: { itemId: st
         )}
       </div>
       {q.shown && <div className="cc-title mt-1 text-lg">{q.shown}</div>}
+      {q.build && (
+        <div className="mt-2">
+          <SentenceBuilder
+            key={round}
+            build={q.build}
+            disabled={busy}
+            onDone={(ok) => {
+              setPicked(ok ? q.answer : -2);
+              onAnswer(ok);
+              if (ok) onCorrect();
+            }}
+          />
+        </div>
+      )}
       <div className="mt-2 space-y-1.5">
         {q.options.map((o, i) => {
           const tone = picked === null ? 'border-white bg-white hover:border-[#5bb0c4]' : i === q.answer ? 'border-[#6aa36f] bg-[#e3f1e4]' : i === picked ? 'border-[#c4554d] bg-[#fbe3e3]' : 'border-white bg-white opacity-50';
@@ -233,6 +253,7 @@ function WaterQuizBox({ itemId, stage, onCorrect, onAnswer, busy }: { itemId: st
           );
         })}
       </div>
+      {picked !== null && <QuizWhy quiz={q} />}
       {picked !== null &&
         (right ? (
           <p className="mt-2 text-sm font-semibold text-[#4f8a5b]">💧 Regada! A plantinha agradece.</p>

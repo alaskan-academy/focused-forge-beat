@@ -144,10 +144,10 @@ export default function ReviewDeck({ states, now, onGrade, onClose }: Props) {
   );
 }
 
-const KIND_LABEL: Record<LearnItem['kind'], string> = { vocab: 'Expressão', chunk: 'Chunk', grammar: 'Gramática', word: 'Palavra', mine: '✍️ Minha anotação' };
+const KIND_LABEL: Record<LearnItem['kind'], string> = { vocab: 'Expressão', chunk: 'Chunk', grammar: 'Gramática', word: 'Palavra', mine: '✍️ Minha anotação', glue: '🔗 Palavra-cola', pattern: '🎣 Padrão do dia a dia' };
 
 function Front({ item, mode }: { item: LearnItem; mode: Mode }) {
-  if (item.kind === 'grammar') {
+  if (item.kind === 'grammar' || item.kind === 'pattern') {
     return mode === 'en-pt' ? (
       <>
         <div className="text-xs opacity-60">Que estrutura é essa?</div>
@@ -174,11 +174,12 @@ function Front({ item, mode }: { item: LearnItem; mode: Mode }) {
 function Back({ item, mode }: { item: LearnItem; mode: Mode }) {
   const example = ITEM_EXAMPLES[item.id];
   const chunk = item.kind === 'chunk' ? CHUNK_BY_ID[item.id] : undefined;
-  if (item.kind === 'grammar') {
+  if (item.kind === 'grammar' || item.kind === 'pattern') {
     return (
       <>
         <div className="font-semibold">{mode === 'en-pt' ? item.label : `“${item.example}”`}</div>
         <div className="mt-1 text-sm opacity-80">{item.pt}</div>
+        {item.kind === 'pattern' && item.note && <div className="mt-1 text-xs opacity-70">{item.note}</div>}
       </>
     );
   }
@@ -187,6 +188,7 @@ function Back({ item, mode }: { item: LearnItem; mode: Mode }) {
       <div className={mode === 'pt-en' ? 'cc-title text-2xl' : 'text-lg font-semibold'}>{mode === 'en-pt' ? item.pt : item.label}</div>
       <Pron text={item.en ?? item.label} className="mt-1" />
       {chunk && <div className="mt-1 text-xs opacity-70">{chunk.when_pt}</div>}
+      {item.kind === 'glue' && item.note && <div className="mt-1 text-xs opacity-75">{item.note}</div>}
       {example && <div className="mt-2 text-sm italic opacity-75">“{example}”</div>}
     </>
   );

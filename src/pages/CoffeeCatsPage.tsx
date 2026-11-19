@@ -34,8 +34,9 @@ import { GardenDecorBar, MucegoPanel, MucegoShop } from '@/components/coffee/Muc
 import { useGardenDecor } from '@/components/coffee/useGardenDecor';
 import { FOOD_LINES, MUCEGO_LINES, PET_LINES, PET_TIRED, foodKind } from '@/lib/coffee/mucego';
 import { THING_BY_ID } from '@/content/coffee/gardenShop';
-import { FISH_BY_ID, QUIZ_STAGE, type CastResult, type CatchResult } from '@/lib/coffee/fishing';
-import { pickSeedWord, waterQuiz, type WaterQuiz } from '@/lib/coffee/gardenWords';
+import { FISH_BY_ID, type CastResult, type CatchResult } from '@/lib/coffee/fishing';
+import type { WaterQuiz } from '@/lib/coffee/gardenWords';
+import { fishLesson } from '@/lib/coffee/lakePatterns';
 import { FURNITURE_BY_ID, variantName } from '@/content/coffee/furniture';
 import UpdateNotice from '@/components/coffee/UpdateNotice';
 import { useNewVersion } from '@/components/coffee/useNewVersion';
@@ -241,7 +242,8 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
     phase: 'waiting' | 'bite' | 'quiz' | 'result';
     at: { x: number; y: number };
     cast: CastResult;
-    itemId: string | null;
+    itemId: string | null; // padrão do lago (pf:...)
+    chunkId: string | null; // chunk que vem junto (pc:...)
     quiz: WaterQuiz | null;
     success: boolean;
     result: CatchResult | null;
@@ -259,7 +261,9 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
       const fish = FISH_BY_ID[flow.cast.fish_id];
       try {
         const result = await fishCatch(flow.cast.cast_id, success);
-        if (flow.itemId && fish.rarity !== 'junk') void gradeItems([{ itemId: flow.itemId, grade: success ? 'good' : 'fail' }]).catch(() => undefined);
+        // o padrão sobe (ou desce) na revisão; o chunk entra na revisão quando você pega o peixe
+        if (flow.itemId && fish.rarity !== 'junk')
+          void gradeItems([{ itemId: flow.itemId, grade: success ? 'good' : 'fail' }, ...(success && flow.chunkId ? [{ itemId: flow.chunkId, grade: 'good' as const }] : [])]).catch(() => undefined);
         if (success || fish.rarity === 'junk') setCaught({ emoji: fish.emoji, key: Date.now() });
         setFishFlow({ ...flow, phase: 'result', success, result });
       } catch {
@@ -286,9 +290,10 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
       }
       const fish = FISH_BY_ID[cast.fish_id];
       const s0 = snap!;
-      const itemId = fish.rarity === 'junk' ? null : pickSeedWord(fish.rarity === 'legendary' ? 'golden' : 'herb', s0.items, new Set());
-      const quiz = itemId ? waterQuiz(itemId, QUIZ_STAGE[fish.rarity]) : null;
-      const flow: FishFlow = { phase: 'waiting', at, cast, itemId, quiz, success: false, result: null };
+      // cada peixe treina um padrão do dia a dia (mais raro = variação mais difícil) e traz um chunk
+      const lesson = fishLesson(fish.rarity, s0.items, new Date());
+      const quiz = lesson?.quiz ?? null;
+      const flow: FishFlow = { phase: 'waiting', at, cast, itemId: lesson?.familyId ?? null, chunkId: lesson?.chunkId ?? null, quiz, success: false, result: null };
       setCaught(null);
       setFishFlow(flow);
       fishTimers.current.forEach((t) => window.clearTimeout(t));
@@ -652,6 +657,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
           success={fishFlow.success}
           result={fishFlow.result}
           itemId={fishFlow.itemId}
+          chunkId={fishFlow.chunkId}
           quiz={fishFlow.quiz}
           canCastAgain={snap.fishing.free_left + snap.fishing.bait > 0}
           canFeed={fishFlow.success && !snap.fishing.fed_today && ['common', 'uncommon'].includes(FISH_BY_ID[fishFlow.cast.fish_id].rarity)}
@@ -730,7 +736,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
         />
       )}
       {appearance && !overlayOpen && gardenDecor.active && area === 'garden' && <GardenDecorBar decor={gardenDecor} onShop={() => setMucegoShopOpen(true)} />}
-      {albumOpen && snap && <FishAlbum album={snap.fishing.album} names={nameOf} onClose={() => setAlbumOpen(false)} />}
+      {albumOpen && snap && <FishAlbum album={snap.fishing.album} names={nameOf} states={snap.items} now={new Date(nowMs)} onClose={() => setAlbumOpen(false)} />}
       {baitOpen && snap && (
         <BaitPanel
           freeLeft={snap.fishing.free_left}

@@ -66,10 +66,11 @@ describe('crescimento', () => {
 });
 
 describe('palavras da horta', () => {
-  it('semente traz palavra nova; dourada traz chunk; regar tem 3 opções com a certa', () => {
+  it('semente traz palavra-cola; plantas antigas continuam com o exercício de antes', () => {
     const w = pickSeedWord('herb', {}, new Set(), () => 0.3);
-    expect(ITEMS[w]?.en).toBeTruthy();
-    expect(pickSeedWord('golden', {}, new Set(), () => 0.5).startsWith('c:')).toBe(true);
+    expect(w.startsWith('gl:')).toBe(true);
+    expect(ITEMS[w]?.kind).toBe('glue');
+    expect(pickSeedWord('golden', {}, new Set(), () => 0.5).startsWith('gl:')).toBe(true);
     for (let s = 0; s < 3; s++) {
       const q = waterQuiz('c:on_my_way', s, () => 0.4)!;
       expect(q.options).toHaveLength(3);

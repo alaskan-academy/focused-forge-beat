@@ -6,6 +6,7 @@ import { MAX_HEARTS, MILESTONES, chapterStatus, isSpecial, type ArcState } from 
 import { MAX_BOX, type VocabState } from '@/lib/coffee/srs';
 import CharacterPreview from './CharacterPreview';
 import Pron from './Pron';
+import { GLUE, GLUE_GROUPS, GLUE_GROUP_ORDER } from '@/content/coffee/glue';
 import belmont from '@/content/coffee/characters/belmont';
 import { customItemId, isCustomId, sameWord } from '@/content/coffee/custom';
 import type { CustomItem, CustomItemInput } from '@/lib/coffee/store/types';
@@ -23,7 +24,7 @@ type Props = {
   onClose: () => void;
 };
 
-type Tab = 'vocab' | 'chunk' | 'grammar' | 'people';
+type Tab = 'vocab' | 'chunk' | 'grammar' | 'glue' | 'people';
 
 // Caderninho: expressões e estruturas já vistas + fichas dos clientes recorrentes.
 export default function Journal({ states, arcs, now, customItems = [], userId, partnerName, onAddWord, onDeleteWord, onClose }: Props) {
@@ -54,13 +55,14 @@ export default function Journal({ states, arcs, now, customItems = [], userId, p
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="flex gap-1.5 bg-[#f6ead3] px-3 pb-2">
+        <div className="flex flex-wrap gap-1.5 bg-[#f6ead3] px-3 pb-2">
           {(
             [
               ['people', 'Clientes'],
               ['vocab', `Expressões (${seen.filter((x) => x.item.kind === 'vocab' || x.item.kind === 'word' || x.item.kind === 'mine').length})`],
               ['chunk', `Chunks (${seen.filter((x) => x.item.kind === 'chunk').length})`],
               ['grammar', `Gramática (${seen.filter((x) => x.item.kind === 'grammar').length})`],
+              ['glue', `🔗 Palavras-cola (${seen.filter((x) => x.item.kind === 'glue').length})`],
             ] as [Tab, string][]
           ).map(([k, label]) => (
             <button key={k} type="button" onClick={() => setTab(k)} className={cn('cc-chip', tab === k && 'cc-chip-on')}>
@@ -122,7 +124,9 @@ export default function Journal({ states, arcs, now, customItems = [], userId, p
             </div>
           )}
 
-          {tab !== 'people' && (
+          {tab === 'glue' && <GlueBook states={states} />}
+
+          {tab !== 'people' && tab !== 'glue' && (
             <>
               {tab === 'vocab' && onAddWord && <AddWord onAdd={onAddWord} />}
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="buscar…" className="cc-input mb-3 w-full py-1.5 text-sm" />
@@ -156,6 +160,49 @@ export default function Journal({ states, arcs, now, customItems = [], userId, p
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Palavras-cola da horta, por grupo: quantas você já plantou e a regra de cada uma.
+function GlueBook({ states }: { states: Record<string, VocabState> }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs opacity-70">Cada semente da horta traz uma palavra-cola. Elas ligam e montam as frases — é o que tira o "aaamm" na hora de falar.</p>
+      {GLUE_GROUP_ORDER.map((gid) => {
+        const grp = GLUE_GROUPS[gid];
+        const all = GLUE.filter((w) => w.group === gid);
+        const seenHere = all.filter((w) => states[w.id]);
+        return (
+          <section key={gid} className="cc-card py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-semibold">
+                {grp.emoji} {grp.pt} <span className="text-xs font-normal opacity-60">· {grp.desc}</span>
+              </span>
+              <span className="text-xs opacity-70">
+                {seenHere.length}/{all.length}
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#e6d2ad]">
+              <div className="h-full bg-[#6aa36f]" style={{ width: `${(seenHere.length / all.length) * 100}%` }} />
+            </div>
+            <ul className="mt-2 space-y-1.5">
+              {seenHere.map((w) => (
+                <li key={w.id} className="text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span>
+                      <b>{w.en}</b> <span className="opacity-70">— {w.pt}</span>
+                    </span>
+                    <Mastery box={states[w.id].box} />
+                  </div>
+                  <div className="text-xs leading-snug opacity-70">{w.why}</div>
+                </li>
+              ))}
+              {seenHere.length < all.length && <li className="text-xs opacity-50">🌱 {all.length - seenHere.length} ainda por plantar</li>}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }
