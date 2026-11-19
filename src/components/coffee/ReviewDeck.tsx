@@ -164,7 +164,7 @@ function Front({ item, mode }: { item: LearnItem; mode: Mode }) {
   return mode === 'en-pt' ? (
     <div className="flex items-center gap-1">
       <span className="cc-title text-2xl">{item.label}</span>
-      <Pron text={item.en ?? item.label} showIpa={false} />
+      {(item.en || item.kind !== 'glue') && <Pron text={item.en ?? item.label} showIpa={false} />}
     </div>
   ) : (
     <div className="text-xl font-semibold">{item.pt}</div>
@@ -186,7 +186,7 @@ function Back({ item, mode }: { item: LearnItem; mode: Mode }) {
   return (
     <>
       <div className={mode === 'pt-en' ? 'cc-title text-2xl' : 'text-lg font-semibold'}>{mode === 'en-pt' ? item.pt : item.label}</div>
-      <Pron text={item.en ?? item.label} className="mt-1" />
+      {(item.en || item.kind !== 'glue') && <Pron text={item.en ?? item.label} className="mt-1" />}
       {chunk && <div className="mt-1 text-xs opacity-70">{chunk.when_pt}</div>}
       {item.kind === 'glue' && item.note && <div className="mt-1 text-xs opacity-75">{item.note}</div>}
       {example && <div className="mt-2 text-sm italic opacity-75">“{example}”</div>}

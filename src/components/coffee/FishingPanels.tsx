@@ -43,7 +43,8 @@ const RarityTag = ({ f }: { f: Fish }) => (
 
 // Peixe fisgado: responda antes do tempo acabar para puxar.
 export function FishQuizPanel({ fish, quiz, onDone }: { fish: Fish; quiz: WaterQuiz; onDone: (success: boolean) => void }) {
-  const total = RARITY_INFO[fish.rarity].seconds;
+  // perguntas com frases inteiras ("o que você diria") pedem mais tempo de leitura
+  const total = RARITY_INFO[fish.rarity].seconds + (quiz.type === 'pick' ? 6 : 0);
   const [left, setLeft] = useState(total);
   const [picked, setPicked] = useState<number | null>(null);
   const done = useRef(false);

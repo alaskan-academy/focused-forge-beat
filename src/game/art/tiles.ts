@@ -3,7 +3,6 @@
 import { MAP_H, MAP_W, TILE, tileAt } from '@/lib/coffee/map';
 import { charAt } from '@/lib/coffee/grid';
 import { HOUSE_MAP, HOUSE_WINDOWS_X } from '@/lib/coffee/house';
-import { GARDEN_MAP } from '@/lib/coffee/garden';
 
 export const TILE_INDEX = {
   floorA: 0,
@@ -488,24 +487,4 @@ export function buildHouseLayers(): { ground: number[][]; furniture: number[][];
     objects.push(o);
   }
   return { ground, furniture, objects };
-}
-
-// Quintal: só o chão (as plantas e a gatinha são sprites da cena).
-export function buildGardenLayers(): { ground: number[][] } {
-  const ground: number[][] = [];
-  for (let y = 0; y < GARDEN_MAP.h; y++) {
-    const g: number[] = [];
-    for (let x = 0; x < GARDEN_MAP.w; x++) {
-      const t = charAt(GARDEN_MAP, x, y);
-      if (t === 'T') g.push(TILE_INDEX.tree);
-      else if (t === 'p') g.push(TILE_INDEX.soil);
-      else if (t === 'w') g.push(TILE_INDEX.water);
-      else if (t === 'P') g.push(TILE_INDEX.dirt);
-      else if (t === 'K') g.push(TILE_INDEX.doorMat);
-      else if (t === 'S') g.push(charAt(GARDEN_MAP, x - 1, y) === 'S' ? TILE_INDEX.stallRight : TILE_INDEX.stallLeft);
-      else g.push((x * 7 + y * 5) % 9 === 0 ? TILE_INDEX.grassB : TILE_INDEX.grass);
-    }
-    ground.push(g);
-  }
-  return { ground };
 }

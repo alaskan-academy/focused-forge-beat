@@ -58,7 +58,7 @@ export const ITEMS: Record<string, LearnItem> = Object.fromEntries([
   // horta: palavras-cola · lago: padrões do dia a dia e os chunks de cada um
   ...GLUE.map((w) => {
     const gap = w.drills.find((d) => d[0].includes('___'));
-    return [w.id, { id: w.id, kind: 'glue', label: w.en, pt: w.pt, level: w.level, en: w.en.replace(/^∅ /, ''), example: gap ? fillGap(gap[0], gap[1]) : undefined, note: w.why } as LearnItem];
+    return [w.id, { id: w.id, kind: 'glue', label: w.en, pt: w.pt, level: w.level, en: w.en.startsWith('∅') ? undefined : w.en, example: gap ? fillGap(gap[0], gap[1]) : undefined, note: w.why } as LearnItem];
   }),
   ...PATTERNS.map((p) => [p.id, { id: p.id, kind: 'pattern', label: p.name, pt: p.pt, level: p.level, example: p.chunks[0]?.example, note: p.forms.join(' · ') } as LearnItem]),
   ...PATTERNS.flatMap((p) => p.chunks.map((c) => [c.id, { id: c.id, kind: 'chunk', label: c.en, pt: c.pt, level: p.level, en: c.en, example: c.example } as LearnItem])),

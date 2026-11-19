@@ -503,7 +503,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
       {/* HUD */}
       {appearance && snap && !editing && (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
-          <div className="cc-hud pointer-events-auto flex items-center gap-1">
+          <div className="cc-hud pointer-events-auto flex shrink-0 items-center gap-1">
             <span className="cc-title mr-2 hidden sm:inline">☕ Coffee Cats</span>
             <button type="button" onClick={() => setInfo('coins')} className="rounded-lg px-1.5 py-0.5 hover:bg-[#e9d5b5]" title="Moedas: o que são e como ganhar">
               🪙 {snap.me.coins}
@@ -523,7 +523,8 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
               <HelpCircle className="h-4 w-4" />
             </button>
           </div>
-          <div className="pointer-events-auto flex gap-2">
+          {/* no celular os botões não cabem numa linha só: quebram para baixo, alinhados à direita */}
+          <div className="pointer-events-auto flex min-w-0 flex-wrap justify-end gap-2">
             {area === 'garden' && (
               <>
                 <button type="button" onClick={() => { setMucegoLine(MUCEGO_LINES[Math.floor(Math.random() * MUCEGO_LINES.length)]); setMucegoOpen(true); }} className="cc-hud flex items-center gap-1 whitespace-nowrap text-sm" title="Mucego Frutífero">
@@ -616,7 +617,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
               coins={snap.me.coins}
               onPlant={async (cropId) => {
                 const itemId = await plantSeed(plotOpen.plot, cropId);
-                toast(`🌱 Plantou ${CROP_BY_ID[cropId]?.en}! Palavra nova: "${ITEMS[itemId]?.en ?? itemId}"`);
+                toast(`🌱 Plantou ${CROP_BY_ID[cropId]?.en}! Palavra nova: "${ITEMS[itemId]?.label ?? itemId}"`);
                 return itemId;
               }}
               onWater={async () => {
@@ -631,7 +632,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
                 if (!plant) return;
                 const r = await harvestPlant(plant.id);
                 void gradeItems([{ itemId: plant.item_id, grade: 'good' }]).catch(() => undefined);
-                toast(`🧺 Colheu ${CROP_BY_ID[r.crop]?.en}! +${r.coins} 🪙 · "${ITEMS[r.item]?.en ?? ''}" subiu na revisão`);
+                toast(`🧺 Colheu ${CROP_BY_ID[r.crop]?.en}! +${r.coins} 🪙 · "${ITEMS[r.item]?.label ?? ''}" subiu na revisão`);
               }}
               onBuyPlot={async () => {
                 try {

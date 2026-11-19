@@ -114,8 +114,6 @@ export function shoreNear(target: Point): Point | null {
   return best?.p ?? null;
 }
 
-// Peixe → tipo de pergunta (o mesmo índice de waterQuiz: 0 significado · 1 ouvir · 2 completar)
-export const QUIZ_STAGE: Record<Rarity, number> = { junk: 0, common: 0, uncommon: 1, rare: 2, legendary: 2 };
 
 export type AlbumRow = { fish_id: string; first_by: string; first_at: string; counts: Record<string, number> };
 export type FishingData = { free_left: number; bait: number; lucky: number; fed_today: boolean; album: AlbumRow[] };
