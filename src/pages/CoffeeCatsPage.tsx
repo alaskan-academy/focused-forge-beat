@@ -19,6 +19,8 @@ import MusicControl from '@/components/coffee/MusicControl';
 import HouseShop from '@/components/coffee/HouseShop';
 import DecorBar from '@/components/coffee/DecorBar';
 import { useHouseDecor } from '@/components/coffee/useHouseDecor';
+import { ComfortChip, ComfortPanel, MorningCard } from '@/components/coffee/HouseComfort';
+import { houseComfort } from '@/lib/coffee/comfort';
 import { FURNITURE_BY_ID, variantName } from '@/content/coffee/furniture';
 import UpdateNotice from '@/components/coffee/UpdateNotice';
 import { useNewVersion } from '@/components/coffee/useNewVersion';
@@ -70,8 +72,9 @@ const NO_ITEMS: never[] = [];
 const NO_MEMBERS: string[] = [];
 
 function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultName: string }) {
-  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem } = useCoffeeGame(store);
+  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning } = useCoffeeGame(store);
   const [shop, setShop] = useState(false);
+  const [comfortOpen, setComfortOpen] = useState(false);
   const [chunks, setChunks] = useState(false);
   const [books, setBooks] = useState(false);
   const [table, setTable] = useState(false);
@@ -90,7 +93,10 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
 
   const appearance = useMemo(() => (snap?.me.appearance ? normalizeAppearance(snap.me.appearance) : null), [snap?.me.appearance]);
   const firstVisit = !!snap && !appearance;
-  const overlayOpen = firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table || shop;
+  const comfort = useMemo(() => houseComfort(snap?.houseItems ?? []), [snap?.houseItems]);
+  // bônus do dia ao acordar (depois de criar o personagem, sem interromper um atendimento)
+  const showMorning = !!morning?.claimed && !firstVisit && !active;
+  const overlayOpen = showMorning || comfortOpen || firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table || shop;
 
   // chunk do dia (a cada 12 h) e itens vencidos para a revisão
   const now = store.now();
@@ -291,6 +297,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
           <div className="pointer-events-auto flex gap-2">
             {area === 'house' && (
               <>
+                <ComfortChip comfort={comfort} onClick={() => setComfortOpen(true)} />
                 <button type="button" onClick={() => setShop(true)} className="cc-hud flex items-center gap-1.5" title="Lojinha de móveis">
                   <Sofa className="h-4 w-4" /> <span className="hidden sm:inline">Loja</span>
                 </button>
@@ -327,6 +334,8 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
         </div>
       )}
       {appearance && !overlayOpen && decor.active && <DecorBar decor={decor} onShop={() => setShop(true)} />}
+      {comfortOpen && <ComfortPanel comfort={comfort} onClose={() => setComfortOpen(false)} />}
+      {showMorning && morning && snap && <MorningCard bonus={morning} name={snap.me.display_name} onClose={dismissMorning} />}
       {shop && snap && <HouseShop coins={snap.me.coins} level={level.level} onBuy={buy} onClose={() => setShop(false)} />}
       {appearance && !overlayOpen && !decor.active && (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">

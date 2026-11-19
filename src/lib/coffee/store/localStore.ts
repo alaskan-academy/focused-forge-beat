@@ -12,6 +12,7 @@ import { levelFromXp } from '../activities';
 import { FURNITURE_BY_ID, minLevelOf } from '@/content/coffee/furniture';
 import { canEditRoom, type HouseItem } from '../houseItems';
 import type { RoomId } from '../house';
+import { COMFORT_TITLES, comfortLevel, houseComfort, type MorningBonus } from '../comfort';
 import {
   CHARACTER_CHANCE,
   CAT_CORNER,
@@ -44,6 +45,7 @@ type Data = {
   puzzles: PuzzleRow[];
   custom: CustomItem[];
   house: HouseItem[];
+  bonus_day: string | null; // último dia em que ganhou o bônus ao acordar
   // Belmont: mesmas regras de coffee_landlord_compute/pay
   landlord: { debt: number; visits: number; last_visit_day: string | null; booked_by_me: boolean | null; earned_since: number; errors_since: number; active_day: string | null };
   last_spawn_at: string;
@@ -65,6 +67,7 @@ function fresh(): Data {
     upgrade: { id: 'local-upgrade', key: CAT_CORNER.key, cost: CAT_CORNER.cost, funded: 0, completed_at: null, contributions: {} },
     puzzles: [],
     house: [],
+    bonus_day: null,
     landlord: { debt: 0, visits: 0, last_visit_day: null, booked_by_me: null, earned_since: 0, errors_since: 0, active_day: null },
     // uma anotação da "Jessica" de teste, para experimentar o copiar
     custom: [
@@ -365,6 +368,18 @@ export class LocalStore implements CoffeeStore {
     this.write();
   }
 
+  async claimMorningBonus(): Promise<MorningBonus> {
+    const comfort = houseComfort(this.data.house);
+    const level = comfortLevel(comfort);
+    const today = dayKey(this.now());
+    if (this.data.bonus_day === today) return { claimed: false, coins: 0, comfort, level, total_coins: this.data.me.coins };
+    const coins = COMFORT_TITLES[level].bonus;
+    this.data.me.coins += coins;
+    this.data.bonus_day = today;
+    this.write();
+    return { claimed: true, coins, comfort, level, total_coins: this.data.me.coins };
+  }
+
   // teste: a outra pessoa compra e põe uma planta na sala
   partnerDecorates() {
     const p = this.data.partner;
@@ -507,6 +522,7 @@ export class LocalStore implements CoffeeStore {
       d.puzzles = d.puzzles ?? [];
       d.custom = d.custom ?? fresh().custom;
       d.house = d.house ?? [];
+      d.bonus_day = d.bonus_day ?? null;
       d.landlord = { ...fresh().landlord, ...(d.landlord ?? {}) };
       return d;
     } catch {

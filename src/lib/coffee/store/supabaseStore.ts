@@ -10,6 +10,7 @@ import type { Pronoun } from '@/content/coffee/personalize';
 import { dayKey, type SudokuProgress, type SudokuPuzzle, type SudokuSize } from '../sudoku';
 import type { LandlordBill, LandlordPayInput, LandlordPayResult } from '../landlord';
 import type { RoomId } from '../house';
+import type { MorningBonus } from '../comfort';
 import type {
   CafeCustomer,
   CustomItem,
@@ -313,6 +314,14 @@ export class SupabaseStore implements CoffeeStore {
   async storeHouseItem(id: string) {
     check(await db.rpc('coffee_house_store', { p_id: id }));
     this.notify();
+  }
+
+  async claimMorningBonus(): Promise<MorningBonus | null> {
+    const res = await db.rpc('coffee_house_morning');
+    if (res.error) return null;
+    const b = res.data as MorningBonus;
+    if (b.claimed) this.notify();
+    return b;
   }
 
   subscribe(cb: () => void) {

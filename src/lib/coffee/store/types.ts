@@ -9,6 +9,7 @@ import type { SudokuProgress, SudokuPuzzle, SudokuSize } from '../sudoku';
 import type { LandlordBill, LandlordPayInput, LandlordPayResult } from '../landlord';
 import type { HouseItem } from '../houseItems';
 import type { RoomId } from '../house';
+import type { MorningBonus } from '../comfort';
 
 export type { HouseItem } from '../houseItems';
 
@@ -147,6 +148,8 @@ export interface CoffeeStore {
   buyHouseItem(itemId: string, variant: number): Promise<{ id: string; total_coins: number }>;
   placeHouseItem(id: string, room: RoomId, x: number, y: number, flip: boolean): Promise<void>;
   storeHouseItem(id: string): Promise<void>;
+  // bônus do dia ao acordar (pelo conforto da casa); null = indisponível (migration não aplicada)
+  claimMorningBonus(): Promise<MorningBonus | null>;
   subscribe(cb: () => void): () => void;
   joinPresence(cafeId: string, self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle;
 }

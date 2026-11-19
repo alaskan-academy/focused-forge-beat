@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RoomId } from '@/lib/coffee/house';
+import type { MorningBonus } from '@/lib/coffee/comfort';
 import { CHARACTERS, CHARACTER_BY_ID } from '@/content/coffee';
 import type { SceneCustomer } from '@/game/bridge';
 import { WALKOUT_MISTAKES, computeStars, performanceFeedback, targetMs, type ActivityResult } from '@/lib/coffee/activities';
@@ -395,6 +396,23 @@ export function useCoffeeGame(store: CoffeeStore) {
     [store, refresh],
   );
 
+  // ── bônus ao acordar (uma vez por abertura do jogo; o servidor garante 1x por dia) ──
+  const [morning, setMorning] = useState<MorningBonus | null>(null);
+  const morningAsked = useRef(false);
+  const hasSnap = !!snap;
+  useEffect(() => {
+    if (!hasSnap || morningAsked.current) return;
+    morningAsked.current = true;
+    store
+      .claimMorningBonus()
+      .then(async (b) => {
+        setMorning(b);
+        if (b?.claimed) await refresh();
+      })
+      .catch(() => setMorning(null));
+  }, [hasSnap, store, refresh]);
+  const dismissMorning = useCallback(() => setMorning((m) => (m ? { ...m, claimed: false } : m)), []);
+
   // ── melhoria compartilhada ──────────────────────────────────────────────
   const contribute = useCallback(
     async (amount: number) => {
@@ -424,5 +442,5 @@ export function useCoffeeGame(store: CoffeeStore) {
   }, [store, cafeId, myName, lookKey]);
   const move = useCallback((p: Position) => presence.current?.move(p), []);
 
-  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem };
+  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning };
 }
