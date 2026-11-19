@@ -46,6 +46,12 @@ export function feedText(e: FeedEntry, nameOf: (userId: string | null) => string
     }
     case 'note':
       return `${who} ligou para agradecer 📞${(e.data as { heart?: boolean }).heart ? ' ❤️' : ''}`;
+    case 'fish': {
+      const f = (e.data as { fish?: string }).fish ?? '';
+      return `${who} pescou um peixe lendário: ${f.replace(/_/g, ' ')}! 🎣✨`;
+    }
+    case 'harvest':
+      return `${who} colheu uma maçã dourada! 🍎✨`;
     case 'upgrade_done':
       return `${who} completou o ${UPGRADE_NAMES[d.upgrade ?? ''] ?? 'projeto do café'}! 🎉`;
     default:

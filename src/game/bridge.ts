@@ -54,10 +54,27 @@ export type GameState = {
   stationBadges: Partial<Record<Station, boolean>>;
   // horta: canteiros liberados e plantas de cada um (0 = esquerda, 1 = direita)
   garden: SceneGarden;
+  // pescaria: onde está a boia, se o peixe fisgou e o peixe que acabou de sair da água (emoji)
+  fishing: SceneFishing;
 };
 
+export type SceneFishing = { at: { x: number; y: number } | null; bite: boolean; caught: { emoji: string; key: number } | null };
+
 export type ScenePlant = { id: string; owner: number; plot: number; crop_id: string; stage: number; thirsty: boolean; ready: boolean; mine: boolean };
-export type SceneGarden = { myIndex: number; names: [string, string]; plots: [number, number]; plants: ScenePlant[] };
+export type SceneGarden = {
+  myIndex: number;
+  names: [string, string];
+  plots: [number, number];
+  plants: ScenePlant[];
+  // decoração e cantinhos da Mucego Frutífero colocados no jardim
+  items: SceneGardenItem[];
+  // modo decorar o jardim (null = fora do modo)
+  decor: GardenDecorView | null;
+  // acessório que a Mucego está usando
+  accessory: string | null;
+};
+export type SceneGardenItem = { id: string; item_id: string; x: number; y: number; flip: boolean };
+export type GardenDecorView = { ghost: { item_id: string; flip: boolean; x: number; y: number; ok: boolean } | null; selected: string | null };
 
 export type SceneHouseItem = { id: string; item_id: string; variant: number; x: number; y: number; flip: boolean; editable: boolean };
 export type DecorView = {
@@ -80,6 +97,11 @@ export type GameEvents = {
   // horta: usou um canteiro (de quem e qual) ou a barraquinha de sementes
   gardenPlot: { owner: number; plot: number };
   gardenStand: undefined;
+  // lançou a linha no tile de água (x, y)
+  fishCast: { x: number; y: number };
+  // tocou na Mucego Frutífero · toque num tile no modo decorar o jardim
+  mucegoTap: undefined;
+  gardenDecorTap: { x: number; y: number };
   ready: undefined;
 };
 

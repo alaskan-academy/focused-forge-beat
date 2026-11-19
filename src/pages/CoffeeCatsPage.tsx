@@ -28,7 +28,14 @@ import type { Station } from '@/content/coffee/furniture';
 import { GardenPlotPanel, SeedStand } from '@/components/coffee/GardenPanels';
 import { CROP_BY_ID, plantNow } from '@/lib/coffee/garden';
 import { ITEMS } from '@/content/coffee';
-import type { SceneGarden } from '@/game/bridge';
+import type { SceneFishing, SceneGarden } from '@/game/bridge';
+import { BaitPanel, CatchResultPanel, FishAlbum, FishQuizPanel } from '@/components/coffee/FishingPanels';
+import { GardenDecorBar, MucegoPanel, MucegoShop } from '@/components/coffee/MucegoPanels';
+import { useGardenDecor } from '@/components/coffee/useGardenDecor';
+import { FOOD_LINES, MUCEGO_LINES, PET_LINES, PET_TIRED, foodKind } from '@/lib/coffee/mucego';
+import { THING_BY_ID } from '@/content/coffee/gardenShop';
+import { FISH_BY_ID, QUIZ_STAGE, type CastResult, type CatchResult } from '@/lib/coffee/fishing';
+import { pickSeedWord, waterQuiz, type WaterQuiz } from '@/lib/coffee/gardenWords';
 import { FURNITURE_BY_ID, variantName } from '@/content/coffee/furniture';
 import UpdateNotice from '@/components/coffee/UpdateNotice';
 import { useNewVersion } from '@/components/coffee/useNewVersion';
@@ -79,9 +86,15 @@ export default function CoffeeCatsPage({ local = false }: { local?: boolean }) {
 const NO_ITEMS: never[] = [];
 const NO_MEMBERS: string[] = [];
 const NO_NOTES: import('@/lib/coffee/store/types').Note[] = [];
+const NO_GARDEN_ITEMS: import('@/lib/coffee/gardenItems').GardenItem[] = [];
 
 function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultName: string }) {
-  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward, seedGift, dismissSeedGift, plantSeed, waterPlant, harvestPlant, buySeed, buyPlot } = useCoffeeGame(store);
+  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward, seedGift, dismissSeedGift, plantSeed, waterPlant, harvestPlant, buySeed, buyPlot, fishCast, fishCatch, buyBait, baitFromPantry, feedMucego, mucego } = useCoffeeGame(store);
+  const [mucegoOpen, setMucegoOpen] = useState(false);
+  const [mucegoShopOpen, setMucegoShopOpen] = useState(false);
+  const [mucegoLine, setMucegoLine] = useState<[string, string] | null>(null);
+  const [albumOpen, setAlbumOpen] = useState(false);
+  const [baitOpen, setBaitOpen] = useState(false);
   const [plotOpen, setPlotOpen] = useState<{ owner: number; plot: number } | null>(null);
   const [standOpen, setStandOpen] = useState(false);
   const [phone, setPhone] = useState(false);
@@ -109,7 +122,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
   const comfort = useMemo(() => houseComfort(snap?.houseItems ?? []), [snap?.houseItems]);
   // bônus do dia ao acordar (depois de criar o personagem, sem interromper um atendimento)
   const showMorning = !!morning?.claimed && !firstVisit && !active;
-  const overlayOpen = !!plotOpen || standOpen || phone || tv || showMorning || comfortOpen || firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table || shop;
+  const overlayOpen = mucegoOpen || mucegoShopOpen || albumOpen || baitOpen || !!plotOpen || standOpen || phone || tv || showMorning || comfortOpen || firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table || shop;
 
   // chunk do dia (a cada 12 h) e itens vencidos para a revisão
   const now = store.now();
@@ -137,6 +150,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
     else if (st === 'gametable') setTable(true);
     else if (st === 'phone') setPhone(true);
     else if (st === 'tv') setTv(true);
+    else if (st === 'aquarium') setAlbumOpen(true);
   }, []);
   // ligação nova chegando: avisa (em qualquer lugar do jogo)
   const partnerFirst = snap?.partner?.display_name ?? 'Alguém';
@@ -171,6 +185,11 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
     return () => window.clearInterval(t);
   }, [store]);
   useEffect(() => setNowMs(store.now().getTime()), [snap, store]);
+  const gardenDecor = useGardenDecor({ items: snap?.gardenItems ?? NO_GARDEN_ITEMS, me: myId, place: mucego.place, store: mucego.store });
+  const closeGardenDecor = gardenDecor.close;
+  useEffect(() => {
+    if (area !== 'garden') closeGardenDecor();
+  }, [area, closeGardenDecor]);
   const gardenData = snap?.garden;
   const partnerUserId = snap?.partner?.user_id ?? null;
   const myIdx = house.myRoom;
@@ -188,8 +207,11 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
         const mine = p.owner_id === myId;
         return { id: p.id, owner: mine ? myIdx : 1 - myIdx, plot: p.plot, crop_id: p.crop_id, stage: v.stage, thirsty: v.thirsty, ready: v.ready, mine };
       }),
+      items: gardenDecor.sceneItems,
+      decor: overlayOpen ? null : gardenDecor.view,
+      accessory: snap?.mucego.accessory ?? null,
     };
-  }, [gardenData, nowMs, myIdx, myId, house.roomNames]);
+  }, [gardenData, nowMs, myIdx, myId, house.roomNames, gardenDecor.sceneItems, gardenDecor.view, overlayOpen, snap?.mucego.accessory]);
   const myReady = sceneGarden.plants.filter((p) => p.mine && p.ready).length;
   const myThirsty = sceneGarden.plants.filter((p) => p.mine && p.thirsty).length;
 
@@ -213,6 +235,88 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
       seen[p.id] = stamp;
     }
   }, [gardenData, myId, partnerUserId, snap?.partner?.display_name]);
+
+  // ── pescaria: lançar → esperar → fisgou → pergunta com cronômetro → resultado ──
+  type FishFlow = {
+    phase: 'waiting' | 'bite' | 'quiz' | 'result';
+    at: { x: number; y: number };
+    cast: CastResult;
+    itemId: string | null;
+    quiz: WaterQuiz | null;
+    success: boolean;
+    result: CatchResult | null;
+  };
+  const [fishFlow, setFishFlow] = useState<FishFlow | null>(null);
+  const [caught, setCaught] = useState<SceneFishing['caught']>(null);
+  const fishTimers = useRef<number[]>([]);
+  useEffect(() => () => fishTimers.current.forEach((t) => window.clearTimeout(t)), []);
+  const fishing = snap?.fishing;
+  // pescando junto: a outra pessoa online no quintal (mais chance de peixe raro)
+  const together = !!others.find((o) => o.pos?.area === 'garden');
+
+  const finishFish = useCallback(
+    async (flow: FishFlow, success: boolean) => {
+      const fish = FISH_BY_ID[flow.cast.fish_id];
+      try {
+        const result = await fishCatch(flow.cast.cast_id, success);
+        if (flow.itemId && fish.rarity !== 'junk') void gradeItems([{ itemId: flow.itemId, grade: success ? 'good' : 'fail' }]).catch(() => undefined);
+        if (success || fish.rarity === 'junk') setCaught({ emoji: fish.emoji, key: Date.now() });
+        setFishFlow({ ...flow, phase: 'result', success, result });
+      } catch {
+        toast('O peixe fugiu com a isca… tente de novo 🎣');
+        setFishFlow(null);
+      }
+    },
+    [fishCatch, gradeItems],
+  );
+
+  const onFishCast = useCallback(
+    async (at: { x: number; y: number }) => {
+      if (fishFlow && fishFlow.phase !== 'result') return;
+      let cast: CastResult;
+      try {
+        cast = await fishCast(together);
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('bait')) {
+          toast('Acabaram os lançamentos de hoje — compre iscas ou use ingredientes da horta 🪱');
+          setFishFlow(null);
+          setBaitOpen(true);
+        } else toast('Não consegui lançar a linha. Tente de novo.');
+        return;
+      }
+      const fish = FISH_BY_ID[cast.fish_id];
+      const s0 = snap!;
+      const itemId = fish.rarity === 'junk' ? null : pickSeedWord(fish.rarity === 'legendary' ? 'golden' : 'herb', s0.items, new Set());
+      const quiz = itemId ? waterQuiz(itemId, QUIZ_STAGE[fish.rarity]) : null;
+      const flow: FishFlow = { phase: 'waiting', at, cast, itemId, quiz, success: false, result: null };
+      setCaught(null);
+      setFishFlow(flow);
+      fishTimers.current.forEach((t) => window.clearTimeout(t));
+      const wait = 3000 + Math.random() * 9000;
+      fishTimers.current = [
+        window.setTimeout(() => setFishFlow((f) => (f && f.cast.cast_id === cast.cast_id ? { ...f, phase: 'bite' } : f)), wait),
+        window.setTimeout(() => {
+          // lixo vem sem pergunta; o resto precisa acertar para puxar
+          if (!quiz) void finishFish(flow, true);
+          else setFishFlow((f) => (f && f.cast.cast_id === cast.cast_id ? { ...f, phase: 'quiz' } : f));
+        }, wait + 1200),
+      ];
+    },
+    [fishFlow, fishCast, together, snap, finishFish],
+  );
+
+  const sceneFishing = useMemo<SceneFishing>(
+    () => ({ at: fishFlow && fishFlow.phase !== 'result' ? fishFlow.at : null, bite: fishFlow?.phase === 'bite' || fishFlow?.phase === 'quiz', caught }),
+    [fishFlow, caught],
+  );
+  // sair do quintal cancela a pesca
+  useEffect(() => {
+    if (area !== 'garden') {
+      fishTimers.current.forEach((t) => window.clearTimeout(t));
+      setFishFlow(null);
+    }
+  }, [area]);
+  const nameOf = useCallback((userId: string | null) => (!userId ? '?' : userId === myId ? 'você' : (snap?.partner?.display_name ?? '?')), [myId, snap?.partner?.display_name]);
 
   const onGardenPlot = useCallback((owner: number, plot: number) => setPlotOpen({ owner, plot }), []);
   const onGardenStand = useCallback(() => setStandOpen(true), []);
@@ -349,6 +453,13 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
           garden={sceneGarden}
           onGardenPlot={onGardenPlot}
           onGardenStand={onGardenStand}
+          fishing={sceneFishing}
+          onFishCast={onFishCast}
+          onMucego={() => {
+            setMucegoLine(MUCEGO_LINES[Math.floor(Math.random() * MUCEGO_LINES.length)]);
+            setMucegoOpen(true);
+          }}
+          onGardenDecorTap={gardenDecor.onTap}
           onInteract={onInteract}
           onObject={(id) => (id === 'chalkboard' ? setChunks(true) : id === 'gametable' ? setTable(true) : setBooks(true))}
           onMove={move}
@@ -408,6 +519,29 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
             </button>
           </div>
           <div className="pointer-events-auto flex gap-2">
+            {area === 'garden' && (
+              <>
+                <button type="button" onClick={() => { setMucegoLine(MUCEGO_LINES[Math.floor(Math.random() * MUCEGO_LINES.length)]); setMucegoOpen(true); }} className="cc-hud flex items-center gap-1 whitespace-nowrap text-sm" title="Mucego Frutífero">
+                  🐈‍⬛ <span className="hidden sm:inline">Mucego Frutífero</span>
+                  {snap?.mucego.gift_ready && <span>🎁</span>}
+                </button>
+                <button type="button" onClick={() => (gardenDecor.active ? gardenDecor.close() : gardenDecor.open())} className={`cc-hud flex items-center gap-1 whitespace-nowrap text-sm ${gardenDecor.active ? '!bg-[#f2cc8f]' : ''}`} title="Decorar o jardim">
+                  🎨 <span className="hidden sm:inline">Decorar</span>
+                </button>
+              </>
+            )}
+            {area === 'garden' && fishing && (
+              <>
+                <button type="button" onClick={() => setBaitOpen(true)} className="cc-hud flex items-center gap-1 whitespace-nowrap text-sm" title="Lançamentos e iscas">
+                  🎣 {fishing.free_left}
+                  {fishing.bait > 0 && <span className="opacity-70">· 🪱{fishing.bait}</span>}
+                  {fishing.lucky > 0 && <span className="opacity-70">· 🍀{fishing.lucky}</span>}
+                </button>
+                <button type="button" onClick={() => setAlbumOpen(true)} className="cc-hud flex items-center gap-1 whitespace-nowrap text-sm" title="Álbum de peixes">
+                  📖 <span className="hidden sm:inline">Álbum</span>
+                </button>
+              </>
+            )}
             {(myReady > 0 || myThirsty > 0) && (
               <span className="cc-hud flex items-center gap-1 whitespace-nowrap text-sm" title="Sua horta (quintal, pela porta da cozinha)">
                 🌱{myReady > 0 && <span>✨{myReady}</span>}
@@ -509,6 +643,115 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
             />
           );
         })()}
+      {fishFlow?.phase === 'quiz' && fishFlow.quiz && (
+        <FishQuizPanel key={fishFlow.cast.cast_id} fish={FISH_BY_ID[fishFlow.cast.fish_id]} quiz={fishFlow.quiz} onDone={(ok) => void finishFish(fishFlow, ok)} />
+      )}
+      {fishFlow?.phase === 'result' && snap && (
+        <CatchResultPanel
+          fish={FISH_BY_ID[fishFlow.cast.fish_id]}
+          success={fishFlow.success}
+          result={fishFlow.result}
+          itemId={fishFlow.itemId}
+          quiz={fishFlow.quiz}
+          canCastAgain={snap.fishing.free_left + snap.fishing.bait > 0}
+          canFeed={fishFlow.success && !snap.fishing.fed_today && ['common', 'uncommon'].includes(FISH_BY_ID[fishFlow.cast.fish_id].rarity)}
+          onAgain={() => void onFishCast(fishFlow.at)}
+          onFeed={async () => {
+            const xp = await feedMucego().catch(() => 0);
+            toast(xp ? '🐈‍⬛ Mucego Frutífero: "Thank you! Fish is my second favorite food… after strawberries!" (+2 XP)' : '🐈‍⬛ A Mucego Frutífero já comeu hoje 😸');
+            setFishFlow(null);
+          }}
+          onClose={() => setFishFlow(null)}
+        />
+      )}
+      {mucegoOpen && snap && (
+        <MucegoPanel
+          m={snap.mucego}
+          today={today}
+          now={nowMs}
+          pantry={snap.garden.pantry}
+          line={mucegoLine}
+          onPet={async () => {
+            const r = await mucego.pet();
+            setMucegoLine(r.ok ? PET_LINES[Math.floor(Math.random() * PET_LINES.length)] : PET_TIRED);
+          }}
+          onFeed={async (cropId) => {
+            try {
+              const r = await mucego.feed(cropId);
+              const lines = FOOD_LINES[foodKind(cropId)];
+              setMucegoLine(lines[Math.floor(Math.random() * lines.length)]);
+              if (r.request) toast(`🐈‍⬛ Pedido do dia atendido! +${r.coins} 🪙 e +${r.gain}♥`);
+            } catch (e) {
+              toast(e instanceof Error && e.message.includes('full') ? 'Ela está cheia por hoje 😸' : 'Não deu certo. Tente de novo.');
+            }
+          }}
+          onTreat={async (t) => {
+            await mucego.treat(t);
+            setMucegoLine(['Mmm! Delicious! You know me so well.', 'Hummm! Delícia! Você me conhece tão bem.']);
+          }}
+          onWear={async (a) => {
+            await mucego.wear(a);
+            setMucegoLine(a ? ['Do I look pretty? I think I look AMAZING.', 'Estou bonita? Acho que estou MARAVILHOSA.'] : ['Natural beauty. Classic.', 'Beleza natural. Clássico.']);
+          }}
+          onGift={async () => {
+            const r = await mucego.gift();
+            setMucegoLine(['I found this for you! Plant it, okay?', 'Achei isso para você! Planta, tá?']);
+            toast(`🎁 A Mucego Frutífero te deu uma semente de ${CROP_BY_ID[r.crop]?.en ?? r.crop}!`);
+          }}
+          onShop={() => {
+            setMucegoOpen(false);
+            setMucegoShopOpen(true);
+          }}
+          onClose={() => setMucegoOpen(false)}
+        />
+      )}
+      {mucegoShopOpen && snap && (
+        <MucegoShop
+          coins={snap.me.coins}
+          level={level.level}
+          owned={snap.mucego.accessories}
+          onBuy={async (itemId) => {
+            try {
+              await mucego.buy(itemId);
+              const g = THING_BY_ID[itemId];
+              toast(
+                g.kind === 'accessory'
+                  ? `🎀 ${g.en} comprado! Vista nela no painel da Mucego Frutífero.`
+                  : g.kind === 'treat'
+                    ? `🍪 ${g.en} guardado para dar para ela!`
+                    : `🎒 ${g.en} está na sua mochila do jardim — use 🎨 Decorar para colocar.`,
+              );
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : '';
+              toast(msg.includes('coins') ? 'Moedas insuficientes 🪙' : msg.includes('level') ? 'Seu nível ainda não libera isso 🔒' : 'Não consegui comprar.');
+            }
+          }}
+          onClose={() => setMucegoShopOpen(false)}
+        />
+      )}
+      {appearance && !overlayOpen && gardenDecor.active && area === 'garden' && <GardenDecorBar decor={gardenDecor} onShop={() => setMucegoShopOpen(true)} />}
+      {albumOpen && snap && <FishAlbum album={snap.fishing.album} names={nameOf} onClose={() => setAlbumOpen(false)} />}
+      {baitOpen && snap && (
+        <BaitPanel
+          freeLeft={snap.fishing.free_left}
+          bait={snap.fishing.bait}
+          lucky={snap.fishing.lucky}
+          coins={snap.me.coins}
+          pantry={snap.garden.pantry}
+          onBuy={async (n) => {
+            try {
+              await buyBait(n);
+            } catch {
+              toast('Moedas insuficientes 🪙');
+            }
+          }}
+          onPantry={async (cropId) => {
+            const r = await baitFromPantry(cropId);
+            toast(`🪱 +${r.bait} iscas${r.lucky ? ` e ${r.lucky} lançamentos de sorte 🍀` : ''}`);
+          }}
+          onClose={() => setBaitOpen(false)}
+        />
+      )}
       {standOpen && snap && (
         <SeedStand
           coins={snap.me.coins}
@@ -529,13 +772,13 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
       {comfortOpen && <ComfortPanel comfort={comfort} onClose={() => setComfortOpen(false)} />}
       {showMorning && morning && snap && <MorningCard bonus={morning} name={snap.me.display_name} onClose={dismissMorning} />}
       {shop && snap && <HouseShop coins={snap.me.coins} level={level.level} onBuy={buy} onClose={() => setShop(false)} />}
-      {appearance && !overlayOpen && !decor.active && (
+      {appearance && !overlayOpen && !decor.active && !gardenDecor.active && (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
           <div className="cc-hud text-xs font-medium opacity-90">
             {area === 'garden' ? (
               <>
-                <span className="hidden md:inline">🌱 Toque num canteiro para plantar, regar ou colher · 🧺 barraquinha lá em cima · toque na Mucego 🐈‍⬛</span>
-                <span className="md:hidden">Toque num canteiro · toque na Mucego 🐈‍⬛</span>
+                <span className="hidden md:inline">🌱 Toque num canteiro · 🎣 toque no lago para pescar · 🧺 barraquinha lá em cima · toque na Mucego Frutífero 🐈‍⬛</span>
+                <span className="md:hidden">Toque num canteiro · toque na Mucego Frutífero 🐈‍⬛</span>
               </>
             ) : area === 'house' ? (
               <>

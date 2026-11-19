@@ -13,6 +13,10 @@ import { FURNITURE_BY_ID, minLevelOf } from '@/content/coffee/furniture';
 import { canEditRoom, type HouseItem } from '../houseItems';
 import type { RoomId } from '../house';
 import { COMFORT_TITLES, comfortLevel, houseComfort, type MorningBonus } from '../comfort';
+import { FEEDS_PER_DAY, FOOD_FRIENDSHIP, PET_COOLDOWN_MIN, REQUEST_BONUS, foodKind, wantFor, type MucegoData } from '../mucego';
+import { THING_BY_ID } from '@/content/coffee/gardenShop';
+import type { GardenItem } from '../gardenItems';
+import { FISH_BY_ID, FREE_CASTS, PANTRY_BAIT, RARITY_INFO, isNight, rollFish, type AlbumRow, type CastResult, type CatchResult, type FishingData } from '../fishing';
 import { BASE_PLOTS, CROPS, CROP_BY_ID, KIND_INFO, MAX_PLOTS, plantNow, plotPrice, waterPlant as waterPlantRule, type Plant } from '../garden';
 import {
   CHARACTER_CHANCE,
@@ -54,6 +58,9 @@ type Data = {
   notes: Note[];
   rewards: string[]; // "tipo:dia" das recompensas diárias já ganhas
   garden: { plots: number; seeds: Record<string, number>; pantry: Record<string, number>; seed_day: string | null; partnerPlots: number; plants: Plant[] };
+  mucego: { friendship: number; accessory: string | null; accessories: string[]; request_day: string | null; last_pet_at: string | null; feed_day: string | null; feeds: number; treats: Record<string, number>; gift_day: string | null };
+  gardenItems: GardenItem[];
+  fishing: { free_day: string | null; free_used: number; bait: number; lucky: number; fed_day: string | null; album: AlbumRow[]; casts: { id: string; fish_id: string; at: string; done: boolean }[] };
   // Belmont: mesmas regras de coffee_landlord_compute/pay
   landlord: { debt: number; visits: number; last_visit_day: string | null; booked_by_me: boolean | null; earned_since: number; errors_since: number; active_day: string | null };
   last_spawn_at: string;
@@ -79,6 +86,9 @@ function fresh(): Data {
     notes: [],
     rewards: [],
     garden: { plots: BASE_PLOTS, seeds: {}, pantry: {}, seed_day: null, partnerPlots: BASE_PLOTS, plants: [] },
+    mucego: { friendship: 0, accessory: null, accessories: [], request_day: null, last_pet_at: null, feed_day: null, feeds: 0, treats: {}, gift_day: null },
+    gardenItems: [],
+    fishing: { free_day: null, free_used: 0, bait: 0, lucky: 0, fed_day: null, album: [], casts: [] },
     landlord: { debt: 0, visits: 0, last_visit_day: null, booked_by_me: null, earned_since: 0, errors_since: 0, active_day: null },
     // uma anotação da "Jessica" de teste, para experimentar o copiar
     custom: [
@@ -108,6 +118,7 @@ export class LocalStore implements CoffeeStore {
 
   async load(): Promise<Snapshot> {
     const { me, partner, customers, items, arcs, feed, upgrade, puzzles, custom, house, notes, garden } = this.data;
+    const fish = this.fishingRow();
     const landlord = this.landlordBill();
     return {
       cafe: { id: 'local', name: 'Coffee Cats', invite_code: 'LOCAL1', reputation: 0, members: [USER, ...(partner ? [partner.user_id] : [])] },
@@ -123,6 +134,9 @@ export class LocalStore implements CoffeeStore {
       landlord,
       houseItems: house.map((h) => ({ ...h })),
       notes: notes.map((n) => ({ ...n })),
+      mucego: this.mucegoView(),
+      gardenItems: this.data.gardenItems.map((g) => ({ ...g })),
+      fishing: { free_left: Math.max(0, FREE_CASTS - fish.free_used), bait: fish.bait, lucky: fish.lucky, fed_today: fish.fed_day === dayKey(this.now()), album: fish.album.map((a) => ({ ...a, counts: { ...a.counts } })) } satisfies FishingData,
       garden: { plots: garden.plots, seeds: { ...garden.seeds }, pantry: { ...garden.pantry }, partnerPlots: garden.partnerPlots, plants: garden.plants.map((p) => ({ ...p })) } satisfies GardenData,
     };
   }
@@ -533,6 +547,216 @@ export class LocalStore implements CoffeeStore {
     this.write();
   }
 
+  // ── Mucego Frutífero (mesmas regras de coffee_mucego_*) ──────────────────
+
+  private mucegoRow() {
+    const m = this.data.mucego;
+    const today = dayKey(this.now());
+    if (m.feed_day !== today) {
+      m.feed_day = today;
+      m.feeds = 0;
+    }
+    return m;
+  }
+
+  private mucegoView(): MucegoData {
+    const m = this.mucegoRow();
+    const today = dayKey(this.now());
+    return {
+      friendship: m.friendship,
+      accessory: m.accessory,
+      accessories: [...m.accessories],
+      request_done: m.request_day === today,
+      last_pet_at: m.last_pet_at,
+      feeds_today: m.feeds,
+      treats: { ...m.treats },
+      gift_ready: m.friendship >= 30 && m.gift_day !== today,
+    };
+  }
+
+  async mucegoPet() {
+    const m = this.mucegoRow();
+    if (m.last_pet_at && this.now().getTime() - new Date(m.last_pet_at).getTime() < PET_COOLDOWN_MIN * 60_000) return { ok: false, friendship: m.friendship };
+    m.last_pet_at = this.now().toISOString();
+    m.friendship = Math.min(150, m.friendship + 1);
+    this.write();
+    return { ok: true, friendship: m.friendship };
+  }
+
+  async mucegoFeed(cropId: string) {
+    const m = this.mucegoRow();
+    if (m.feeds >= FEEDS_PER_DAY) throw new Error('she is full');
+    const g = this.data.garden;
+    if ((g.pantry[cropId] ?? 0) < 1) throw new Error('not in pantry');
+    g.pantry[cropId] -= 1;
+    let gain = FOOD_FRIENDSHIP[foodKind(cropId)];
+    const today = dayKey(this.now());
+    const request = wantFor(today).accepts.includes(cropId) && m.request_day !== today;
+    if (request) {
+      gain += REQUEST_BONUS.friendship;
+      this.data.me.coins += REQUEST_BONUS.coins;
+      m.request_day = today;
+    }
+    m.feeds += 1;
+    m.friendship = Math.min(150, m.friendship + gain);
+    this.write();
+    return { friendship: m.friendship, gain, request, coins: request ? REQUEST_BONUS.coins : 0 };
+  }
+
+  async mucegoTreat(treatId: string) {
+    const t = THING_BY_ID[treatId];
+    if (!t || t.kind !== 'treat') throw new Error('unknown treat');
+    const m = this.mucegoRow();
+    if ((m.treats[treatId] ?? 0) < 1) throw new Error('no treats');
+    m.treats[treatId] -= 1;
+    const gain = t.friendship ?? 1;
+    m.friendship = Math.min(150, m.friendship + gain);
+    this.write();
+    return { friendship: m.friendship, gain };
+  }
+
+  async mucegoGift() {
+    const m = this.mucegoRow();
+    const today = dayKey(this.now());
+    if (m.friendship < 30 || m.gift_day === today) throw new Error('no gift today');
+    const kind = m.friendship >= 100 ? 'golden' : m.friendship >= 60 ? 'fruit' : 'veg';
+    const list = CROPS.filter((c) => c.kind === kind);
+    const crop = list[Math.floor(Math.random() * list.length)].id;
+    this.data.garden.seeds[crop] = (this.data.garden.seeds[crop] ?? 0) + 1;
+    m.gift_day = today;
+    this.write();
+    return { crop };
+  }
+
+  async mucegoWear(accessory: string | null) {
+    const m = this.mucegoRow();
+    if (accessory && !m.accessories.includes(accessory)) throw new Error('not owned');
+    m.accessory = accessory;
+    this.write();
+  }
+
+  async gardenBuy(itemId: string) {
+    const t = THING_BY_ID[itemId];
+    if (!t) throw new Error('unknown item');
+    if (levelFromXp(this.data.me.xp).level < t.minLevel) throw new Error('level too low');
+    if (this.data.me.coins < t.price) throw new Error('not enough coins');
+    const m = this.mucegoRow();
+    if (t.kind === 'accessory' && m.accessories.includes(itemId)) throw new Error('already owned');
+    this.data.me.coins -= t.price;
+    if (t.kind === 'accessory') m.accessories.push(itemId);
+    else if (t.kind === 'treat') m.treats[itemId] = (m.treats[itemId] ?? 0) + 1;
+    else this.data.gardenItems.push({ id: newId(), owner_id: USER, item_id: itemId, placed: false, x: 0, y: 0, flip: false, created_at: this.now().toISOString() });
+    this.write();
+  }
+
+  async gardenItemPlace(id: string, x: number, y: number, flip: boolean) {
+    const it = this.data.gardenItems.find((g) => g.id === id);
+    if (!it) throw new Error('item not found');
+    if (!it.placed && it.owner_id !== USER) throw new Error('not your item');
+    Object.assign(it, { placed: true, x, y, flip });
+    this.write();
+  }
+
+  async gardenItemStore(id: string) {
+    const it = this.data.gardenItems.find((g) => g.id === id);
+    if (!it) throw new Error('item not found');
+    if (!it.placed && it.owner_id !== USER) throw new Error('not your item');
+    it.placed = false;
+    this.write();
+  }
+
+  // teste: dá comida da horta (para alimentar a Mucego)
+  giveProduce() {
+    for (const c of ['strawberry', 'carrot', 'blueberry', 'lettuce', 'tomato', 'corn']) this.data.garden.pantry[c] = (this.data.garden.pantry[c] ?? 0) + 2;
+    this.write();
+  }
+
+  // ── pescaria (mesmas regras de coffee_fish_*) ─────────────────────────────
+
+  private fishingRow() {
+    const f = this.data.fishing;
+    const today = dayKey(this.now());
+    if (f.free_day !== today) {
+      f.free_day = today;
+      f.free_used = 0;
+    }
+    return f;
+  }
+
+  async fishCast(together: boolean): Promise<CastResult> {
+    const f = this.fishingRow();
+    const boosted = together || f.lucky > 0;
+    if (f.free_used < FREE_CASTS) f.free_used++;
+    else if (f.bait > 0) f.bait--;
+    else throw new Error('no bait');
+    if (f.lucky > 0) f.lucky--;
+    const hour = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Sao_Paulo' }).format(this.now())) % 24;
+    const fish = rollFish(isNight(hour), boosted);
+    const cast = { id: newId(), fish_id: fish.id, at: this.now().toISOString(), done: false };
+    f.casts = [cast, ...f.casts].slice(0, 20);
+    this.write(false);
+    return { cast_id: cast.id, fish_id: fish.id };
+  }
+
+  async fishCatch(castId: string, success: boolean): Promise<CatchResult> {
+    const f = this.fishingRow();
+    const cast = f.casts.find((c) => c.id === castId);
+    if (!cast) throw new Error('cast not found');
+    if (cast.done || this.now().getTime() - new Date(cast.at).getTime() > 10 * 60_000) throw new Error('cast expired');
+    cast.done = true;
+    const fish = FISH_BY_ID[cast.fish_id];
+    let first = false;
+    let count = 0;
+    let coins = 0;
+    if (success || fish.rarity === 'junk') {
+      let row = f.album.find((a) => a.fish_id === fish.id);
+      if (!row) {
+        row = { fish_id: fish.id, first_by: USER, first_at: this.now().toISOString(), counts: {} };
+        f.album.push(row);
+        first = true;
+      }
+      row.counts[USER] = (row.counts[USER] ?? 0) + 1;
+      count = row.counts[USER];
+      coins = RARITY_INFO[fish.rarity].coins;
+      this.data.me.coins += coins;
+      if (fish.rarity === 'legendary') this.log(USER, 'fish', { fish: fish.id, first });
+    }
+    this.write();
+    return { coins, total_coins: this.data.me.coins, first, count };
+  }
+
+  async buyBait(qty: number) {
+    const n = Math.min(20, Math.max(1, qty));
+    if (this.data.me.coins < 2 * n) throw new Error('not enough coins');
+    this.data.me.coins -= 2 * n;
+    this.fishingRow().bait += n;
+    this.write();
+  }
+
+  async baitFromPantry(cropId: string) {
+    const crop = CROP_BY_ID[cropId];
+    if (!crop) throw new Error('unknown crop');
+    const g = this.data.garden;
+    if ((g.pantry[cropId] ?? 0) < 1) throw new Error('not in pantry');
+    g.pantry[cropId] -= 1;
+    const gain = PANTRY_BAIT[crop.kind];
+    const f = this.fishingRow();
+    f.bait += gain.bait;
+    f.lucky += gain.lucky;
+    this.write();
+    return gain;
+  }
+
+  async feedMucego() {
+    const f = this.fishingRow();
+    const today = dayKey(this.now());
+    if (f.fed_day === today) return 0;
+    f.fed_day = today;
+    this.data.me.xp += 2;
+    this.write();
+    return 2;
+  }
+
   // teste: a outra pessoa planta um tomate (já com sede)
   partnerPlants() {
     const p = this.data.partner;
@@ -727,6 +951,9 @@ export class LocalStore implements CoffeeStore {
       d.notes = d.notes ?? [];
       d.rewards = d.rewards ?? [];
       d.garden = { ...fresh().garden, ...(d.garden ?? {}) };
+      d.fishing = { ...fresh().fishing, ...(d.fishing ?? {}) };
+      d.mucego = { ...fresh().mucego, ...(d.mucego ?? {}) };
+      d.gardenItems = d.gardenItems ?? [];
       d.landlord = { ...fresh().landlord, ...(d.landlord ?? {}) };
       return d;
     } catch {

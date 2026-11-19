@@ -16,6 +16,10 @@ type Props = {
   decor: GameState['decor'];
   stationBadges: GameState['stationBadges'];
   garden: GameState['garden'];
+  fishing: GameState['fishing'];
+  onFishCast?: (p: { x: number; y: number }) => void;
+  onMucego?: () => void;
+  onGardenDecorTap?: (p: { x: number; y: number }) => void;
   onGardenPlot?: (owner: number, plot: number) => void;
   onGardenStand?: () => void;
   onStation?: (station: Station, id: string) => void;
@@ -27,10 +31,10 @@ type Props = {
 };
 
 // Canvas do Phaser. O motor é carregado sob demanda (import dinâmico), só quando a aba abre.
-export default function GameCanvas({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden, onInteract, onObject, onMove, onArea, onDecorTap, onStation, onGardenPlot, onGardenStand }: Props) {
+export default function GameCanvas({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden, fishing, onInteract, onObject, onMove, onArea, onDecorTap, onStation, onGardenPlot, onGardenStand, onFishCast, onMucego, onGardenDecorTap }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const bridgeRef = useRef<GameBridge | null>(null);
-  const initial = useRef<GameState>({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden });
+  const initial = useRef<GameState>({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden, fishing });
   const interactRef = useRef(onInteract);
   interactRef.current = onInteract;
   const moveRef = useRef(onMove);
@@ -47,6 +51,12 @@ export default function GameCanvas({ appearance, customers, others, catCorner, o
   plotRef.current = onGardenPlot;
   const standRef = useRef(onGardenStand);
   standRef.current = onGardenStand;
+  const castRef = useRef(onFishCast);
+  castRef.current = onFishCast;
+  const mucegoRef = useRef(onMucego);
+  mucegoRef.current = onMucego;
+  const gDecorRef = useRef(onGardenDecorTap);
+  gDecorRef.current = onGardenDecorTap;
 
   useEffect(() => {
     let handle: GameHandle | null = null;
@@ -63,6 +73,9 @@ export default function GameCanvas({ appearance, customers, others, catCorner, o
       handle.bridge.on('station', ({ station, id }) => stationRef.current?.(station, id));
       handle.bridge.on('gardenPlot', ({ owner, plot }) => plotRef.current?.(owner, plot));
       handle.bridge.on('gardenStand', () => standRef.current?.());
+      handle.bridge.on('fishCast', (p) => castRef.current?.(p));
+      handle.bridge.on('mucegoTap', () => mucegoRef.current?.());
+      handle.bridge.on('gardenDecorTap', (p) => gDecorRef.current?.(p));
     });
     return () => {
       cancelled = true;
@@ -72,9 +85,9 @@ export default function GameCanvas({ appearance, customers, others, catCorner, o
   }, []);
 
   useEffect(() => {
-    initial.current = { appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden };
-    bridgeRef.current?.setState({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden });
-  }, [appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden]);
+    initial.current = { appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden, fishing };
+    bridgeRef.current?.setState({ appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden, fishing });
+  }, [appearance, customers, others, catCorner, objectBadges, inputEnabled, house, houseItems, decor, stationBadges, garden, fishing]);
 
   return <div ref={hostRef} className="absolute inset-0 touch-none select-none [&_canvas]:block" />;
 }

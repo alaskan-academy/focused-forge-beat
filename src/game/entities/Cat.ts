@@ -7,7 +7,7 @@ import { feetToTile, tileToFeet } from './Walker';
 type State = 'sit' | 'walk' | 'sleep';
 
 // textura (folha de quadros) e mapa onde o gato vive; padrão: o Elias no café
-export type CatOptions = { texture?: string; map?: GameMap };
+export type CatOptions = { texture?: string; map?: GameMap; frameH?: number };
 
 // Elias: passeia pelo café, senta e dorme na almofada (ou na cama do Cantinho, quando existir).
 // Às vezes sobe num móvel (`perches`, ex.: a mesa de jogos) e dorme lá em cima.
@@ -31,7 +31,8 @@ export class Cat {
     // a textura é criada pela cena; aqui só recortamos os quadros (uma vez)
     if (!scene.anims.exists(this.walkAnim)) {
       const tex = scene.textures.get(key);
-      for (let f = 0; f < CAT_FRAMES; f++) if (!tex.has(String(f))) tex.add(f, 0, f * CAT_W, 0, CAT_W, CAT_H);
+      const fh = opts.frameH ?? CAT_H;
+      for (let f = 0; f < CAT_FRAMES; f++) if (!tex.has(String(f))) tex.add(f, 0, f * CAT_W, 0, CAT_W, fh);
       scene.anims.create({ key: this.walkAnim, frames: [0, 1].map((frame) => ({ key, frame })), frameRate: 6, repeat: -1 });
     }
     const p = tileToFeet(start);
@@ -136,6 +137,24 @@ export class Cat {
       this.sprite.setFrame(2);
       this.until = time + 3_000 + Math.random() * 6_000;
     }
+  }
+
+  // troca a folha de quadros (ex.: a Mucego com outro acessório), mantendo o que ela está fazendo
+  retexture(key: string, frameH = CAT_H) {
+    const anim = `${key}-walk`;
+    if (!this.scene.anims.exists(anim)) {
+      const tex = this.scene.textures.get(key);
+      for (let f = 0; f < CAT_FRAMES; f++) if (!tex.has(String(f))) tex.add(f, 0, f * CAT_W, 0, CAT_W, frameH);
+      this.scene.anims.create({ key: anim, frames: [0, 1].map((frame) => ({ key, frame })), frameRate: 6, repeat: -1 });
+    }
+    this.walkAnim = anim;
+    const frame = Number(this.sprite.frame.name) || 0;
+    if (this.state === 'walk') this.sprite.play(anim, true);
+    else this.sprite.setTexture(key, frame);
+  }
+
+  setPerches(perches: Point[]) {
+    this.perches = perches;
   }
 
   // vai até um lugar e senta lá (ex.: a Mucego do lado de uma planta pronta)

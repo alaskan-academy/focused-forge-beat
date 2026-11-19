@@ -84,6 +84,9 @@ export default function DevPanel({ store }: { store: LocalStore }) {
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.advanceHours(1))}>
           ⏩ +1 hora
         </button>
+        <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.giveProduce())}>
+          🍓 Comida da horta
+        </button>
         <button type="button" className="cc-btn-ghost px-2 py-1 text-xs" onClick={act(() => store.togglePartner())}>
           {store.hasPartner() ? 'Jogar sozinho' : 'Com a Jessica'}
         </button>

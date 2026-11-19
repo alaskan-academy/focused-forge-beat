@@ -144,3 +144,87 @@ export function buildScratcher(): HTMLCanvasElement {
   r(8, 9, 3, 2, '#e07a5f');
   return canvas;
 }
+
+// ── acessórios da Mucego Frutífero ──────────────────────────────────────────
+// Folha com 6 px a mais em cima (para chapéus); posição da cabeça/pescoço em cada quadro.
+export const ACCESSORY_PAD = 6;
+type Anchor = { hx: number; hy: number; hw: number; nx: number; ny: number; nw: number; eyeY: number; eyeX: number; front: boolean };
+const ANCHORS: Anchor[] = [
+  { hx: 11, hy: 2, hw: 4, nx: 11, ny: 6, nw: 3, eyeY: 3, eyeX: 13, front: false },
+  { hx: 11, hy: 2, hw: 4, nx: 11, ny: 6, nw: 3, eyeY: 3, eyeX: 13, front: false },
+  { hx: 6, hy: 1, hw: 5, nx: 6, ny: 5, nw: 5, eyeY: 2, eyeX: 7, front: true },
+  { hx: 10, hy: 5, hw: 4, nx: 10, ny: 8, nw: 3, eyeY: 6, eyeX: 11, front: false },
+];
+
+const ACCESSORY: Record<string, (r: R, a: Anchor) => void> = {
+  red_bow: (r, a) => bow(r, a, '#d9463e'),
+  pink_bow: (r, a) => bow(r, a, '#f29ec0'),
+  blue_bow: (r, a) => bow(r, a, '#5b8fd0'),
+  bell_collar: (r, a) => {
+    r(a.nx, a.ny, a.nw, 1, '#d9463e');
+    r(a.nx + 1, a.ny + 1, 1, 1, '#f2cf4a');
+  },
+  bandana: (r, a) => {
+    r(a.nx, a.ny, a.nw, 1, '#d9463e');
+    r(a.nx + 1, a.ny + 1, Math.max(1, a.nw - 2), 1, '#d9463e');
+  },
+  scarf: (r, a) => {
+    r(a.nx - 1, a.ny, a.nw + 2, 1, '#5b6ea8');
+    r(a.nx, a.ny + 1, 1, 2, '#5b6ea8');
+  },
+  flower_crown: (r, a) => {
+    for (let i = 0; i < a.hw; i++) r(a.hx + i, a.hy - 1, 1, 1, i % 2 ? '#f2cf4a' : '#f29ec0');
+  },
+  straw_hat: (r, a) => {
+    r(a.hx - 1, a.hy - 1, a.hw + 2, 1, '#e8c46a');
+    r(a.hx, a.hy - 3, a.hw, 2, '#e8c46a');
+    r(a.hx, a.hy - 2, a.hw, 1, '#c4554d');
+  },
+  sunglasses: (r, a) => {
+    if (a.front) r(a.hx, a.eyeY, a.hw, 1, '#111111');
+    else r(a.eyeX - 1, a.eyeY, 3, 1, '#111111');
+  },
+  witch_hat: (r, a) => {
+    r(a.hx - 1, a.hy - 1, a.hw + 2, 1, '#2a1d3a');
+    r(a.hx, a.hy - 3, a.hw - 1, 2, '#2a1d3a');
+    r(a.hx + 1, a.hy - 5, 2, 2, '#2a1d3a');
+    r(a.hx, a.hy - 2, a.hw - 1, 1, '#9a6ad0');
+  },
+  santa_hat: (r, a) => {
+    r(a.hx - 1, a.hy - 1, a.hw + 2, 1, '#fffaf0');
+    r(a.hx, a.hy - 3, a.hw, 2, '#d9463e');
+    r(a.hx + a.hw - 2, a.hy - 5, 2, 2, '#d9463e');
+    r(a.hx + a.hw - 1, a.hy - 6, 1, 1, '#fffaf0');
+  },
+  golden_crown: (r, a) => {
+    r(a.hx, a.hy - 2, a.hw, 2, '#f2c12e');
+    r(a.hx, a.hy - 3, 1, 1, '#f2c12e');
+    r(a.hx + a.hw - 1, a.hy - 3, 1, 1, '#f2c12e');
+    r(a.hx + (a.hw >> 1), a.hy - 3, 1, 1, '#f2c12e');
+    r(a.hx + (a.hw >> 1), a.hy - 2, 1, 1, '#d9463e');
+  },
+};
+
+function bow(r: R, a: Anchor, c: string) {
+  r(a.hx - 1, a.hy - 1, 3, 2, c);
+  r(a.hx, a.hy - 1, 1, 2, '#3a2a24');
+}
+
+// Folha da Mucego com o acessório que ela está usando (ou nenhum).
+export function buildCatSheetWithAccessory(C: CatPalette, accessory: string | null): HTMLCanvasElement {
+  const base = buildCatSheet(C);
+  const canvas = document.createElement('canvas');
+  canvas.width = base.width;
+  canvas.height = CAT_H + ACCESSORY_PAD;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(base, 0, ACCESSORY_PAD);
+  const draw = accessory ? ACCESSORY[accessory] : undefined;
+  if (draw)
+    ANCHORS.forEach((a, i) =>
+      draw((x, y, w, h, c) => {
+        ctx.fillStyle = c;
+        ctx.fillRect(i * CAT_W + x, ACCESSORY_PAD + y, w, h);
+      }, a),
+    );
+  return canvas;
+}

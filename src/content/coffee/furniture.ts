@@ -38,7 +38,7 @@ export type Tier = 'basic' | 'good' | 'special' | 'legendary';
 export type Placement = 'floor' | 'rug' | 'wall';
 export type Category = 'seat' | 'table' | 'storage' | 'decor' | 'plant' | 'light' | 'kitchen' | 'fun' | 'rug' | 'wall' | 'pet';
 // estações de estudo (Etapa 4)
-export type Station = 'pc' | 'desk' | 'phone' | 'bookshelf' | 'tv' | 'gametable';
+export type Station = 'pc' | 'desk' | 'phone' | 'bookshelf' | 'tv' | 'gametable' | 'aquarium';
 
 export type Variant = { en: string; pt: string; sprite: Sprite };
 
@@ -141,7 +141,7 @@ export const FURNITURE: Furniture[] = [
   item({ id: 'computer', en: 'computer', pt: 'computador', desc: 'For reviews, emails and memes.', descPt: 'Para revisões, e-mails e memes.', tier: 'special', price: 220, comfort: 6, category: 'fun', station: 'pc', variants: one(c('computer')) }),
   item({ id: 'tapestry', en: 'tapestry', pt: 'tapeçaria', desc: 'A long and beautiful wall decoration.', descPt: 'Uma decoração de parede longa e linda.', tier: 'special', price: 150, comfort: 7, category: 'wall', place: 'wall', w: 3, variants: [v('teal', 'azul-petróleo', k(394, 395, 396)), v('orange', 'laranja', k(421, 422, 423)), v('green', 'verde', k(448, 449, 450))] }),
   item({ id: 'world_map', en: 'world map', pt: 'mapa-múndi', desc: 'Where do we travel next?', descPt: 'Para onde vamos viajar agora?', tier: 'special', price: 120, comfort: 5, category: 'wall', place: 'wall', w: 2, variants: [v('old', 'antigo', k(344, 345)), v('city', 'cidade', k(371, 372))] }),
-  item({ id: 'aquarium', en: 'fish tank', pt: 'aquário', desc: 'Watching fish is very relaxing.', descPt: 'Olhar os peixes é muito relaxante.', tier: 'special', price: 220, comfort: 9, category: 'pet', variants: one(c('aquarium')) }),
+  item({ id: 'aquarium', en: 'fish tank', pt: 'aquário', desc: 'Watching fish is very relaxing.', descPt: 'Olhar os peixes é muito relaxante.', tier: 'special', price: 220, comfort: 9, category: 'pet', station: 'aquarium', variants: one(c('aquarium')) }),
   item({ id: 'scratching_post', en: 'scratching post', pt: 'arranhador', desc: 'Save the sofa!', descPt: 'Salve o sofá!', tier: 'special', price: 120, comfort: 6, category: 'pet', variants: one(c('scratcher')) }),
   item({ id: 'monstera', en: 'monstera', pt: 'costela-de-adão', desc: 'A big plant with big leaves.', descPt: 'Uma planta grande de folhas grandes.', tier: 'special', price: 130, comfort: 7, category: 'plant', variants: one(c('monstera')) }),
   item({ id: 'chess_table', en: 'chess table', pt: 'mesa de xadrez', desc: 'Your move!', descPt: 'Sua vez!', tier: 'special', price: 160, comfort: 6, category: 'fun', station: 'gametable', variants: one(c('chessTable')) }),

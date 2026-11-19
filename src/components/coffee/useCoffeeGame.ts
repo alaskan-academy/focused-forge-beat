@@ -463,6 +463,61 @@ export function useCoffeeGame(store: CoffeeStore) {
     await refresh();
   }, [store, refresh]);
 
+  // ── pescaria ─────────────────────────────────────────────────────────────
+  const fishCast = useCallback((together: boolean) => store.fishCast(together), [store]);
+  const fishCatch = useCallback(
+    async (castId: string, success: boolean) => {
+      const r = await store.fishCatch(castId, success);
+      await refresh();
+      return r;
+    },
+    [store, refresh],
+  );
+  const buyBait = useCallback(
+    async (qty: number) => {
+      await store.buyBait(qty);
+      await refresh();
+    },
+    [store, refresh],
+  );
+  const baitFromPantry = useCallback(
+    async (cropId: string) => {
+      const r = await store.baitFromPantry(cropId);
+      await refresh();
+      return r;
+    },
+    [store, refresh],
+  );
+  const feedMucego = useCallback(async () => {
+    const xp = await store.feedMucego();
+    await refresh();
+    return xp;
+  }, [store, refresh]);
+
+  // ── Mucego Frutífero e lojinha do jardim (cada ação atualiza o estado depois) ──
+  const withRefresh = useCallback(
+    <A extends unknown[], R>(fn: (...a: A) => Promise<R>) =>
+      async (...a: A) => {
+        const r = await fn(...a);
+        await refresh();
+        return r;
+      },
+    [refresh],
+  );
+  const mucego = useMemo(
+    () => ({
+      pet: withRefresh(() => store.mucegoPet()),
+      feed: withRefresh((c: string) => store.mucegoFeed(c)),
+      treat: withRefresh((t: string) => store.mucegoTreat(t)),
+      gift: withRefresh(() => store.mucegoGift()),
+      wear: withRefresh((a: string | null) => store.mucegoWear(a)),
+      buy: withRefresh((i: string) => store.gardenBuy(i)),
+      place: withRefresh((id: string, x: number, y: number, flip: boolean) => store.gardenItemPlace(id, x, y, flip)),
+      store: withRefresh((id: string) => store.gardenItemStore(id)),
+    }),
+    [store, withRefresh],
+  );
+
   const dismissMorning = useCallback(() => setMorning((m) => (m ? { ...m, claimed: false } : m)), []);
 
   // ── estações: telefone e TV ───────────────────────────────────────────
@@ -521,5 +576,5 @@ export function useCoffeeGame(store: CoffeeStore) {
   }, [store, cafeId, myName, lookKey]);
   const move = useCallback((p: Position) => presence.current?.move(p), []);
 
-  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward, seedGift, dismissSeedGift, plantSeed, waterPlant, harvestPlant, buySeed, buyPlot };
+  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward, seedGift, dismissSeedGift, plantSeed, waterPlant, harvestPlant, buySeed, buyPlot, fishCast, fishCatch, buyBait, baitFromPantry, feedMucego, mucego };
 }

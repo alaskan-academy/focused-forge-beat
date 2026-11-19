@@ -11,6 +11,9 @@ import type { HouseItem } from '../houseItems';
 import type { RoomId } from '../house';
 import type { MorningBonus } from '../comfort';
 import type { Plant } from '../garden';
+import type { CastResult, CatchResult, FishingData } from '../fishing';
+import type { MucegoData } from '../mucego';
+import type { GardenItem } from '../gardenItems';
 
 export type { HouseItem } from '../houseItems';
 
@@ -69,6 +72,9 @@ export type Snapshot = {
   houseItems: HouseItem[]; // móveis da casa (colocados e nas mochilas)
   notes: Note[]; // recados do telefone (que eu mandei ou recebi), mais novos primeiro
   garden: GardenData; // horta do quintal
+  fishing: FishingData; // pescaria: lançamentos, iscas e álbum do café
+  mucego: MucegoData; // Mucego Frutífero: amizade, acessórios, petiscos
+  gardenItems: GardenItem[]; // decoração e cantinhos da Mucego no jardim (colocados e nas mochilas)
 };
 
 // Horta: meus canteiros, sementes e despensa; quantos canteiros a outra pessoa tem; plantas dos dois.
@@ -181,6 +187,21 @@ export interface CoffeeStore {
   waterPlant(plantId: string): Promise<{ changed: boolean; xp: number }>;
   harvestPlant(plantId: string): Promise<HarvestResult>;
   buyPlot(): Promise<void>;
+  // pescaria: lançar (sorteia o peixe), resultado da pergunta, iscas e dar peixe para a Mucego
+  fishCast(together: boolean): Promise<CastResult>;
+  fishCatch(castId: string, success: boolean): Promise<CatchResult>;
+  buyBait(qty: number): Promise<void>;
+  baitFromPantry(cropId: string): Promise<{ bait: number; lucky: number }>;
+  feedMucego(): Promise<number>;
+  // Mucego Frutífero e lojinha do jardim
+  mucegoPet(): Promise<{ ok: boolean; friendship: number }>;
+  mucegoFeed(cropId: string): Promise<{ friendship: number; gain: number; request: boolean; coins: number }>;
+  mucegoTreat(treatId: string): Promise<{ friendship: number; gain: number }>;
+  mucegoGift(): Promise<{ crop: string }>;
+  mucegoWear(accessory: string | null): Promise<void>;
+  gardenBuy(itemId: string): Promise<void>;
+  gardenItemPlace(id: string, x: number, y: number, flip: boolean): Promise<void>;
+  gardenItemStore(id: string): Promise<void>;
   subscribe(cb: () => void): () => void;
   joinPresence(cafeId: string, self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle;
 }

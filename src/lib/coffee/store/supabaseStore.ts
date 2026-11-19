@@ -11,6 +11,9 @@ import { dayKey, type SudokuProgress, type SudokuPuzzle, type SudokuSize } from 
 import type { LandlordBill, LandlordPayInput, LandlordPayResult } from '../landlord';
 import type { RoomId } from '../house';
 import type { MorningBonus } from '../comfort';
+import type { AlbumRow, CastResult, CatchResult, FishingData } from '../fishing';
+import type { MucegoData } from '../mucego';
+import type { GardenItem } from '../gardenItems';
 import type {
   CafeCustomer,
   CustomItem,
@@ -92,7 +95,7 @@ export class SupabaseStore implements CoffeeStore {
     }
 
     const yesterday = dayKey(new Date(Date.now() - 86_400_000));
-    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom, landlord, house, notes, gardens, plants] = await Promise.all([
+    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom, landlord, house, notes, gardens, plants, fishState, album, mucego, gardenItems] = await Promise.all([
       db.from('coffee_cafes').select('id, name, invite_code, reputation').eq('id', cid).single(),
       db.from('coffee_members').select('user_id, joined_at').eq('cafe_id', cid).order('joined_at'),
       db.from('coffee_players').select('*').eq('cafe_id', cid),
@@ -112,6 +115,10 @@ export class SupabaseStore implements CoffeeStore {
       db.from('coffee_notes').select('id, from_user, to_user, body, heart, created_at, read_at').eq('cafe_id', cid).order('created_at', { ascending: false }).limit(40),
       db.from('coffee_garden').select('user_id, plots, seeds, pantry').eq('cafe_id', cid),
       db.from('coffee_garden_plants').select('id, owner_id, plot, crop_id, item_id, stage, stage_started_at, watered, last_watered_by, planted_at').eq('cafe_id', cid),
+      db.rpc('coffee_fishing_state'),
+      db.from('coffee_fish_album').select('fish_id, first_by, first_at, counts').eq('cafe_id', cid),
+      db.rpc('coffee_mucego_state'),
+      db.from('coffee_garden_items').select('id, owner_id, item_id, placed, x, y, flip, created_at').eq('cafe_id', cid).order('created_at'),
     ]);
 
     const cafeRow = check(cafe) as Row;
@@ -197,6 +204,16 @@ export class SupabaseStore implements CoffeeStore {
           plants: plants.error ? [] : ((plants.data as unknown as GardenData['plants']) ?? []),
         } satisfies GardenData;
       })(),
+      // sem a migration da pescaria: 0 lançamentos (o lago só não funciona)
+      fishing: {
+        ...((fishState.error ? { free_left: 0, bait: 0, lucky: 0, fed_today: true } : fishState.data) as Omit<FishingData, 'album'>),
+        album: album.error ? [] : ((album.data as unknown as AlbumRow[]) ?? []),
+      },
+      // sem a migration da Mucego: estado vazio (ela só passeia)
+      mucego: mucego.error
+        ? { friendship: 0, accessory: null, accessories: [], request_done: true, last_pet_at: null, feeds_today: 5, treats: {}, gift_ready: false }
+        : (mucego.data as MucegoData),
+      gardenItems: gardenItems.error ? [] : ((gardenItems.data as unknown as GardenItem[]) ?? []),
     };
   }
 
@@ -398,6 +415,81 @@ export class SupabaseStore implements CoffeeStore {
     this.notify();
   }
 
+  // ── pescaria ──────────────────────────────────────────────────────────────
+
+  async fishCast(together: boolean) {
+    return check(await db.rpc('coffee_fish_cast', { p_together: together })) as CastResult;
+  }
+
+  async fishCatch(castId: string, success: boolean) {
+    const res = check(await db.rpc('coffee_fish_catch', { p_cast: castId, p_success: success })) as CatchResult;
+    this.notify();
+    return res;
+  }
+
+  async buyBait(qty: number) {
+    check(await db.rpc('coffee_fish_buy_bait', { p_qty: qty }));
+    this.notify();
+  }
+
+  async baitFromPantry(cropId: string) {
+    const res = check(await db.rpc('coffee_fish_bait_from_pantry', { p_crop: cropId })) as { bait: number; lucky: number };
+    this.notify();
+    return res;
+  }
+
+  async feedMucego() {
+    const res = check(await db.rpc('coffee_fish_feed_mucego')) as { xp: number };
+    this.notify();
+    return res.xp;
+  }
+
+  // ── Mucego Frutífero e lojinha do jardim ──────────────────────────────────
+
+  async mucegoPet() {
+    const r = check(await db.rpc('coffee_mucego_pet')) as { ok: boolean; friendship: number };
+    this.notify();
+    return r;
+  }
+
+  async mucegoFeed(cropId: string) {
+    const r = check(await db.rpc('coffee_mucego_feed', { p_crop: cropId })) as { friendship: number; gain: number; request: boolean; coins: number };
+    this.notify();
+    return r;
+  }
+
+  async mucegoTreat(treatId: string) {
+    const r = check(await db.rpc('coffee_mucego_treat', { p_treat: treatId })) as { friendship: number; gain: number };
+    this.notify();
+    return r;
+  }
+
+  async mucegoGift() {
+    const r = check(await db.rpc('coffee_mucego_gift')) as { crop: string };
+    this.notify();
+    return r;
+  }
+
+  async mucegoWear(accessory: string | null) {
+    check(await db.rpc('coffee_mucego_wear', { p_accessory: accessory }));
+    this.notify();
+  }
+
+  async gardenBuy(itemId: string) {
+    check(await db.rpc('coffee_garden_buy', { p_item: itemId }));
+    this.notify();
+  }
+
+  async gardenItemPlace(id: string, x: number, y: number, flip: boolean) {
+    check(await db.rpc('coffee_garden_item_place', { p_id: id, p_x: x, p_y: y, p_flip: flip }));
+    this.notify();
+  }
+
+  async gardenItemStore(id: string) {
+    check(await db.rpc('coffee_garden_item_store', { p_id: id }));
+    this.notify();
+  }
+
   async prepReward() {
     const res = check(await db.rpc('coffee_prep_reward')) as DailyReward;
     if (res.coins) this.notify();
@@ -422,7 +514,7 @@ export class SupabaseStore implements CoffeeStore {
     if (this.dbChannel) db.removeChannel(this.dbChannel);
     const cid = this.cafeId!;
     let ch = db.channel(`coffee-db-${cid}`);
-    for (const table of ['coffee_customers', 'coffee_activity', 'coffee_upgrades', 'coffee_players', 'coffee_house_items', 'coffee_notes', 'coffee_garden', 'coffee_garden_plants'])
+    for (const table of ['coffee_customers', 'coffee_activity', 'coffee_upgrades', 'coffee_players', 'coffee_house_items', 'coffee_notes', 'coffee_garden', 'coffee_garden_plants', 'coffee_fish_album', 'coffee_mucego', 'coffee_garden_items'])
       ch = ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `cafe_id=eq.${cid}` }, () => this.notify());
     this.dbChannel = ch.subscribe();
   }
