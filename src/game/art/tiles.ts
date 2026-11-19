@@ -1,6 +1,8 @@
 // Tileset placeholder desenhado em código (16×16). Quando houver um tileset de verdade,
 // basta carregar a imagem com o mesmo layout de índices (TILE_INDEX) ou trocar o mapeamento em tileIndexFor.
 import { MAP_H, MAP_W, TILE, tileAt } from '@/lib/coffee/map';
+import { charAt } from '@/lib/coffee/grid';
+import { HOUSE_MAP, HOUSE_WINDOWS_X } from '@/lib/coffee/house';
 
 export const TILE_INDEX = {
   floorA: 0,
@@ -22,9 +24,13 @@ export const TILE_INDEX = {
   register: 15,
   pastryCase: 16,
   cups: 17,
+  // casa
+  parquet: 18,
+  kitchenTile: 19,
+  movingBox: 20,
 } as const;
 
-const COUNT = 18;
+const COUNT = 21;
 
 type R = (x: number, y: number, w: number, h: number, c: string) => void;
 
@@ -136,6 +142,42 @@ draw[TILE_INDEX.counter] = (r) => {
   r(2, 8, 5, 6, C.counterFrontLight);
   r(9, 8, 5, 6, C.counterFrontLight);
   r(0, 15, 16, 1, C.shadow);
+};
+
+// taco da sala: losangos de madeira mais clara
+draw[TILE_INDEX.parquet] = (r) => {
+  r(0, 0, 16, 16, '#b07a4c');
+  for (let i = 0; i < 4; i++)
+    for (let j = 0; j < 4; j++) {
+      const x = i * 4;
+      const y = j * 4;
+      if ((i + j) % 2 === 0) {
+        r(x, y, 4, 1, '#c48b5a');
+        r(x, y + 2, 4, 1, '#c48b5a');
+      } else {
+        r(x, y, 1, 4, '#c48b5a');
+        r(x + 2, y, 1, 4, '#c48b5a');
+      }
+      r(x + 3, y + 3, 1, 1, '#94643d');
+    }
+};
+
+// azulejo da cozinha: quadriculado creme e terracota
+draw[TILE_INDEX.kitchenTile] = (r) => {
+  for (let i = 0; i < 2; i++)
+    for (let j = 0; j < 2; j++) r(i * 8, j * 8, 8, 8, (i + j) % 2 === 0 ? '#efe2c6' : '#d9b48c');
+  r(0, 7, 16, 1, '#c9a47c');
+  r(7, 0, 1, 16, '#c9a47c');
+};
+
+// caixa de mudança de papelão (o quarto começa quase vazio)
+draw[TILE_INDEX.movingBox] = (r) => {
+  r(2, 12, 12, 3, C.shadow);
+  r(2, 4, 12, 9, '#c79a62');
+  r(2, 4, 12, 3, '#d9b07a');
+  r(7, 4, 2, 9, '#a9784a');
+  r(5, 9, 6, 2, '#efe2c6');
+  r(2, 12, 12, 1, '#a9784a');
 };
 
 // caixa registradora (sobre o balcão)
@@ -296,7 +338,7 @@ export function buildLayers(): { ground: number[][]; furniture: number[][]; obje
       const t = tileAt(x, y);
       const floorTile = (x * 7 + y * 3) % 5 === 0 ? TILE_INDEX.floorB : TILE_INDEX.floorA;
       if (t === 'W') g.push(y === 1 && x > 0 && x < MAP_W - 1 ? (WINDOW_X.has(x) ? TILE_INDEX.window : TILE_INDEX.wallFace) : TILE_INDEX.wallTop);
-      else if (t === 'D') g.push(TILE_INDEX.doorMat);
+      else if (t === 'D' || t === 'H') g.push(TILE_INDEX.doorMat);
       else g.push(floorTile);
 
       let k = -1;
@@ -314,6 +356,57 @@ export function buildLayers(): { ground: number[][]; furniture: number[][]; obje
 
       const own: Partial<Record<string, number>> = { M: TILE_INDEX.machine, K: TILE_INDEX.cushion, G: TILE_INDEX.gameTable };
       o.push(own[t] ?? (t === 'C' ? (COUNTER_PROPS[x] ?? -1) : -1));
+    }
+    ground.push(g);
+    furniture.push(f);
+    objects.push(o);
+  }
+  return { ground, furniture, objects };
+}
+
+// ── Casa ────────────────────────────────────────────────────────────────────
+
+const HOUSE_KENNEY = {
+  // cama de casal 2×2: laranja no quarto 0, verde no quarto 1
+  beds: [
+    [12, 13, 39, 40],
+    [14, 15, 41, 42],
+  ],
+  sofa: [320, 321],
+  armchair: 322,
+  stove: 392,
+} as const;
+
+// Converte o mapa da casa nas mesmas três camadas do café.
+export function buildHouseLayers(): { ground: number[][]; furniture: number[][]; objects: number[][] } {
+  const at = (x: number, y: number) => charAt(HOUSE_MAP, x, y);
+  const ground: number[][] = [];
+  const furniture: number[][] = [];
+  const objects: number[][] = [];
+  for (let y = 0; y < HOUSE_MAP.h; y++) {
+    const g: number[] = [];
+    const f: number[] = [];
+    const o: number[] = [];
+    for (let x = 0; x < HOUSE_MAP.w; x++) {
+      const t = at(x, y);
+      const wood = (x * 7 + y * 3) % 5 === 0 ? TILE_INDEX.floorB : TILE_INDEX.floorA;
+      if (t === 'W') g.push(y === 1 ? (HOUSE_WINDOWS_X.includes(x) ? TILE_INDEX.window : TILE_INDEX.wallFace) : y === 8 && x > 0 && x < HOUSE_MAP.w - 1 && x !== 14 ? TILE_INDEX.wallFace : TILE_INDEX.wallTop);
+      else if (t === 'E') g.push(TILE_INDEX.doorMat);
+      else if (t === ',' || (t === 'd' && y > 8) || at(x, y) === 'O' || at(x, y) === 'A') g.push(TILE_INDEX.parquet);
+      else if (t === '_' || t === 'F' || t === 'C') g.push(TILE_INDEX.kitchenTile);
+      else g.push(wood);
+
+      let k = -1;
+      if (t === 'B') {
+        const left = at(x - 1, y) !== 'B';
+        const top = at(x, y - 1) !== 'B';
+        k = HOUSE_KENNEY.beds[x < 11 ? 0 : 1][(top ? 0 : 2) + (left ? 0 : 1)];
+      } else if (t === 'O') k = HOUSE_KENNEY.sofa[at(x - 1, y) === 'O' ? 1 : 0];
+      else if (t === 'A') k = HOUSE_KENNEY.armchair;
+      else if (t === 'F') k = HOUSE_KENNEY.stove;
+      else if (t === 'C') k = at(x + 1, y) === 'C' ? KENNEY.counter : KENNEY.counterEnd;
+      f.push(k);
+      o.push(t === 'X' ? TILE_INDEX.movingBox : -1);
     }
     ground.push(g);
     furniture.push(f);

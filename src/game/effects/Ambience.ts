@@ -15,7 +15,8 @@ function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, d
   scene.textures.addCanvas(key, c);
 }
 
-type Options = { machine: { x: number; y: number }; windows: number[]; lamps: { x: number; y: number }[] };
+// machine: de onde sai vapor (opcional) · windows: colunas das janelas (linha 1) · size: tamanho do mapa em tiles
+type Options = { machine?: { x: number; y: number }; windows: number[]; lamps: { x: number; y: number }[]; size?: { w: number; h: number } };
 
 export class Ambience {
   private overlay: Phaser.GameObjects.Rectangle;
@@ -60,18 +61,20 @@ export class Ambience {
       ctx.fill();
     });
 
-    // vapor da máquina de café
-    scene.add
-      .particles(opts.machine.x, opts.machine.y, 'fx-dot', {
-        speedY: { min: -12, max: -7 },
-        speedX: { min: -3, max: 3 },
-        lifespan: 1700,
-        alpha: { start: 0.55, end: 0 },
-        scale: { start: 0.8, end: 1.8 },
-        frequency: 320,
-        quantity: 1,
-      })
-      .setDepth(9_600);
+    // vapor da máquina de café (ou do fogão)
+    if (opts.machine) {
+      scene.add
+        .particles(opts.machine.x, opts.machine.y, 'fx-dot', {
+          speedY: { min: -12, max: -7 },
+          speedX: { min: -3, max: 3 },
+          lifespan: 1700,
+          alpha: { start: 0.55, end: 0 },
+          scale: { start: 0.8, end: 1.8 },
+          frequency: 320,
+          quantity: 1,
+        })
+        .setDepth(9_600);
+    }
 
     // luz das janelas (com poeira dançando dentro)
     for (const wx of opts.windows) {
@@ -97,7 +100,7 @@ export class Ambience {
 
     // cor da hora do dia (multiplica as cores do café; fica abaixo dos nomes e balões)
     this.overlay = scene.add
-      .rectangle(0, 0, MAP_W * TILE, MAP_H * TILE, 0xffffff, 0)
+      .rectangle(0, 0, (opts.size?.w ?? MAP_W) * TILE, (opts.size?.h ?? MAP_H) * TILE, 0xffffff, 0)
       .setOrigin(0, 0)
       .setBlendMode(Phaser.BlendModes.MULTIPLY)
       .setDepth(7_900);

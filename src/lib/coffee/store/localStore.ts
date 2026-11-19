@@ -8,6 +8,10 @@ import type { ArcState } from '../arcs';
 import type { VocabState } from '../srs';
 import { PUZZLE_COINS, dayKey, type SudokuProgress, type SudokuPuzzle, type SudokuSize } from '../sudoku';
 import { computeBill, landlordXp, settle, type LandlordBill, type LandlordPayInput } from '../landlord';
+import { levelFromXp } from '../activities';
+import { FURNITURE_BY_ID, minLevelOf } from '@/content/coffee/furniture';
+import { canEditRoom, type HouseItem } from '../houseItems';
+import type { RoomId } from '../house';
 import {
   CHARACTER_CHANCE,
   CAT_CORNER,
@@ -39,6 +43,7 @@ type Data = {
   upgrade: UpgradeState;
   puzzles: PuzzleRow[];
   custom: CustomItem[];
+  house: HouseItem[];
   // Belmont: mesmas regras de coffee_landlord_compute/pay
   landlord: { debt: number; visits: number; last_visit_day: string | null; booked_by_me: boolean | null; earned_since: number; errors_since: number; active_day: string | null };
   last_spawn_at: string;
@@ -59,6 +64,7 @@ function fresh(): Data {
     feed: [{ id: 'f0', user_id: USER, kind: 'opened_cafe', data: {}, created_at: new Date().toISOString() }],
     upgrade: { id: 'local-upgrade', key: CAT_CORNER.key, cost: CAT_CORNER.cost, funded: 0, completed_at: null, contributions: {} },
     puzzles: [],
+    house: [],
     landlord: { debt: 0, visits: 0, last_visit_day: null, booked_by_me: null, earned_since: 0, errors_since: 0, active_day: null },
     // uma anotação da "Jessica" de teste, para experimentar o copiar
     custom: [
@@ -87,7 +93,7 @@ export class LocalStore implements CoffeeStore {
   }
 
   async load(): Promise<Snapshot> {
-    const { me, partner, customers, items, arcs, feed, upgrade, puzzles, custom } = this.data;
+    const { me, partner, customers, items, arcs, feed, upgrade, puzzles, custom, house } = this.data;
     const landlord = this.landlordBill();
     return {
       cafe: { id: 'local', name: 'Coffee Cats', invite_code: 'LOCAL1', reputation: 0, members: [USER, ...(partner ? [partner.user_id] : [])] },
@@ -101,6 +107,7 @@ export class LocalStore implements CoffeeStore {
       puzzles: puzzles.map((p) => ({ ...p })),
       customItems: custom.map((c) => ({ ...c })),
       landlord,
+      houseItems: house.map((h) => ({ ...h })),
     };
   }
 
@@ -320,6 +327,53 @@ export class LocalStore implements CoffeeStore {
     this.write();
   }
 
+  // ── casa (mesmas regras de coffee_house_buy/place/store) ───────────────────
+
+  private members() {
+    return [USER, ...(this.data.partner ? [this.data.partner.user_id] : [])];
+  }
+
+  async buyHouseItem(itemId: string, variant: number) {
+    const f = FURNITURE_BY_ID[itemId];
+    if (!f) throw new Error('unknown item');
+    if (variant < 0 || variant >= f.variants.length) throw new Error('unknown variant');
+    if (levelFromXp(this.data.me.xp).level < minLevelOf(f)) throw new Error('level too low');
+    if (this.data.me.coins < f.price) throw new Error('not enough coins');
+    this.data.me.coins -= f.price;
+    const it: HouseItem = { id: newId(), owner_id: USER, item_id: itemId, variant, room: null, x: 0, y: 0, flip: false, created_at: this.now().toISOString() };
+    this.data.house.push(it);
+    this.log(USER, 'house_buy', { item: itemId, variant, price: f.price });
+    this.write();
+    return { id: it.id, total_coins: this.data.me.coins };
+  }
+
+  async placeHouseItem(id: string, room: RoomId, x: number, y: number, flip: boolean) {
+    const it = this.data.house.find((h) => h.id === id);
+    if (!it) throw new Error('item not found');
+    const shared = (r: RoomId | null) => r === 'living' || r === 'kitchen';
+    if (it.owner_id !== USER && (!shared(it.room) || !shared(room))) throw new Error('not your item');
+    if (!canEditRoom(room, this.members(), USER)) throw new Error('not your room');
+    Object.assign(it, { room, x, y, flip });
+    this.write();
+  }
+
+  async storeHouseItem(id: string) {
+    const it = this.data.house.find((h) => h.id === id);
+    if (!it) throw new Error('item not found');
+    if (it.owner_id !== USER && !(it.room === 'living' || it.room === 'kitchen')) throw new Error('not your item');
+    it.room = null;
+    this.write();
+  }
+
+  // teste: a outra pessoa compra e põe uma planta na sala
+  partnerDecorates() {
+    const p = this.data.partner;
+    if (!p) return;
+    this.data.house.push({ id: newId(), owner_id: p.user_id, item_id: 'potted_plant', variant: 1, room: 'living', x: 10, y: 9, flip: false, created_at: this.now().toISOString() });
+    this.log(p.user_id, 'house_buy', { item: 'potted_plant', variant: 1, price: 12 });
+    this.write();
+  }
+
   // café local já existe; criar/entrar não se aplicam
   async createCafe() {}
   async joinCafe() {}
@@ -452,6 +506,7 @@ export class LocalStore implements CoffeeStore {
       d.customers = d.customers.map((c) => ({ ...c, served_by: c.served_by ?? [] }));
       d.puzzles = d.puzzles ?? [];
       d.custom = d.custom ?? fresh().custom;
+      d.house = d.house ?? [];
       d.landlord = { ...fresh().landlord, ...(d.landlord ?? {}) };
       return d;
     } catch {

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { appearanceFromSeed, type Direction } from '@/lib/coffee/character';
-import { CAT_BED, CAT_CUSHION, CAT_PERCHES, CAT_SCRATCHER, DOOR, INTERACTABLES, type Interactable, MAP_H, MAP_W, PLAYER_START, TILE, findPath, isWalkable, serveTiles, spotById, type Point } from '@/lib/coffee/map';
+import { CAT_BED, CAT_CUSHION, CAT_PERCHES, CAT_SCRATCHER, DOOR, FROM_HOUSE, HOUSE_DOOR, INTERACTABLES, type Interactable, MAP_H, MAP_W, PLAYER_START, TILE, findPath, isWalkable, serveTiles, spotById, type Point } from '@/lib/coffee/map';
 import { buildCatBed, buildCatSheet, buildScratcher } from '../art/cat';
 import { buildChalkboard } from '../art/decor';
 import { WINDOW_X, buildLayers, buildTilesetCanvas } from '../art/tiles';
@@ -37,28 +37,41 @@ export class CafeScene extends Phaser.Scene {
   private others = new Map<string, OtherView>();
   private objectBadges = new Map<string, Phaser.GameObjects.Image>();
   private lastSent = { x: 0, y: 0, dir: 'up' as Direction, t: 0 };
+  private fromHouse = false;
+  private leaving = false;
 
   constructor() {
     super('cafe');
   }
 
-  init(data: { bridge: GameBridge }) {
+  // spawn 'house': chegando pela porta da casa
+  init(data: { bridge: GameBridge; spawn?: 'house' }) {
     this.bridge = data.bridge;
+    this.fromHouse = data.spawn === 'house';
+    this.leaving = false;
+    this.pendingInteract = null;
+    this.customers = new Map();
+    this.others = new Map();
+    this.objectBadges = new Map();
   }
 
   // pacote Kenney "Roguelike Indoors" (CC0): móveis e decoração
   preload() {
-    this.load.image('kenney-indoor', kenneyIndoorUrl);
+    if (!this.textures.exists('kenney-indoor')) this.load.image('kenney-indoor', kenneyIndoorUrl);
   }
 
   create() {
     // texturas geradas em código (placeholder)
-    this.textures.addCanvas('cafe-tiles', buildTilesetCanvas());
-    this.textures.addCanvas('cat', buildCatSheet());
-    this.textures.addCanvas('cat-bed', buildCatBed());
-    this.textures.addCanvas('cat-scratcher', buildScratcher());
-    this.textures.addCanvas('chalkboard', buildChalkboard());
-    Object.keys(ICON_SIZE).forEach((name) => this.textures.addCanvas(`icon:${name}`, buildIconCanvas(name)));
+    // (só na primeira vez: a cena é recriada ao voltar da casa)
+    const canvas = (key: string, build: () => HTMLCanvasElement) => {
+      if (!this.textures.exists(key)) this.textures.addCanvas(key, build());
+    };
+    canvas('cafe-tiles', buildTilesetCanvas);
+    canvas('cat', buildCatSheet);
+    canvas('cat-bed', buildCatBed);
+    canvas('cat-scratcher', buildScratcher);
+    canvas('chalkboard', buildChalkboard);
+    Object.keys(ICON_SIZE).forEach((name) => canvas(`icon:${name}`, () => buildIconCanvas(name)));
 
     const map = this.make.tilemap({ tileWidth: TILE, tileHeight: TILE, width: MAP_W, height: MAP_H });
     const tileset = map.addTilesetImage('cafe', 'cafe-tiles', TILE, TILE, 0, 0)!;
@@ -75,8 +88,8 @@ export class CafeScene extends Phaser.Scene {
         if (objects[y][x] >= 0) o.putTileAt(objects[y][x], x, y);
       }
 
-    this.player = new Walker(this, this.bridge.state.appearance, PLAYER_START, 72);
-    this.player.face('up');
+    this.player = new Walker(this, this.bridge.state.appearance, this.fromHouse ? FROM_HOUSE : PLAYER_START, 72);
+    this.player.face(this.fromHouse ? 'left' : 'up');
 
     // Cantinho do gato (aparece quando a melhoria compartilhada é concluída)
     const bed = tileToFeet(CAT_BED);
@@ -121,7 +134,12 @@ export class CafeScene extends Phaser.Scene {
 
     this.applyState(this.bridge.state, null);
     this.offState = this.bridge.onState((s, prev) => this.applyState(s, prev));
-    this.events.once('shutdown', () => this.offState?.());
+    this.events.once('shutdown', () => {
+      this.offState?.();
+      this.scale.off('resize', this.layoutCamera, this);
+    });
+    this.cameras.main.fadeIn(350, 36, 23, 15);
+    this.bridge.emit('area', { area: 'cafe' });
     this.bridge.emit('ready', undefined);
   }
 
@@ -370,7 +388,7 @@ export class CafeScene extends Phaser.Scene {
     const k = this.keys;
     let dx = 0;
     let dy = 0;
-    if (this.bridge.state.inputEnabled) {
+    if (this.bridge.state.inputEnabled && !this.leaving) {
       if (k.A.isDown || k.LEFT.isDown) dx -= 1;
       if (k.D.isDown || k.RIGHT.isDown) dx += 1;
       if (k.W.isDown || k.UP.isDown) dy -= 1;
@@ -387,6 +405,10 @@ export class CafeScene extends Phaser.Scene {
 
     this.cat.update(time, dt);
     this.player.breathe(time);
+
+    // pisou na porta da casa
+    const pt = this.player.tile;
+    if (pt.x === HOUSE_DOOR.x && pt.y === HOUSE_DOOR.y) this.goHome();
     for (const v of this.customers.values()) v.walker.breathe(time);
 
     for (const v of this.others.values()) {
@@ -400,7 +422,7 @@ export class CafeScene extends Phaser.Scene {
     const me = this.player;
     if (time - this.lastSent.t > 120 && (Math.abs(me.x - this.lastSent.x) > 0.5 || Math.abs(me.y - this.lastSent.y) > 0.5 || me.dir !== this.lastSent.dir)) {
       this.lastSent = { x: me.x, y: me.y, dir: me.dir, t: time };
-      this.bridge.emit('move', { x: Math.round(me.x), y: Math.round(me.y), dir: me.dir });
+      this.bridge.emit('move', { x: Math.round(me.x), y: Math.round(me.y), dir: me.dir, area: 'cafe' });
     }
 
     for (const v of this.customers.values()) {
@@ -420,6 +442,14 @@ export class CafeScene extends Phaser.Scene {
       this.prompt.setPosition(nearObj.x * TILE + TILE / 2 + 9, Math.round(nearObj.y * TILE + 4 + Math.sin(time / 220)));
       if (pressed) this.useObject(nearObj);
     }
+  }
+
+  private goHome() {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.player.stop();
+    this.cameras.main.fadeOut(300, 36, 23, 15);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('house', { bridge: this.bridge, spawn: 'cafe' }));
   }
 
   // ── Câmera ────────────────────────────────────────────────────────────────

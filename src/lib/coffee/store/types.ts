@@ -7,6 +7,10 @@ import type { Grade, VocabState } from '../srs';
 import type { Pronoun } from '@/content/coffee/personalize';
 import type { SudokuProgress, SudokuPuzzle, SudokuSize } from '../sudoku';
 import type { LandlordBill, LandlordPayInput, LandlordPayResult } from '../landlord';
+import type { HouseItem } from '../houseItems';
+import type { RoomId } from '../house';
+
+export type { HouseItem } from '../houseItems';
 
 export type CafeCustomer = {
   id: string;
@@ -60,6 +64,7 @@ export type Snapshot = {
   puzzles: PuzzleRow[]; // meus puzzles de hoje e de ontem (mesa de jogos)
   customItems: CustomItem[]; // caderninho escrito à mão (meus e da outra pessoa, para copiar)
   landlord: LandlordBill | null; // conta de hoje do Belmont (null = indisponível)
+  houseItems: HouseItem[]; // móveis da casa (colocados e nas mochilas)
 };
 
 // Palavra anotada à mão no caderninho. Na revisão o item é `u:<id>` (ver content/coffee/custom.ts).
@@ -105,7 +110,9 @@ export type FinishInput = {
 export type FinishResult = { coins: number; tip: number; walkout: boolean; xp: number; total_coins: number; total_xp: number };
 
 // Presença em tempo real: onde a outra pessoa está agora.
-export type Position = { x: number; y: number; dir: Direction };
+// area: em que mapa a pessoa está (versões antigas não mandam: café)
+export type Area = 'cafe' | 'house';
+export type Position = { x: number; y: number; dir: Direction; area?: Area };
 export type RemotePresence = { user_id: string; name: string; appearance: Appearance | null; pos: Position | null };
 export type PresenceHandle = { move(p: Position): void; leave(): void };
 
@@ -136,6 +143,10 @@ export interface CoffeeStore {
   deleteCustomItem(id: string): Promise<void>;
   // Belmont Sulphur, o senhorio: paga a conta do dia no fim da visita
   landlordPay(input: LandlordPayInput): Promise<LandlordPayResult>;
+  // casa: comprar (vai para a mochila), colocar/mover e guardar de volta
+  buyHouseItem(itemId: string, variant: number): Promise<{ id: string; total_coins: number }>;
+  placeHouseItem(id: string, room: RoomId, x: number, y: number, flip: boolean): Promise<void>;
+  storeHouseItem(id: string): Promise<void>;
   subscribe(cb: () => void): () => void;
   joinPresence(cafeId: string, self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle;
 }

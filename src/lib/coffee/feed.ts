@@ -2,6 +2,7 @@
 import { CHARACTER_BY_ID } from '@/content/coffee';
 import { SUDOKU_THEMES } from '@/content/coffee/sudokuWords';
 import type { FeedEntry } from './store/types';
+import { FURNITURE_BY_ID, variantName } from '@/content/coffee/furniture';
 
 export const UPGRADE_NAMES: Record<string, string> = { cat_corner: 'Cantinho do gato' };
 
@@ -37,6 +38,11 @@ export function feedText(e: FeedEntry, nameOf: (userId: string | null) => string
       const p = e.data as { size?: number; theme?: string };
       const theme = SUDOKU_THEMES.find((t) => t.id === p.theme);
       return `${who} resolveu o Sudoku ${p.size ?? '?'}×${p.size ?? '?'}${theme ? ` de ${theme.name_pt.toLowerCase()} ${theme.emoji}` : ''} ${stars}`;
+    }
+    case 'house_buy': {
+      const h = e.data as { item?: string; variant?: number };
+      const f = FURNITURE_BY_ID[h.item ?? ''];
+      return f ? `${who} comprou: ${variantName(f, h.variant ?? 0)} (${f.pt}) 🛋️` : `${who} comprou um móvel 🛋️`;
     }
     case 'upgrade_done':
       return `${who} completou o ${UPGRADE_NAMES[d.upgrade ?? ''] ?? 'projeto do café'}! 🎉`;

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GameBridge, type GameState } from './bridge';
 import { CafeScene } from './scenes/CafeScene';
+import { HouseScene } from './scenes/HouseScene';
 
 // Monta o jogo dentro de `parent` e devolve a ponte de comunicação com o React.
 export function createGame(parent: HTMLElement, initial: GameState) {
@@ -15,7 +16,9 @@ export function createGame(parent: HTMLElement, initial: GameState) {
     banner: false,
     audio: { noAudio: true },
   });
-  game.scene.add('cafe', CafeScene, true, { bridge });
+  // o dia sempre começa no quarto; a porta da sala leva ao café
+  game.scene.add('cafe', CafeScene, false);
+  game.scene.add('house', HouseScene, true, { bridge, spawn: 'wake' });
   return {
     bridge,
     destroy() {

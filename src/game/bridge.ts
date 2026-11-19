@@ -3,6 +3,9 @@
 // Não importa Phaser, para o React não carregar o motor só por causa dos tipos.
 import type { Appearance, Direction } from '@/lib/coffee/character';
 
+// Lugares do jogo: o café e a casa de vocês (cenas diferentes do Phaser).
+export type Area = 'cafe' | 'house';
+
 export type SceneCustomer = {
   id: string;
   spotId: string;
@@ -40,6 +43,18 @@ export type GameState = {
   catCorner: boolean;
   // selo sobre objetos interativos (ex.: chunk novo no quadro-negro)
   objectBadges: Partial<Record<'chalkboard' | 'bookshelf' | 'gametable', 'alert' | null>>;
+  // casa: qual quarto é meu (0 = esquerda, 1 = direita) e o nome na porta de cada um
+  house: { myRoom: number; roomNames: [string, string] };
+  // móveis colocados na casa (editable: posso mexer nele no modo decorar)
+  houseItems: SceneHouseItem[];
+  // modo decorar: prévia do móvel sendo colocado e o móvel selecionado (null = fora do modo)
+  decor: DecorView | null;
+};
+
+export type SceneHouseItem = { id: string; item_id: string; variant: number; x: number; y: number; flip: boolean; editable: boolean };
+export type DecorView = {
+  ghost: { item_id: string; variant: number; flip: boolean; x: number; y: number; ok: boolean } | null;
+  selected: string | null;
 };
 
 export type GameEvents = {
@@ -47,7 +62,11 @@ export type GameEvents = {
   // interagiu com um objeto do café (quadro-negro, estante)
   object: { id: 'chalkboard' | 'bookshelf' | 'gametable' };
   // posição do meu personagem (em pixels), para a presença em tempo real
-  move: { x: number; y: number; dir: Direction };
+  move: { x: number; y: number; dir: Direction; area: Area };
+  // entrei num lugar (café ou casa)
+  area: { area: Area };
+  // toque num tile no modo decorar
+  decorTap: { x: number; y: number };
   ready: undefined;
 };
 

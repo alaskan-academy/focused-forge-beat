@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { RoomId } from '@/lib/coffee/house';
 import { CHARACTERS, CHARACTER_BY_ID } from '@/content/coffee';
 import type { SceneCustomer } from '@/game/bridge';
 import { WALKOUT_MISTAKES, computeStars, performanceFeedback, targetMs, type ActivityResult } from '@/lib/coffee/activities';
@@ -370,6 +371,30 @@ export function useCoffeeGame(store: CoffeeStore) {
     [store, refresh],
   );
 
+  // ── casa: comprar, colocar e guardar móveis ─────────────────────────────
+  const buyHouseItem = useCallback(
+    async (itemId: string, variant: number) => {
+      const res = await store.buyHouseItem(itemId, variant);
+      await refresh();
+      return res;
+    },
+    [store, refresh],
+  );
+  const placeHouseItem = useCallback(
+    async (id: string, room: RoomId, x: number, y: number, flip: boolean) => {
+      await store.placeHouseItem(id, room, x, y, flip);
+      await refresh();
+    },
+    [store, refresh],
+  );
+  const storeHouseItem = useCallback(
+    async (id: string) => {
+      await store.storeHouseItem(id);
+      await refresh();
+    },
+    [store, refresh],
+  );
+
   // ── melhoria compartilhada ──────────────────────────────────────────────
   const contribute = useCallback(
     async (amount: number) => {
@@ -399,5 +424,5 @@ export function useCoffeeGame(store: CoffeeStore) {
   }, [store, cafeId, myName, lookKey]);
   const move = useCallback((p: Position) => presence.current?.move(p), []);
 
-  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord };
+  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem };
 }

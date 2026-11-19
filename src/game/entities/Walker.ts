@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { Appearance, Direction } from '@/lib/coffee/character';
-import { TILE, isWalkable, type Point } from '@/lib/coffee/map';
+import { CAFE_MAP, TILE, type Point } from '@/lib/coffee/map';
+import { walkable, type GameMap } from '@/lib/coffee/grid';
 import { ensureCharacterTexture, idleFrame } from '../characterTextures';
 
 // Posição dos pés dentro de um tile.
@@ -23,6 +24,7 @@ export class Walker {
     appearance: Appearance,
     start: Point,
     speed = 64,
+    private map: GameMap = CAFE_MAP,
   ) {
     this.texKey = ensureCharacterTexture(scene, appearance);
     const p = tileToFeet(start);
@@ -162,6 +164,6 @@ export class Walker {
       [x - hw, bottom - 0.01],
       [x + hw - 0.01, bottom - 0.01],
     ];
-    return corners.every(([cx, cy]) => isWalkable(Math.floor(cx / TILE), Math.floor(cy / TILE)));
+    return corners.every(([cx, cy]) => walkable(this.map, Math.floor(cx / TILE), Math.floor(cy / TILE)));
   }
 }

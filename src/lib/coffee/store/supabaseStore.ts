@@ -9,6 +9,7 @@ import type { VocabState } from '../srs';
 import type { Pronoun } from '@/content/coffee/personalize';
 import { dayKey, type SudokuProgress, type SudokuPuzzle, type SudokuSize } from '../sudoku';
 import type { LandlordBill, LandlordPayInput, LandlordPayResult } from '../landlord';
+import type { RoomId } from '../house';
 import type {
   CafeCustomer,
   CustomItem,
@@ -17,6 +18,7 @@ import type {
   FeedEntry,
   FinishInput,
   FinishResult,
+  HouseItem,
   PlayerRow,
   Position,
   PresenceHandle,
@@ -85,7 +87,7 @@ export class SupabaseStore implements CoffeeStore {
     }
 
     const yesterday = dayKey(new Date(Date.now() - 86_400_000));
-    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom, landlord] = await Promise.all([
+    const [cafe, members, players, customers, items, arcs, feed, upgrades, puzzles, custom, landlord, house] = await Promise.all([
       db.from('coffee_cafes').select('id, name, invite_code, reputation').eq('id', cid).single(),
       db.from('coffee_members').select('user_id, joined_at').eq('cafe_id', cid).order('joined_at'),
       db.from('coffee_players').select('*').eq('cafe_id', cid),
@@ -101,6 +103,7 @@ export class SupabaseStore implements CoffeeStore {
       db.from('coffee_puzzles').select('id, day, size, data, progress, status, stars').eq('user_id', this.userId).gte('day', yesterday),
       db.from('coffee_custom_items').select('id, user_id, en, pt, example, source, created_at').eq('cafe_id', cid).order('created_at', { ascending: false }),
       db.rpc('coffee_landlord_bill'),
+      db.from('coffee_house_items').select('id, owner_id, item_id, variant, room, x, y, flip, created_at').eq('cafe_id', cid).order('created_at'),
     ]);
 
     const cafeRow = check(cafe) as Row;
@@ -171,6 +174,8 @@ export class SupabaseStore implements CoffeeStore {
       customItems: custom.error ? [] : ((custom.data as unknown as CustomItem[]) ?? []),
       // sem a função no banco (migration não aplicada) o Belmont simplesmente não aparece
       landlord: landlord.error ? null : ((landlord.data as LandlordBill | null) ?? null),
+      // sem a tabela (migration não aplicada) a casa fica só com os móveis de fábrica
+      houseItems: house.error ? [] : ((house.data as unknown as HouseItem[]) ?? []),
     };
   }
 
@@ -292,6 +297,24 @@ export class SupabaseStore implements CoffeeStore {
     ) as LandlordPayResult;
   }
 
+  // ── casa ──────────────────────────────────────────────────────────────────
+
+  async buyHouseItem(itemId: string, variant: number) {
+    const res = check(await db.rpc('coffee_house_buy', { p_item: itemId, p_variant: variant })) as { id: string; total_coins: number };
+    this.notify();
+    return res;
+  }
+
+  async placeHouseItem(id: string, room: RoomId, x: number, y: number, flip: boolean) {
+    check(await db.rpc('coffee_house_place', { p_id: id, p_room: room, p_x: x, p_y: y, p_flip: flip }));
+    this.notify();
+  }
+
+  async storeHouseItem(id: string) {
+    check(await db.rpc('coffee_house_store', { p_id: id }));
+    this.notify();
+  }
+
   subscribe(cb: () => void) {
     this.listeners.add(cb);
     return () => this.listeners.delete(cb);
@@ -302,7 +325,7 @@ export class SupabaseStore implements CoffeeStore {
     if (this.dbChannel) db.removeChannel(this.dbChannel);
     const cid = this.cafeId!;
     let ch = db.channel(`coffee-db-${cid}`);
-    for (const table of ['coffee_customers', 'coffee_activity', 'coffee_upgrades', 'coffee_players'])
+    for (const table of ['coffee_customers', 'coffee_activity', 'coffee_upgrades', 'coffee_players', 'coffee_house_items'])
       ch = ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: `cafe_id=eq.${cid}` }, () => this.notify());
     this.dbChannel = ch.subscribe();
   }
@@ -338,7 +361,7 @@ export class SupabaseStore implements CoffeeStore {
       })
       .on('broadcast', { event: 'pos' }, ({ payload }) => {
         const p = payload as Position & { user_id: string };
-        positions.set(p.user_id, { x: p.x, y: p.y, dir: p.dir });
+        positions.set(p.user_id, { x: p.x, y: p.y, dir: p.dir, area: p.area ?? 'cafe' });
         emit();
       })
       .subscribe((status) => {

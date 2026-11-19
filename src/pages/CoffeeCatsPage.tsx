@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { BookOpen, HelpCircle, Layers, ScrollText, Shirt, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BookOpen, HelpCircle, Layers, Paintbrush, ScrollText, Shirt, Sofa, X } from 'lucide-react';
 import { toast } from 'sonner';
 import GameCanvas from '@/components/coffee/GameCanvas';
 import CharacterCreator, { type Profile } from '@/components/coffee/CharacterCreator';
@@ -16,6 +16,10 @@ import { UNLOCK_LEVEL, dayKey, type SudokuSize } from '@/lib/coffee/sudoku';
 import ReviewDeck from '@/components/coffee/ReviewDeck';
 import { dueItems } from '@/lib/coffee/review';
 import MusicControl from '@/components/coffee/MusicControl';
+import HouseShop from '@/components/coffee/HouseShop';
+import DecorBar from '@/components/coffee/DecorBar';
+import { useHouseDecor } from '@/components/coffee/useHouseDecor';
+import { FURNITURE_BY_ID, variantName } from '@/content/coffee/furniture';
 import UpdateNotice from '@/components/coffee/UpdateNotice';
 import { useNewVersion } from '@/components/coffee/useNewVersion';
 import { chunkStatus } from '@/lib/coffee/chunkSchedule';
@@ -27,6 +31,8 @@ import type { SceneOther } from '@/game/bridge';
 import { DEFAULT_APPEARANCE, appearanceFromSeed, normalizeAppearance, type Appearance } from '@/lib/coffee/character';
 import { levelFromXp, type ActivityResult } from '@/lib/coffee/activities';
 import { PERSONAL_CORNERS } from '@/lib/coffee/map';
+import { SLEEP_SPOT, bedroomIndex } from '@/lib/coffee/house';
+import type { Area } from '@/game/bridge';
 import { LocalStore } from '@/lib/coffee/store/localStore';
 import { SupabaseStore } from '@/lib/coffee/store/supabaseStore';
 import type { CoffeeStore } from '@/lib/coffee/store/types';
@@ -60,8 +66,12 @@ export default function CoffeeCatsPage({ local = false }: { local?: boolean }) {
   return <CoffeeCatsGame key={local ? 'local' : user!.id} store={store} defaultName={user?.email?.split('@')[0] ?? ''} />;
 }
 
+const NO_ITEMS: never[] = [];
+const NO_MEMBERS: string[] = [];
+
 function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultName: string }) {
-  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord } = useCoffeeGame(store);
+  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem } = useCoffeeGame(store);
+  const [shop, setShop] = useState(false);
   const [chunks, setChunks] = useState(false);
   const [books, setBooks] = useState(false);
   const [table, setTable] = useState(false);
@@ -80,7 +90,7 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
 
   const appearance = useMemo(() => (snap?.me.appearance ? normalizeAppearance(snap.me.appearance) : null), [snap?.me.appearance]);
   const firstVisit = !!snap && !appearance;
-  const overlayOpen = firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table;
+  const overlayOpen = firstVisit || editing || journal || board || !!info || !!active || chunks || books || reviewing || table || shop;
 
   // chunk do dia (a cada 12 h) e itens vencidos para a revisão
   const now = store.now();
@@ -97,12 +107,55 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
     [chunkReady, puzzleReady],
   );
 
-  // a outra pessoa: andando se estiver online, senão parada no cantinho dela
+  // em que mapa eu estou (o jogo sempre começa no quarto)
+  const [area, setArea] = useState<Area>('house');
+  // casa: meu quarto e o nome na porta de cada um (pela ordem de entrada no café)
+  const myId = snap?.me.user_id ?? '';
+  const members = snap?.cafe.members;
+  const partnerName = snap?.partner?.display_name ?? '';
+  const myName = snap?.me.display_name ?? '';
+  const house = useMemo(() => {
+    const list = members ?? [];
+    const nameOf = (id: string | undefined) => (!id ? '' : id === myId ? myName : partnerName);
+    return { myRoom: bedroomIndex(list, myId), roomNames: [nameOf(list[0]), nameOf(list[1])] as [string, string] };
+  }, [members, myId, myName, partnerName]);
+
+  // móveis: modo decorar e lojinha
+  const decor = useHouseDecor({ items: snap?.houseItems ?? NO_ITEMS, members: members ?? NO_MEMBERS, me: myId, myRoom: house.myRoom, place: placeHouseItem, store: storeHouseItem });
+  // saiu de casa: sai do modo decorar
+  const closeDecor = decor.close;
+  useEffect(() => {
+    if (area !== 'house') closeDecor();
+  }, [area, closeDecor]);
+
+  const buy = async (itemId: string, variant: number) => {
+    try {
+      const res = await buyHouseItem(itemId, variant);
+      const f = FURNITURE_BY_ID[itemId];
+      toast(`Comprado: ${variantName(f, variant)}! Está na sua mochila 🎒`, {
+        action: {
+          label: 'Colocar agora',
+          onClick: () => {
+            setShop(false);
+            decor.startPlacing({ id: res.id, owner_id: myId, item_id: itemId, variant, room: null, x: 0, y: 0, flip: false, created_at: '' });
+          },
+        },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      toast(msg.includes('coins') ? 'Moedas insuficientes 🪙' : msg.includes('level') ? 'Seu nível ainda não libera esse móvel 🔒' : 'Não consegui comprar. Tente de novo.');
+    }
+  };
+
+  // a outra pessoa: andando se estiver online no mesmo mapa; offline, parada no cantinho
+  // dela (café) ou dormindo no quarto (casa); online no outro mapa, não aparece
   const sceneOthers = useMemo<SceneOther[]>(() => {
     const p = snap?.partner;
     if (!snap || !p) return [];
     const online = others.find((o) => o.user_id === p.user_id);
     const idx = Math.max(0, snap.cafe.members.indexOf(p.user_id));
+    const theirArea = online ? (online.pos?.area ?? 'cafe') : null;
+    if (online && theirArea !== area) return [];
     return [
       {
         id: p.user_id,
@@ -110,10 +163,10 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
         appearance: online?.appearance ?? p.appearance ?? appearanceFromSeed(p.user_id.length * 7919),
         online: !!online,
         pos: online?.pos ?? null,
-        corner: PERSONAL_CORNERS[idx % PERSONAL_CORNERS.length],
+        corner: area === 'house' ? SLEEP_SPOT[Math.min(1, idx)] : PERSONAL_CORNERS[idx % PERSONAL_CORNERS.length],
       },
     ];
-  }, [snap, others]);
+  }, [snap, others, area]);
 
   const saveAppearance = async (a: Appearance, profile: Profile) => {
     await store.savePlayer({ appearance: a, display_name: profile.name, pronoun: profile.pronoun });
@@ -173,9 +226,14 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
           catCorner={!!snap.upgrade?.completed_at}
           inputEnabled={!overlayOpen}
           objectBadges={objectBadges}
+          house={house}
+          houseItems={decor.sceneItems}
+          decor={overlayOpen ? null : decor.view}
+          onDecorTap={decor.onTap}
           onInteract={onInteract}
           onObject={(id) => (id === 'chalkboard' ? setChunks(true) : id === 'gametable' ? setTable(true) : setBooks(true))}
           onMove={move}
+          onArea={setArea}
         />
       )}
 
@@ -231,6 +289,24 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
             </button>
           </div>
           <div className="pointer-events-auto flex gap-2">
+            {area === 'house' && (
+              <>
+                <button type="button" onClick={() => setShop(true)} className="cc-hud flex items-center gap-1.5" title="Lojinha de móveis">
+                  <Sofa className="h-4 w-4" /> <span className="hidden sm:inline">Loja</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => (decor.active ? decor.close() : decor.open())}
+                  className={`cc-hud relative flex items-center gap-1.5 ${decor.active ? '!bg-[#f2cc8f]' : ''}`}
+                  title="Decorar a casa"
+                >
+                  <Paintbrush className="h-4 w-4" /> <span className="hidden sm:inline">Decorar</span>
+                  {decor.bag.length > 0 && !decor.active && (
+                    <span className="absolute -right-1.5 -top-1.5 min-w-[18px] rounded-full bg-[#5b6ea8] px-1 text-center text-[11px] font-bold leading-[18px] text-white">{decor.bag.length}</span>
+                  )}
+                </button>
+              </>
+            )}
             <button type="button" onClick={() => setReviewing(true)} className="cc-hud relative flex items-center gap-1.5" title="Revisão em cards">
               <Layers className="h-4 w-4" /> <span className="hidden sm:inline">Revisar</span>
               {dueCount > 0 && (
@@ -250,11 +326,22 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
           </div>
         </div>
       )}
-      {appearance && !overlayOpen && (
+      {appearance && !overlayOpen && decor.active && <DecorBar decor={decor} onShop={() => setShop(true)} />}
+      {shop && snap && <HouseShop coins={snap.me.coins} level={level.level} onBuy={buy} onClose={() => setShop(false)} />}
+      {appearance && !overlayOpen && !decor.active && (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
           <div className="cc-hud text-xs font-medium opacity-90">
-            <span className="hidden md:inline">WASD/setas para andar · E para atender · ☕ pedido · 💬 conversa · 📖 capítulo novo</span>
-            <span className="md:hidden">Toque num cliente para atender</span>
+            {area === 'house' ? (
+              <>
+                <span className="hidden md:inline">WASD/setas para andar · 🛋️ Loja e 🎨 Decorar lá em cima · a porta da sala leva ao café ☕</span>
+                <span className="md:hidden">Toque para andar · a porta da sala leva ao café</span>
+              </>
+            ) : (
+              <>
+                <span className="hidden md:inline">WASD/setas para andar · E para atender · ☕ pedido · 💬 conversa · 📖 capítulo novo · 🏠 porta à direita</span>
+                <span className="md:hidden">Toque num cliente para atender</span>
+              </>
+            )}
           </div>
         </div>
       )}
