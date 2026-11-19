@@ -77,7 +77,7 @@ const NO_MEMBERS: string[] = [];
 const NO_NOTES: import('@/lib/coffee/store/types').Note[] = [];
 
 function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultName: string }) {
-  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward } = useCoffeeGame(store);
+  const { snap, loading, needsCafe, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward } = useCoffeeGame(store);
   const [phone, setPhone] = useState(false);
   const [tv, setTv] = useState(false);
   const [shop, setShop] = useState(false);
@@ -159,7 +159,21 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
   }, [members, myId, myName, partnerName]);
 
   // móveis: modo decorar e lojinha
-  const decor = useHouseDecor({ items: snap?.houseItems ?? NO_ITEMS, members: members ?? NO_MEMBERS, me: myId, myRoom: house.myRoom, place: placeHouseItem, store: storeHouseItem });
+  // "Where did you put the…?": revisão da preposição e do móvel, e +1 🪙 quando acerta
+  const onQuiz = useCallback(
+    (correct: boolean, itemId: string) => {
+      void gradeItems([
+        { itemId: 'g:prepositions_place', grade: correct ? 'good' : 'fail' },
+        { itemId: `f:${itemId}`, grade: correct ? 'good' : 'ok' },
+      ]).catch(() => undefined);
+      if (correct)
+        void prepReward()
+          .then((r) => r.coins === 0 && toast('Moedas das preposições de hoje já ganhas — mas o treino vale! 💪'))
+          .catch(() => undefined);
+    },
+    [gradeItems, prepReward],
+  );
+  const decor = useHouseDecor({ items: snap?.houseItems ?? NO_ITEMS, members: members ?? NO_MEMBERS, me: myId, myRoom: house.myRoom, place: placeHouseItem, store: storeHouseItem, onQuiz });
   // saiu de casa: sai do modo decorar
   const closeDecor = decor.close;
   useEffect(() => {
@@ -170,6 +184,8 @@ function CoffeeCatsGame({ store, defaultName }: { store: CoffeeStore; defaultNam
     try {
       const res = await buyHouseItem(itemId, variant);
       const f = FURNITURE_BY_ID[itemId];
+      // a palavra do móvel entra na revisão (cards)
+      if (!snap?.items[`f:${itemId}`]) void gradeItems([{ itemId: `f:${itemId}`, grade: 'ok' }]).catch(() => undefined);
       toast(`Comprado: ${variantName(f, variant)}! Está na sua mochila 🎒`, {
         action: {
           label: 'Colocar agora',

@@ -4,6 +4,7 @@ import { FURNITURE_BY_ID } from '@/content/coffee/furniture';
 import { canPlace, canTouchItem, firstFreeSpot, itemAt, type HouseItem, type PlaceCheck } from '@/lib/coffee/houseItems';
 import { ROOMS, type RoomId } from '@/lib/coffee/house';
 import type { DecorView, SceneHouseItem } from '@/game/bridge';
+import { prepQuestion, type PrepQuestion } from '@/lib/coffee/prepositions';
 
 type Placing = { id: string; item_id: string; variant: number; flip: boolean; x: number; y: number };
 
@@ -14,14 +15,19 @@ type Opts = {
   myRoom: number;
   place: (id: string, room: RoomId, x: number, y: number, flip: boolean) => Promise<void>;
   store: (id: string) => Promise<void>;
+  // respondeu "Where did you put the…?"
+  onQuiz?: (correct: boolean, itemId: string) => void;
 };
 
+export type DecorQuiz = { q: PrepQuestion; item_id: string; picked: number | null };
+
 // Modo decorar: escolher um móvel da mochila (ou um já colocado), ver a prévia no mapa e confirmar.
-export function useHouseDecor({ items, members, me, myRoom, place, store }: Opts) {
+export function useHouseDecor({ items, members, me, myRoom, place, store, onQuiz }: Opts) {
   const [active, setActive] = useState(false);
   const [placing, setPlacing] = useState<Placing | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [quiz, setQuiz] = useState<DecorQuiz | null>(null);
 
   const placed = useMemo(() => items.filter((i) => i.room), [items]);
   const bag = useMemo(() => items.filter((i) => !i.room && i.owner_id === me), [items, me]);
@@ -57,6 +63,7 @@ export function useHouseDecor({ items, members, me, myRoom, place, store }: Opts
   }, []);
 
   const close = useCallback(() => {
+    setQuiz(null);
     setActive(false);
     setPlacing(null);
     setSelected(null);
@@ -109,10 +116,24 @@ export function useHouseDecor({ items, members, me, myRoom, place, store }: Opts
   const confirm = useCallback(async () => {
     if (!placing || !check?.ok) return;
     if (await run(() => place(placing.id, check.room, placing.x, placing.y, placing.flip))) {
+      // pergunta de preposição com a casa já com o móvel no lugar novo
+      const after = [...placed.filter((p) => p.id !== placing.id), { ...(items.find((i) => i.id === placing.id) as HouseItem), room: check.room, x: placing.x, y: placing.y }];
+      const q = prepQuestion({ id: placing.id, item_id: placing.item_id, x: placing.x, y: placing.y }, after);
+      if (q) setQuiz({ q, item_id: placing.item_id, picked: null });
       setPlacing(null);
       setSelected(null);
     }
-  }, [placing, check, place]);
+  }, [placing, check, place, placed, items]);
+
+  const answerQuiz = useCallback(
+    (i: number) => {
+      if (!quiz || quiz.picked !== null) return;
+      setQuiz({ ...quiz, picked: i });
+      onQuiz?.(i === quiz.q.answer, quiz.item_id);
+    },
+    [quiz, onQuiz],
+  );
+  const closeQuiz = useCallback(() => setQuiz(null), []);
 
   const rotate = useCallback(async () => {
     if (placing) setPlacing({ ...placing, flip: !placing.flip });
@@ -134,7 +155,7 @@ export function useHouseDecor({ items, members, me, myRoom, place, store }: Opts
     setSelected(null);
   }, []);
 
-  return { active, view, sceneItems, bag, placing, selectedItem, check, busy, open, close, startPlacing, onTap, confirm, rotate, moveSelected, storeSelected, cancel };
+  return { active, view, sceneItems, bag, placing, selectedItem, check, busy, quiz, answerQuiz, closeQuiz, open, close, startPlacing, onTap, confirm, rotate, moveSelected, storeSelected, cancel };
 }
 
 export type HouseDecor = ReturnType<typeof useHouseDecor>;

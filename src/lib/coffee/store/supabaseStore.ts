@@ -345,6 +345,12 @@ export class SupabaseStore implements CoffeeStore {
     return res;
   }
 
+  async prepReward() {
+    const res = check(await db.rpc('coffee_prep_reward')) as DailyReward;
+    if (res.coins) this.notify();
+    return res;
+  }
+
   async claimMorningBonus(): Promise<MorningBonus | null> {
     const res = await db.rpc('coffee_house_morning');
     if (res.error) return null;

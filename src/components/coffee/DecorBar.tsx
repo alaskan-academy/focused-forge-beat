@@ -10,6 +10,47 @@ export default function DecorBar({ decor, onShop }: { decor: HouseDecor; onShop:
   const current = placing ?? selectedItem;
   const f = current ? FURNITURE_BY_ID[current.item_id] : null;
   const name = f && current ? variantName(f, current.variant) : '';
+  const quiz = decor.quiz;
+
+  if (quiz) {
+    const { q, picked } = quiz;
+    return (
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-2 sm:p-3">
+        <div className="cc-panel pointer-events-auto w-full max-w-xl p-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-x-1.5">
+              <span className="cc-title text-base">🏠 {q.question}</span>
+              <Pron text={q.question} showIpa={false} />
+            </div>
+            <button type="button" onClick={decor.closeQuiz} className="text-xs opacity-60 hover:opacity-100">
+              {picked === null ? 'Pular' : 'Fechar'}
+            </button>
+          </div>
+          <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+            {q.options.map((o, i) => {
+              const tone = picked === null ? 'border-[#e6d2ad] hover:bg-[#f6ead3]' : i === q.answer ? 'border-[#6aa36f] bg-[#e3f1e4]' : i === picked ? 'border-[#c4554d] bg-[#fbe3e3]' : 'border-[#e6d2ad] opacity-50';
+              return (
+                <button key={o} type="button" disabled={picked !== null} onClick={() => decor.answerQuiz(i)} className={`rounded-xl border-2 px-2.5 py-1.5 text-left text-sm ${tone}`}>
+                  {o}
+                </button>
+              );
+            })}
+          </div>
+          {picked !== null && (
+            <div className="mt-2 flex items-center justify-between gap-2 text-sm">
+              <span>
+                {picked === q.answer ? '✅ Exactly! +1 🪙' : '👀 Quase!'} <span className="opacity-75">{q.explain_pt}</span> <Pron text={q.options[q.answer]} showIpa={false} />
+              </span>
+              <button type="button" onClick={decor.closeQuiz} className="cc-btn !px-3 !py-1 text-sm">
+                OK
+              </button>
+            </div>
+          )}
+          {picked === null && <div className="mt-1.5 text-[11px] opacity-60">Opcional · acerte para ganhar +1 🪙 (até 5 por dia) e treinar preposições de lugar</div>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-2 sm:p-3">

@@ -160,6 +160,8 @@ export interface CoffeeStore {
   sendNote(body: string, heart: boolean): Promise<DailyReward>;
   readNotes(): Promise<void>;
   tvReward(correct: number, total: number): Promise<DailyReward>;
+  // acertou "Where did you put the…?" (+1 🪙, até 5 por dia)
+  prepReward(): Promise<DailyReward>;
   subscribe(cb: () => void): () => void;
   joinPresence(cafeId: string, self: { name: string; appearance: Appearance | null }, onChange: (others: RemotePresence[]) => void): PresenceHandle;
 }

@@ -429,6 +429,11 @@ export function useCoffeeGame(store: CoffeeStore) {
     await store.readNotes();
     await refresh();
   }, [store, refresh]);
+  const prepReward = useCallback(async () => {
+    const r = await store.prepReward();
+    await refresh();
+    return r;
+  }, [store, refresh]);
   const tvReward = useCallback(
     async (correct: number, total: number) => {
       const r = await store.tvReward(correct, total);
@@ -467,5 +472,5 @@ export function useCoffeeGame(store: CoffeeStore) {
   }, [store, cafeId, myName, lookKey]);
   const move = useCallback((p: Position) => presence.current?.move(p), []);
 
-  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward };
+  return { snap, loading: loaded === undefined, needsCafe: loaded === null, error, refresh, sceneCustomers, begin, complete, contribute, gradeItems, others, move, startPuzzle, savePuzzle, finishPuzzle, addWord, deleteWord, buyHouseItem, placeHouseItem, storeHouseItem, morning, dismissMorning, sendNote, readNotes, tvReward, prepReward };
 }

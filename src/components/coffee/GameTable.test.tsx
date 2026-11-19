@@ -59,5 +59,6 @@ describe('mesa de jogos', () => {
     expect(Object.keys(final.filled)).toHaveLength(empty.length);
     expect(await screen.findByText('Resolvido!')).toBeInTheDocument();
     expect(screen.getByText('+6 🪙')).toBeInTheDocument();
-  });
+    // jogo inteiro pela interface: pode passar de 5 s com a suíte toda rodando junto
+  }, 20_000);
 });

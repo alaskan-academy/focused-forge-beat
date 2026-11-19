@@ -434,6 +434,14 @@ export class LocalStore implements CoffeeStore {
     return r;
   }
 
+  async prepReward() {
+    const day = dayKey(this.now());
+    const used = this.data.rewards.filter((r) => r.startsWith('prep') && r.endsWith(day)).length;
+    const r = used < 5 ? this.reward(`prep${used + 1}`, 1) : { coins: 0, total_coins: this.data.me.coins };
+    this.write();
+    return r;
+  }
+
   // teste: a outra pessoa liga para agradecer
   partnerCalls() {
     const p = this.data.partner;

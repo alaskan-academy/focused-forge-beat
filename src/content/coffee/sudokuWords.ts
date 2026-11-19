@@ -161,6 +161,23 @@ export const SUDOKU_THEMES: SudokuTheme[] = [
     ],
   },
   {
+    id: 'furniture',
+    name_pt: 'Móveis da casa',
+    emoji: '🛋️',
+    words: [
+      w('rug', 'rug', 'tapete', '🟫', 'A soft piece of cloth on the floor of a room.', 'The cat sleeps on the ___ in the living room.'),
+      w('shelf', 'shelf', 'prateleira', '📚', 'A flat board on the wall where you put books.', 'Put the books on the top ___.'),
+      w('pillow', 'pillow', 'travesseiro', '💤', 'A soft thing under your head in bed.', 'I need a softer ___ to sleep well.'),
+      w('blanket', 'blanket', 'cobertor', '🛌', 'A warm cover you use in bed when it is cold.', "It's cold tonight. Can I have another ___?"),
+      w('curtain', 'curtain', 'cortina', '🪟', 'Cloth that covers a window.', 'Close the ___. The sun is too bright.'),
+      w('drawer', 'drawer', 'gaveta', '🗄️', 'A box in a table or dresser that you pull out.', 'The spoons are in the top ___.'),
+      w('fridge', 'fridge', 'geladeira', '🧊', 'A cold box in the kitchen for food and drinks.', 'Put the milk back in the ___.'),
+      w('oven', 'oven', 'forno', '🔥', 'You bake cakes and bread inside it.', 'The cake is in the ___ for thirty minutes.'),
+      w('sink', 'sink', 'pia', '🚰', 'You wash the dishes here, with water from a tap.', 'Leave your cup in the ___, please.'),
+      w('wardrobe', 'wardrobe', 'guarda-roupa', '👗', 'A tall piece of furniture for your clothes.', 'My jackets are in the ___.'),
+    ],
+  },
+  {
     id: 'rescue',
     name_pt: 'Resgate de animais',
     emoji: '🦮',
